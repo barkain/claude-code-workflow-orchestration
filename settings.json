@@ -20,7 +20,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/user/.claude/hooks/PostToolUse/python_posttooluse_hook.sh"
+            "command": "~/.claude/hooks/PostToolUse/python_posttooluse_hook.sh"
           }
         ]
       }
@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/user/.claude/hooks/stop/python_stop_hook.sh"
+            "command": "~/.claude/hooks/stop/python_stop_hook.sh"
           }
         ]
       }
@@ -41,7 +41,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/user/.claude/hooks/PreToolUse/require_delegation.sh",
+            "command": "~/.claude/hooks/PreToolUse/require_delegation.sh",
             "timeout": 5
           }
         ]
@@ -52,7 +52,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/user/.claude/hooks/UserPromptSubmit/clear-delegation-sessions.sh",
+            "command": "~/.claude/hooks/UserPromptSubmit/clear-delegation-sessions.sh",
             "timeout": 2
           }
         ]
@@ -61,7 +61,7 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "/Users/user/.claude/scripts/statusline.sh",
+    "command": "~/.claude/scripts/statusline.sh",
     "padding": 0
   },
   "alwaysThinkingEnabled": false,

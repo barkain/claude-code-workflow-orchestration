@@ -1,0 +1,71 @@
+{
+  "permissions": {
+    "allow": [],
+    "deny": [
+      "Read(**/.env*)",
+      "Read(**/.pem*)",
+      "Read(**/*.key)",
+      "Read(**/secrets/**)",
+      "Read(**/credentials/**)",
+      "Read(**/.aws/**)",
+      "Read(**/.ssh/**)",
+      "Read(**/docker-compose*.yml)",
+      "Read(**/config/database.yml)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/user/.claude/hooks/PostToolUse/python_posttooluse_hook.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/user/.claude/hooks/stop/python_stop_hook.sh"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/user/.claude/hooks/PreToolUse/require_delegation.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/user/.claude/hooks/UserPromptSubmit/clear-delegation-sessions.sh",
+            "timeout": 2
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "/Users/user/.claude/scripts/statusline.sh",
+    "padding": 0
+  },
+  "alwaysThinkingEnabled": false,
+  "feedbackSurveyState": {
+    "lastShownTime": 1753985473996
+  }
+}

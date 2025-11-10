@@ -1,0 +1,146 @@
+````markdown
+# Claude Code Workshop — High-Level Summary
+
+**Date:** July 9, 2025  
+**Presenter:** Nadav Barkai  
+
+---
+
+## 1. Workshop Introduction
+- **Context & Motivation**  
+  AI-powered coding tools (e.g. Claude Code) are becoming essential; adoption boosts productivity and future employability.  
+- **Goals**  
+  1. Hands-on experience with Claude Code  
+  2. Best practices for integrating AI into daily development  
+
+---
+
+## 2. Agenda
+1. Claude Code as a Development Tool  
+2. Environment Setup (Git worktrees, CLI, IDE)  
+3. Developing with Claude Code (CLI commands, `/init`, CLAUDE.md)  
+4. Tools & MCP Servers (structured tool calls, Model Context Protocol)  
+5. Best Practices (TnDDD, incremental cycles, docs)  
+6. Common Workflows (PR review, debugging, feature dev)  
+
+---
+
+## 3. New Software Development Paradigm
+- **Context-Aware AI Coding:** Leverage project context instead of isolated prompts  
+- **Agent-Driven Development:** Treat Claude as a collaborative partner that can invoke tools autonomously  
+- **Natural-Language Workflows:** Replace multi-step shell commands with conversational interfaces  
+- **Directing vs. Writing:** Describe *what* you want; let the AI generate *how*  
+- **Parallel Cycles:** Automate sub-tasks to run in parallel  
+
+---
+
+## 4. When to Use Claude Code
+- **Ideal For:**  
+  - Exploring unfamiliar codebases  
+  - High-level design & documentation  
+  - Enforcing standard patterns  
+  - Automated testing & TDD  
+- **Not Recommended:**  
+  - 100% autopilot copy-paste coding  
+  - Trivial one-line edits  
+  - Large complex tasks without context prep  
+
+---
+
+## 5. Git Worktrees & Environment Setup
+- **Git Worktrees:**  
+  ```bash
+  git worktree add <path> <branch>
+````
+
+Work in parallel branches via separate directories.
+
+* **Installation & IDE Integration:**
+
+  ```bash
+  npm install -g @anthropic/claude-code
+  ```
+
+  Enable VSCode/IDE plugin for seamless CLI usage.
+* **Key Env Vars:**
+
+  * `ANTHROPIC_CLOUD_CODEC=1`
+  * `DISABLE_PREFETCHING=0`
+  * AWS credentials (`AWS_PROFILE`, `AWS_REGION`)
+  * Cost-tracking helper (`ccui`)
+
+---
+
+## 6. Hands-On Exercises
+
+1. Create a Git worktree for a feature/bug branch.
+2. Install & configure Claude Code CLI.
+3. Start a CC session in your project directory.
+4. Use `/init` to scaffold `CLAUDE.md`.
+5. Explore CLI commands (`/help`, `/tools`, `/switch_modes`).
+6. List & use MCP servers (e.g. Playwright, Ruff/Pyright).
+7. Define custom slash commands (lint & format hooks).
+8. Add lifecycle hooks (e.g. post-task notifications).
+
+---
+
+## 7. Tools & the ToolUse Pattern
+
+* **Tools:** JSON-defined functions for file ops, tests, searches, etc.
+* **Pattern:**
+
+  1. Claude receives tool schemas.
+  2. Claude decides autonomously when to invoke.
+  3. Results feed back into its reasoning stream.
+
+---
+
+## 8. Model Context Protocol (MCP)
+
+* **Open Standard** for secure LLM ↔ external service integration.
+* **Components:**
+
+  * MCP Clients (Claude Code CLI)
+  * MCP Servers (static analysis, browser, Jira, etc.)
+* **Examples:**
+
+  * `mcp-atlassian` for Jira
+  * Playwright server for headless browser tasks
+  * Static analysis (Ruff, Pyright)
+
+---
+
+## 9. Custom Commands & Hooks
+
+* **Slash Commands:** Reusable Markdown prompts (project or personal).
+* **Hooks:** Shell commands on lifecycle events (pre-commit, post-task).
+* **Hands-On:**
+
+  * Add a “task-finished” hook (e.g. console notification).
+  * Create `/prepare-commit` to lint, format, analyze, summarize.
+
+---
+
+## 10. Plan Mode & Thinking Mode
+
+* **Plan Mode** (`Shift+Tab+Tab`): Research & analysis only—no file edits or installs.
+* **Thinking Mode:** Triggered by “think” for deeper, token-expensive reasoning.
+
+---
+
+## 11. Best Practices
+
+* **Incremental Development:** Small, well-defined tasks; frequent commits.
+* **TnDDD:** Tests & Documentation-Driven Development—write tests/docs *before* code.
+* **Maintain `CLAUDE.md`:** Keep your workflow, commands, and hooks documented.
+* **Parallelize Safely:** Use sub-agents for concurrent tasks when appropriate.
+* **Cost Control:** Track prompts, reuse context, disable unnecessary prefetching.
+
+---
+
+## 12. Common Workflows
+
+* **PR Review:** Automate diff summaries & improvement suggestions.
+* **Bug Fixing & Debugging:** Rapid isolation & patch proposals.
+* **Feature Development:** Scaffold modules and run TDD cycles.
+* **Case Study:** DroxiFlow multi-agent orchestration demo in Python.

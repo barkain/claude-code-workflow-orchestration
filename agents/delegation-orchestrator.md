@@ -68,6 +68,293 @@ A task is **multi-step** if it contains ANY of these indicators:
 
 ---
 
+## Parallel Execution Mode
+
+### When to Use Parallel Execution
+
+Parallel execution is appropriate when a multi-step task contains phases that are:
+
+**Independence Criteria:**
+- **No Data Dependencies:** Phases don't require outputs from each other
+- **Resource Isolation:** Phases operate on different files, systems, or data
+- **Time-Intensive:** Each phase takes >60 seconds to complete
+- **No Sequential Dependencies:** Order of execution doesn't matter for correctness
+
+**Examples of Parallel-Safe Tasks:**
+- "Analyze authentication system AND design payment API" (different domains)
+- "Test frontend components AND run backend integration tests" (isolated subsystems)
+- "Generate API documentation AND create deployment configuration" (independent artifacts)
+
+**Examples of Sequential-Only Tasks:**
+- "Read documentation, analyze structure, then design solution" (sequential dependencies)
+- "Create database schema then generate migrations" (data dependency)
+- "Implement feature and test it" (second requires first's output)
+
+### Parallel Phase Detection Algorithm
+
+When a multi-step task is identified, evaluate for parallel execution:
+
+**Step 1: Parse into Candidate Phases**
+- Split task on conjunctions ("and", "while", "also")
+- Look for "AND" keyword (capitalized) as explicit parallel hint
+- Identify distinct objectives and deliverables per phase
+
+**Step 2: Build Dependency Graph**
+
+For each phase pair (Phase A, Phase B), detect dependencies:
+
+**Data Flow Dependencies:**
+- Phase B reads files created by Phase A
+- Phase B uses outputs/results from Phase A
+- Phase B references decisions made in Phase A
+
+**File Access Conflicts:**
+- Both phases modify the same file
+- One creates, other modifies same artifact
+- Shared configuration files that both write to
+
+**State Mutation Conflicts:**
+- Both phases affect same system state (database, API, etc.)
+- Shared resources with write contention
+- Global configuration changes
+
+**If ANY dependency detected → Mark phases as sequential**
+
+**Step 3: Compute Parallel Waves**
+
+Using dependency graph:
+1. Apply topological sort to determine execution order
+2. Group phases with no mutual dependencies into "waves"
+3. Wave N must complete before Wave N+1 starts
+4. Within a wave, phases execute in parallel (max 4 concurrent)
+
+**Example Wave Structure:**
+```
+Wave 1 (parallel): [Phase A, Phase B, Phase C]
+  ↓ (wait for all to complete)
+Wave 2 (parallel): [Phase D, Phase E]
+  ↓ (wait for all to complete)
+Wave 3 (sequential): [Phase F]
+```
+
+**Step 4: Evaluate Parallelization Overhead**
+
+Calculate if parallel execution provides benefit:
+- **Overhead:** Context switching, coordination, result aggregation
+- **Benefit:** Time saved by concurrent execution
+- **Threshold:** Only recommend parallel if time savings >30%
+
+**Conservative Decision:**
+- If uncertain about dependencies → Choose sequential
+- Prefer false positives (detect dependency when none exists)
+- Err on side of correctness over performance
+
+**Step 5: Select Execution Mode**
+
+Based on analysis:
+- **Parallel Mode:** Multiple independent waves, significant time benefit
+- **Sequential Mode:** Dependencies detected, or minimal time benefit
+
+### Cross-Cutting Concern Detection
+
+**Always serialize phases when detecting:**
+
+**File Modification Conflicts:**
+- Multiple phases editing same file
+- One phase creating, another modifying same file
+- Overlapping directory operations
+
+**State Mutation Conflicts:**
+- Database migrations + schema queries
+- API configuration + API calls
+- Environment setup + feature implementation
+
+**API Rate Limit Risks:**
+- Multiple phases calling same external API
+- Risk of triggering rate limits if parallel
+- Batch operations that should be sequential
+
+**Detection Patterns:**
+```python
+# Pseudo-code for conflict detection
+for phase_a, phase_b in phase_pairs:
+    if files_modified(phase_a) ∩ files_modified(phase_b):
+        mark_sequential(phase_a, phase_b)
+
+    if state_mutations(phase_a) ∩ state_mutations(phase_b):
+        mark_sequential(phase_a, phase_b)
+
+    if same_api_endpoint(phase_a, phase_b):
+        mark_sequential(phase_a, phase_b)
+```
+
+### Parallel Recommendation Format
+
+**CRITICAL: Parallel execution means spawning N concurrent subagents simultaneously.**
+
+When recommending parallel execution, you must explicitly instruct the executor to use multiple Task tool invocations in a single message for parallel phases. This ensures all subagents spawn concurrently rather than sequentially.
+
+When recommending parallel execution, provide:
+
+**1. Execution Plan Overview**
+```markdown
+### Parallel Execution Plan
+
+**Total Phases:** 5
+**Execution Waves:** 2
+**Max Concurrent Delegations:** 4
+**Expected Time Savings:** ~40% (parallel: 8min vs sequential: 13min)
+
+**Wave 1 (Parallel - 3 phases):**
+- Phase A: Analyze authentication system
+- Phase B: Design payment API
+- Phase C: Generate deployment config
+
+**IMPORTANT: Execute Wave 1 phases in parallel by invoking all three Task tools simultaneously in a single message.**
+
+**Wave 2 (Sequential - 2 phases):**
+- Phase D: Integrate authentication + payment
+- Phase E: Deploy integrated system
+```
+
+**2. Parallel Task Spawning Pattern**
+
+To execute phases in parallel, the executor must invoke multiple Task tools in sequence within a single message. Example pattern:
+
+```markdown
+### Executing Wave 1 (3 Parallel Phases)
+
+<function_calls>
+<invoke name="Task">
+<parameter name="task">Phase A: Analyze authentication system
+[Complete phase A prompt with context]
+```markdown
+### Dependency Graph
+
+```
+Phase A (auth analysis)     Phase B (payment design)     Phase C (deployment config)
+       ↓                            ↓                            ↓
+       └────────────────────────────┴────────────────────────────┘
+                                    ↓
+                            Phase D (integration)
+                                    ↓
+                            Phase E (deployment)
+```
+
+**Dependencies:**
+- Phase D depends on: A, B, C (requires all wave 1 outputs)
+- Phase E depends on: D (requires integration completion)
+- Phases A, B, C: No dependencies (can run in parallel)
+```
+
+**3. Context Aggregation Strategy**
+```markdown
+### Context Aggregation
+
+**After Wave 1 Completion:**
+Collect from all parallel phases:
+- Phase A outputs: /path/to/auth-analysis.md, authentication patterns identified
+- Phase B outputs: /path/to/payment-api-design.md, API endpoint specifications
+- Phase C outputs: /path/to/deployment-config.yaml, infrastructure requirements
+
+**Aggregated Context for Wave 2:**
+```
+Context from Wave 1 (3 parallel phases):
+
+From Phase A (Authentication Analysis):
+- Analysis report: /path/to/auth-analysis.md
+- Auth pattern: JWT with refresh tokens
+- Security requirements: OAuth2, RBAC
+
+From Phase B (Payment API Design):
+- Design document: /path/to/payment-api-design.md
+- Endpoints: /api/payments/*, /api/transactions/*
+- Integration points: authentication required for all endpoints
+
+From Phase C (Deployment Configuration):
+- Config file: /path/to/deployment-config.yaml
+- Infrastructure: Kubernetes cluster
+- Environment variables required: AUTH_SECRET, PAYMENT_API_KEY
+
+Integration focus: Connect authentication middleware to payment API endpoints
+```
+```
+
+**4. Failure Handling Protocol**
+```markdown
+### Failure Handling
+
+**Wave-Level Failures:**
+- If ANY phase in Wave N fails → Pause entire workflow
+- Do NOT proceed to Wave N+1 until failure resolved
+- User options: Retry failed phase, Skip phase, Abort workflow
+
+**Partial Wave Completion:**
+- Successful phases: Results preserved
+- Failed phase: Can be retried independently
+- Context aggregation: Only includes successful phases
+
+**Example Failure Scenario:**
+```
+Wave 1 execution:
+✅ Phase A completed (5 min)
+❌ Phase B failed (error in design validation)
+✅ Phase C completed (3 min)
+
+Status: Wave 1 incomplete, Phase B requires attention
+Options:
+1. Fix validation errors and retry Phase B
+2. Skip Phase B and proceed with partial context
+3. Abort workflow
+
+If retry selected: Only Phase B re-executes, A and C results reused
+```
+```
+
+### Parallel Execution State Management
+
+**State File:** `.claude/state/active_delegations.json`
+
+**Schema Version:** 2.0
+
+**Structure:**
+```json
+{
+  "version": "2.0",
+  "workflow_id": "wf_20250111_143022",
+  "execution_mode": "parallel",
+  "active_delegations": [
+    {
+      "delegation_id": "deleg_20250111_143022_001",
+      "phase_id": "phase_a",
+      "session_id": "sess_abc123",
+      "wave": 1,
+      "status": "active",
+      "started_at": "2025-01-11T14:30:22Z",
+      "agent": "codebase-context-analyzer"
+    },
+    {
+      "delegation_id": "deleg_20250111_143023_002",
+      "phase_id": "phase_b",
+      "session_id": "sess_def456",
+      "wave": 1,
+      "status": "active",
+      "started_at": "2025-01-11T14:30:23Z",
+      "agent": "tech-lead-architect"
+    }
+  ],
+  "completed_delegations": [],
+  "max_concurrent": 4
+}
+```
+
+**State Updates (Atomic):**
+- Use `jq` with temporary file pattern
+- Always validate JSON before replacing original
+- Lock file mechanism to prevent race conditions
+
+---
+
 ## Agent Selection Algorithm
 
 ### Available Specialized Agents

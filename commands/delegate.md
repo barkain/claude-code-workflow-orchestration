@@ -34,12 +34,303 @@ The **main agent** (you are reading this now) receives the orchestrator's recomm
 
 The orchestrator has access to these specialized agents:
 
-- **codebase-context-analyzer** - Code exploration, architecture analysis, dependency mapping
-- **task-decomposer** - Project planning, task breakdown, dependency sequencing
-- **tech-lead-architect** - Solution design, technology research, architectural decisions
-- **task-completion-verifier** - Validation, testing, quality assurance, verification
-- **code-cleanup-optimizer** - Code refactoring, quality improvement, technical debt reduction
-- **devops-experience-architect** - Infrastructure, deployment, containerization, CI/CD pipelines
+### 1. Code Cleanup Optimizer
+
+Expert agent for code quality improvement, refactoring, and optimization.
+
+**Activation Keywords:** `refactor`, `cleanup`, `optimize`, `improve code quality`, `reduce technical debt`, `modernize code`
+
+**Key Capabilities:**
+- Code refactoring and restructuring
+- Performance optimization
+- Technical debt reduction
+- Code smell elimination
+- Pattern modernization
+- Dependency cleanup
+
+**Ideal Use Cases:**
+- Improving existing codebase quality
+- Optimizing performance bottlenecks
+- Modernizing legacy code patterns
+- Reducing code complexity
+- Eliminating code duplication
+- Cleaning up unused dependencies
+
+**Unique Differentiators:**
+- Focus on non-breaking improvements
+- Performance-aware refactoring
+- Maintains backward compatibility
+- Comprehensive testing validation
+
+---
+
+### 2. Code Reviewer
+
+Expert code review agent providing detailed analysis and actionable feedback.
+
+**Activation Keywords:** `review`, `code review`, `critique`, `feedback`, `assess quality`, `evaluate code`
+
+**Key Capabilities:**
+- Comprehensive code quality assessment
+- Security vulnerability detection
+- Performance issue identification
+- Best practice validation
+- Architecture evaluation
+- Detailed improvement recommendations
+
+**Ideal Use Cases:**
+- Pre-merge code reviews
+- Security audit requirements
+- Quality assurance checks
+- Architecture validation
+- Learning from feedback
+- Ensuring coding standards
+
+**Unique Differentiators:**
+- Expert-level critique
+- Security-focused analysis
+- Actionable recommendations
+- Educational feedback approach
+
+---
+
+### 3. Codebase Context Analyzer
+
+Read-only analysis agent for understanding existing codebases without modifications.
+
+**Activation Keywords:** `analyze`, `explore`, `understand`, `map`, `investigate`, `examine codebase`
+
+**Key Capabilities:**
+- Architecture analysis
+- Dependency mapping
+- Code flow tracing
+- Pattern identification
+- Documentation extraction
+- Impact analysis
+
+**Ideal Use Cases:**
+- Understanding unfamiliar codebases
+- Planning refactoring efforts
+- Identifying architectural patterns
+- Mapping dependencies
+- Pre-implementation research
+- Knowledge transfer
+
+**Unique Differentiators:**
+- Strictly read-only operations
+- No code modifications
+- Comprehensive context building
+- Safe exploratory analysis
+
+---
+
+### 4. Delegation Orchestrator
+
+Meta-agent for analyzing tasks and routing to appropriate specialized agents.
+
+**Activation Keywords:** `delegate`, `route`, `orchestrate`, `coordinate`, `multi-step workflow`
+
+**Key Capabilities:**
+- Task complexity analysis
+- Agent selection optimization
+- Multi-step workflow planning
+- Context passing coordination
+- Delegation prompt construction
+- Workflow orchestration
+
+**Ideal Use Cases:**
+- Complex multi-phase projects
+- Tasks requiring multiple specialties
+- Workflow coordination
+- Optimal agent selection
+- Context management across phases
+- Strategic task routing
+
+**Unique Differentiators:**
+- Two-stage delegation architecture
+- Intelligent agent matching
+- Multi-step workflow support
+- Context preservation
+
+---
+
+### 5. Dependency Manager
+
+Specialized agent for Python dependency management and package operations.
+
+**Activation Keywords:** `dependencies`, `packages`, `requirements`, `install`, `upgrade`, `manage packages`
+
+**Key Capabilities:**
+- Dependency installation and updates
+- Version conflict resolution
+- Security vulnerability scanning
+- Package compatibility checking
+- Requirements file management
+- Virtual environment operations
+
+**Ideal Use Cases:**
+- Adding new dependencies
+- Upgrading package versions
+- Resolving dependency conflicts
+- Security patch updates
+- Requirements synchronization
+- Package cleanup operations
+
+**Unique Differentiators:**
+- Python package expertise
+- UV tool proficiency
+- Security-aware updates
+- Conflict resolution strategies
+
+---
+
+### 6. DevOps Experience Architect
+
+Infrastructure and deployment expert for CI/CD, containerization, and cloud operations.
+
+**Activation Keywords:** `deploy`, `docker`, `CI/CD`, `infrastructure`, `containerize`, `pipeline`
+
+**Key Capabilities:**
+- Docker and containerization
+- CI/CD pipeline setup
+- Infrastructure as Code
+- Cloud platform configuration
+- Deployment automation
+- Monitoring and observability
+
+**Ideal Use Cases:**
+- Setting up deployment pipelines
+- Containerizing applications
+- Configuring cloud infrastructure
+- Automating releases
+- Implementing monitoring
+- DevOps best practices
+
+**Unique Differentiators:**
+- Full-stack DevOps expertise
+- Multi-cloud experience
+- Security-first approach
+- Scalability focus
+
+---
+
+### 7. Documentation Expert
+
+Technical writing specialist for comprehensive documentation creation and improvement.
+
+**Activation Keywords:** `document`, `write docs`, `README`, `explain`, `create guide`, `documentation`
+
+**Key Capabilities:**
+- API documentation generation
+- README creation and improvement
+- Architecture documentation
+- User guide writing
+- Code comment enhancement
+- Tutorial development
+
+**Ideal Use Cases:**
+- Creating project documentation
+- Writing API references
+- Developing user guides
+- Improving code comments
+- Documenting architecture
+- Creating tutorials
+
+**Unique Differentiators:**
+- Technical accuracy focus
+- Clear communication style
+- Multiple audience targeting
+- Comprehensive coverage
+
+---
+
+### 8. Task Completion Verifier
+
+Quality assurance agent for validation, testing, and verification.
+
+**Activation Keywords:** `verify`, `test`, `validate`, `check`, `ensure quality`, `QA`
+
+**Key Capabilities:**
+- Implementation verification
+- Test coverage validation
+- Quality metrics assessment
+- Requirement compliance checking
+- Edge case identification
+- Acceptance criteria validation
+
+**Ideal Use Cases:**
+- Pre-deployment validation
+- Quality assurance checks
+- Test coverage verification
+- Requirement validation
+- Bug prevention
+- Release readiness assessment
+
+**Unique Differentiators:**
+- Systematic validation approach
+- Comprehensive test coverage
+- Edge case focus
+- Quality metrics driven
+
+---
+
+### 9. Task Decomposer
+
+Project planning specialist for breaking down complex tasks into manageable steps.
+
+**Activation Keywords:** `plan`, `break down`, `decompose`, `outline`, `structure`, `organize tasks`
+
+**Key Capabilities:**
+- Task breakdown and sequencing
+- Dependency identification
+- Timeline estimation
+- Resource planning
+- Risk assessment
+- Milestone definition
+
+**Ideal Use Cases:**
+- Planning complex projects
+- Breaking down large features
+- Identifying dependencies
+- Creating implementation roadmaps
+- Estimating project scope
+- Risk management
+
+**Unique Differentiators:**
+- Systematic decomposition
+- Dependency awareness
+- Realistic estimation
+- Risk-conscious planning
+
+---
+
+### 10. Tech Lead Architect
+
+Solution design expert for architectural decisions and technology selection.
+
+**Activation Keywords:** `design`, `architect`, `solution`, `technology choice`, `system design`, `architectural decision`
+
+**Key Capabilities:**
+- System architecture design
+- Technology stack selection
+- Design pattern application
+- Scalability planning
+- Trade-off analysis
+- Technical strategy development
+
+**Ideal Use Cases:**
+- Designing new systems
+- Selecting technologies
+- Architectural decision making
+- Scalability planning
+- Pattern selection
+- Technical roadmap creation
+
+**Unique Differentiators:**
+- Strategic technical thinking
+- Trade-off analysis expertise
+- Scalability focus
+- Long-term vision
 
 ---
 

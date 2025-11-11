@@ -13,6 +13,139 @@ This approach ensures each step gets proper attention while maintaining continui
 
 ---
 
+## Delegation-First Protocol
+
+**⚠️ MANDATORY: NEVER ATTEMPT TOOLS DIRECTLY - ALWAYS DELEGATE FIRST ⚠️**
+
+When ANY user request requires tool usage (Read, Write, Edit, Grep, Glob, Bash, etc.), you MUST **immediately** use `/delegate` to delegate the ENTIRE task. Do NOT attempt the tools yourself first.
+
+### Tools You May Use Directly
+
+**ONLY these tools should be used without delegation:**
+- `TodoWrite` - For creating/updating task lists
+- `Task` - For task management operations
+
+**ALL other tools MUST be delegated:**
+- Read, Write, Edit
+- Grep, Glob
+- Bash
+- NotebookEdit
+- Any file system operations
+- Any code execution
+
+### Correct Behavior: Immediate Delegation
+
+**✅ CORRECT - Immediate delegation on ANY tool need:**
+
+```
+User: "Read the config file and tell me what database is configured"
+
+Assistant response:
+/delegate Read the config file and tell me what database is configured
+```
+
+```
+User: "Create a new file calculator.py with basic math functions"
+
+Assistant response:
+/delegate Create a new file calculator.py with basic math functions
+```
+
+```
+User: "Find all TODO comments in the codebase"
+
+Assistant response:
+/delegate Find all TODO comments in the codebase
+```
+
+```
+User: "Run the test suite and show me the results"
+
+Assistant response:
+/delegate Run the test suite and show me the results
+```
+
+### Incorrect Behavior: Attempting Tools First
+
+**❌ INCORRECT - Never try tools before delegating:**
+
+```
+User: "Read the config file and tell me what database is configured"
+
+Assistant response:
+Let me read the config file for you...
+<Read file_path="config.yaml"> ← WRONG! Tool blocked!
+Error: Tool blocked by delegation policy
+Now trying Grep... ← WRONG! Don't try alternatives!
+Error: Tool blocked by delegation policy
+Let me delegate this... ← WRONG! Should have delegated immediately!
+/delegate Read the config file
+```
+
+**❌ INCORRECT - Partial delegation:**
+
+```
+User: "Create a calculator.py and test it"
+
+Assistant response:
+Let me create the file...
+<Write file_path="calculator.py"> ← WRONG! Blocked!
+Error: Tool blocked
+/delegate Create calculator.py ← WRONG! Only delegating part of the task!
+```
+
+### Recognition Pattern
+
+When you see this error pattern, it means you made a mistake:
+
+```
+Error: PreToolUse:* hook error: [...] 🚫 Tool blocked by delegation policy
+```
+
+**If you see this error, you violated the protocol.** You should have delegated immediately instead of attempting the tool.
+
+### The Delegation-First Rule
+
+**RULE:** On ANY user request that requires file operations, code execution, searching, or system interaction:
+
+1. **DO NOT** attempt Read, Write, Edit, Grep, Glob, Bash, or any blocked tools
+2. **DO NOT** try to "check first" or "explore" before delegating
+3. **DO NOT** attempt alternatives when a tool is blocked
+4. **IMMEDIATELY** use `/delegate <entire user request>`
+5. **ONLY** use TodoWrite for task tracking (if multi-step)
+
+### Multi-Step Requests
+
+For multi-step workflows, you may:
+1. Use `TodoWrite` to create the task list (this is allowed)
+2. Immediately delegate the first task using `/delegate`
+3. Continue delegating subsequent tasks with context
+
+Example:
+
+```
+User: "Create calculator.py and then test it"
+
+✅ CORRECT:
+- Use TodoWrite to create task list
+- /delegate Create calculator.py with basic math functions
+- Wait for completion
+- /delegate Test the calculator.py file at /path/to/calculator.py
+
+❌ INCORRECT:
+- Try to Read/Write files yourself
+- Attempt Bash commands
+- "Check" things before delegating
+```
+
+### Summary: The Golden Rule
+
+**🎯 GOLDEN RULE: When in doubt, delegate immediately. Never attempt blocked tools. Only use TodoWrite and Task directly.**
+
+If the user request needs ANY tool besides TodoWrite or Task, your FIRST action must be `/delegate <full task description>`.
+
+---
+
 ## Pattern Detection
 
 ### Multi-Step Request Indicators

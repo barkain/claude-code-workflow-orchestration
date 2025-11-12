@@ -123,6 +123,8 @@ claude --append-system-prompt "$(cat ./system-prompts/WORKFLOW_ORCHESTRATOR.md)"
    ```bash
    chmod +x ~/.claude/hooks/PreToolUse/require_delegation.sh
    chmod +x ~/.claude/hooks/UserPromptSubmit/clear-delegation-sessions.sh
+   chmod +x ~/.claude/hooks/PostToolUse/python_posttooluse_hook.sh
+   chmod +x ~/.claude/hooks/stop/python_stop_hook.sh
    chmod +x ~/.claude/scripts/statusline.sh
    ```
 

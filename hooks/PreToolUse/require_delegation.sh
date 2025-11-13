@@ -74,6 +74,49 @@ if [[ -n "$TOOL_NAME" ]]; then
             [[ "$DEBUG_HOOK" == "1" ]] && echo "REGISTERED: Session '$SESSION_ID' for delegation (new file)" >> "$DEBUG_FILE"
           fi
         fi
+
+        # --- Parallel execution support ---
+        # Register concurrent delegation in active_delegations.json if it exists
+        # This enables tracking of multiple simultaneous delegations for parallel workflow execution
+        ACTIVE_DELEGATIONS_FILE="$STATE_DIR/active_delegations.json"
+        if [[ -f "$ACTIVE_DELEGATIONS_FILE" && -n "$SESSION_ID" ]]; then
+          # Generate unique delegation ID with timestamp and counter
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+
+          # Count existing delegations to generate sequential counter
+          DELEGATION_COUNT=$(grep -c '"delegation_id"' "$ACTIVE_DELEGATIONS_FILE" 2>/dev/null || echo "0")
+          DELEGATION_COUNT=$((DELEGATION_COUNT + 1))
+          DELEGATION_ID="deleg_${TIMESTAMP}_$(printf '%03d' $DELEGATION_COUNT)"
+
+          # Check if jq is available for atomic JSON updates
+          if command -v jq &> /dev/null; then
+            # Use jq for atomic JSON manipulation with temporary file pattern
+            # This ensures thread-safe updates to the delegation state
+            CURRENT_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+            jq --arg did "$DELEGATION_ID" \
+               --arg sid "$SESSION_ID" \
+               --arg ts "$CURRENT_TIME" \
+               '.active_delegations += [{
+                 "delegation_id": $did,
+                 "session_id": $sid,
+                 "status": "active",
+                 "started_at": $ts
+               }]' "$ACTIVE_DELEGATIONS_FILE" > "${ACTIVE_DELEGATIONS_FILE}.tmp"
+
+            # Atomic replace: only update if jq succeeded
+            if [[ $? -eq 0 ]]; then
+              mv "${ACTIVE_DELEGATIONS_FILE}.tmp" "$ACTIVE_DELEGATIONS_FILE"
+              [[ "$DEBUG_HOOK" == "1" ]] && echo "PARALLEL: Registered delegation '$DELEGATION_ID' for session '$SESSION_ID'" >> "$DEBUG_FILE"
+            else
+              # jq failed, remove temp file
+              rm -f "${ACTIVE_DELEGATIONS_FILE}.tmp"
+              [[ "$DEBUG_HOOK" == "1" ]] && echo "PARALLEL: Failed to register delegation (jq error)" >> "$DEBUG_FILE"
+            fi
+          else
+            [[ "$DEBUG_HOOK" == "1" ]] && echo "PARALLEL: jq not available, skipping delegation registration" >> "$DEBUG_FILE"
+          fi
+        fi
       fi
 
       exit 0

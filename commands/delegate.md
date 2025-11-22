@@ -336,11 +336,125 @@ Solution design expert for architectural decisions and technology selection.
 
 **Note on Progress Tracking:** When the orchestrator identifies multi-step workflows, the main agent must use TodoWrite to create a structured task list for transparent progress tracking throughout all phases.
 
+---
+
+## System-Internal Agents
+
+The delegation system includes specialized internal agents that operate as part of the system's infrastructure. These agents are automatically invoked through hooks and are not directly selectable by users.
+
+### phase-validator
+
+Internal validation agent automatically triggered during workflow execution.
+
+**Type:** System Agent (Hook-Triggered)
+
+**Trigger Mechanism:** PostToolUse hook via `validation_gate.sh`
+
+**Purpose:**
+Validates phase completion requirements before allowing workflow progression to subsequent phases. Enforces quality gates and verification standards across all multi-step workflows.
+
+**Key Responsibilities:**
+- Validates that all phase deliverables meet acceptance criteria
+- Verifies file creation/modification as specified in phase objectives
+- Ensures test execution and pass requirements are met
+- Validates documentation completeness when required
+- Checks that key decisions and configurations are properly documented
+- Blocks progression to next phase if validation fails
+
+**Validation Capabilities:**
+- File existence and content validation
+- Test execution verification (pass/fail status, coverage thresholds)
+- Documentation completeness checks
+- Configuration validation
+- Dependency verification
+- Error detection and reporting
+
+**Integration Points:**
+- Triggered automatically by PostToolUse hook after specialized agents complete phase work
+- Reads validation criteria from `.claude/state/validation/` directory
+- Updates validation status in state files
+- Blocks workflow progression via hook error returns
+- Provides detailed failure messages for remediation
+
+**User Visibility:**
+Users do not directly invoke this agent. It operates transparently as part of the system's quality assurance infrastructure, surfacing only when validation failures block workflow progression.
+
+---
+
 ## Execution Process
+
+---
+
+**VISUAL OUTPUT REQUIREMENTS:**
+
+When executing delegation, provide clear visual feedback at each stage using the formats below. This ensures users can track progress through the two-stage architecture and understand which agents are handling their tasks.
+
+---
+
+### STAGE 1: ORCHESTRATION (Analysis & Planning)
+
+**Display Format:**
+```
+═══════════════════════════════════════════════════════════════
+  STAGE 1: ORCHESTRATION - Analysis & Planning
+═══════════════════════════════════════════════════════════════
+
+Status: IN PROGRESS
+Agent: delegation-orchestrator
+
+Task Analysis:
+- Evaluating task complexity (single-step vs multi-step)
+- Identifying appropriate specialized agent(s)
+- Constructing optimized delegation prompts
+
+[Spawn delegation-orchestrator agent and await recommendation...]
+```
+
+**After receiving orchestrator recommendation, display:**
+
+```
+═══════════════════════════════════════════════════════════════
+  STAGE 1: ORCHESTRATION - COMPLETE
+═══════════════════════════════════════════════════════════════
+
+Task Type: [Single-step / Multi-step]
+Execution Mode: [Direct delegation / Sequential workflow / Parallel workflow]
+
+[For Single-Step:]
+Selected Agent: [agent-name]
+Selection Rationale: [keyword matches, e.g., "refactor + optimize + improve"]
+
+[For Multi-Step:]
+
+**DEPENDENCY GRAPH (REQUIRED - Extract from Orchestrator Output):**
+
+```
+[Extract and display the complete ASCII dependency graph from the orchestrator's recommendation.
+Look for the "### Dependency Graph" or "DEPENDENCY GRAPH & EXECUTION PLAN" section in the
+orchestrator's output and copy the entire ASCII visualization here, preserving all formatting.]
+```
+
+**If orchestrator provided ASCII graph:** Display it above in the code fence exactly as generated.
+**If graph is missing:** Use the phase breakdown below as fallback and note the missing graph.
+
+Total Phases: [N]
+Total Waves: [M] (for parallel workflows)
+Parallel Opportunities: [X tasks can run concurrently] (for parallel workflows)
+
+Phase Breakdown:
+  Phase 1: [Phase objective] → Agent: [agent-name]
+  Phase 2: [Phase objective] → Agent: [agent-name]
+  [...]
+
+Next: Proceeding to Stage 2 (Execution)
+```
+
+---
 
 ### Step 1: Get Orchestration Recommendation
 
-Spawn the delegation-orchestrator agent directly.
+Spawn the delegation-orchestrator agent directly with clear visual header as shown above.
+
 The orchestrator agent will automatically load its system prompt and:
 - Analyze task complexity (multi-step vs single-step)
 - Select the most appropriate specialized agent(s)
@@ -384,17 +498,103 @@ Extract from orchestrator's output:
 
 **Important:** For multi-step workflows, immediately create a TodoWrite task list capturing all phases from the orchestrator's recommendation. This ensures systematic progress tracking and transparent communication with the user throughout the workflow execution.
 
+### STAGE 2: EXECUTION (Delegation to Specialized Agents)
+
+**Display Format for Single-Step Tasks:**
+```
+═══════════════════════════════════════════════════════════════
+  STAGE 2: EXECUTION - Single-Step Delegation
+═══════════════════════════════════════════════════════════════
+
+Agent: [agent-name]
+Type: [Specialized / General-purpose]
+Task: [Brief task description]
+
+Status: DELEGATING
+
+[Spawn specialized agent with delegation prompt...]
+```
+
+**Display Format for Multi-Step Tasks:**
+```
+═══════════════════════════════════════════════════════════════
+  STAGE 2: EXECUTION - Multi-Step Workflow
+═══════════════════════════════════════════════════════════════
+
+Workflow Mode: [Sequential / Parallel]
+Total Phases: [N]
+
+Progress Tracking:
+  [✓] Phase 1: [Phase objective] - COMPLETED
+  [▶] Phase 2: [Phase objective] - IN PROGRESS
+  [ ] Phase 3: [Phase objective] - PENDING
+  [ ] Phase N: [Phase objective] - PENDING
+
+Current Phase Details:
+  Phase: 2
+  Agent: [agent-name]
+  Objective: [Phase objective description]
+  Dependencies: Context from Phase 1
+
+[Spawn phase agent with delegation prompt...]
+```
+
+**Display Format for Parallel Execution (Waves):**
+```
+═══════════════════════════════════════════════════════════════
+  STAGE 2: EXECUTION - Parallel Workflow (Wave-based)
+═══════════════════════════════════════════════════════════════
+
+Workflow Mode: Parallel
+Total Waves: [N]
+Max Concurrent: 4
+
+Wave 1 Progress:
+  [▶] Phase A: [Objective] → Agent: [agent-name] - IN PROGRESS
+  [▶] Phase B: [Objective] → Agent: [agent-name] - IN PROGRESS
+
+Wave 2 (Pending Wave 1 completion):
+  [ ] Phase C: [Objective] → Agent: [agent-name] - PENDING
+
+Expected Time Savings: ~[percentage]% vs sequential execution
+
+[Spawning Wave 1 agents concurrently...]
+```
+
+**Phase Completion Display:**
+```
+───────────────────────────────────────────────────────────────
+  Phase [N] COMPLETE
+───────────────────────────────────────────────────────────────
+
+Agent: [agent-name]
+Status: SUCCESS
+
+Key Outputs:
+  - Created files: [absolute paths]
+  - Key decisions: [summary]
+  - Configurations: [summary]
+
+Context captured for next phase:
+  [Context details for Phase N+1...]
+
+Next: [Proceeding to Phase N+1 / Workflow complete]
+```
+
+---
+
 ### Step 3: Execute Delegation
 
 **For Single-Step Tasks:**
 
-Spawn the appropriate specialized agent directly using the extracted delegation prompt. Simply provide the delegation prompt from the orchestrator's recommendation to the main agent, which will automatically interpret and spawn the correct subagent using Claude's built-in subagent system.
+Display the Stage 2 header for single-step tasks as shown above, then spawn the appropriate specialized agent directly using the extracted delegation prompt. Simply provide the delegation prompt from the orchestrator's recommendation to the main agent, which will automatically interpret and spawn the correct subagent using Claude's built-in subagent system.
 
 **For Multi-Step Tasks:**
 
-Before executing phases, use TodoWrite to create a task list with all phases identified by the orchestrator, ensuring each phase has both content and activeForm descriptions for clear progress tracking.
-
-Execute Phase 1 first by spawning the appropriate specialized agent directly with the Phase 1 delegation prompt. The main agent will automatically interpret and spawn the correct subagent using Claude's built-in subagent system.
+1. **Display Stage 2 header** with complete workflow overview as shown above
+2. **Use TodoWrite** to create a task list with all phases identified by the orchestrator, ensuring each phase has both content and activeForm descriptions for clear progress tracking
+3. **Execute Phase 1** by spawning the appropriate specialized agent directly with the Phase 1 delegation prompt. The main agent will automatically interpret and spawn the correct subagent using Claude's built-in subagent system
+4. **Update visual progress** after each phase completion using the Phase Completion Display format
 
 After Phase 1 completes:
 
@@ -450,7 +650,103 @@ After Phase 1 completes:
 
 ### Step 4: Report Results
 
-Provide the user with:
+**Display Format for Single-Step Completion:**
+```
+═══════════════════════════════════════════════════════════════
+  DELEGATION COMPLETE
+═══════════════════════════════════════════════════════════════
+
+Task Type: Single-step
+Agent: [agent-name]
+Status: SUCCESS
+
+Deliverables:
+  - [List of deliverables with absolute paths]
+
+Key Decisions:
+  - [Notable decisions made during execution]
+
+Next Steps:
+  - [Recommended next steps, if applicable]
+```
+
+**Display Format for Multi-Step Workflow Completion:**
+```
+═══════════════════════════════════════════════════════════════
+  WORKFLOW COMPLETE
+═══════════════════════════════════════════════════════════════
+
+Workflow Type: Multi-step [Sequential / Parallel]
+Total Phases: [N]
+Execution Time: [Estimated time]
+
+Phase Summary:
+  [✓] Phase 1: [Objective]
+      Agent: [agent-name]
+      Deliverables: [file paths or outputs]
+
+  [✓] Phase 2: [Objective]
+      Agent: [agent-name]
+      Deliverables: [file paths or outputs]
+
+  [✓] Phase N: [Objective]
+      Agent: [agent-name]
+      Deliverables: [file paths or outputs]
+
+Final Deliverables:
+  - [Consolidated list of all deliverables with absolute paths]
+
+Key Context Flow:
+  Phase 1 → Phase 2: [Context passed]
+  Phase 2 → Phase 3: [Context passed]
+
+Overall Status: SUCCESS
+
+Next Steps:
+  - [Recommended next steps based on workflow completion]
+```
+
+**Display Format for Wave-Based Parallel Completion:**
+```
+═══════════════════════════════════════════════════════════════
+  PARALLEL WORKFLOW COMPLETE
+═══════════════════════════════════════════════════════════════
+
+Workflow Type: Parallel (Wave-based)
+Total Waves: [N]
+Total Phases: [M]
+Time Savings: ~[percentage]% vs sequential execution
+
+Wave Execution Summary:
+  Wave 1 (Completed):
+    [✓] Phase A: [Objective] → Agent: [agent-name]
+    [✓] Phase B: [Objective] → Agent: [agent-name]
+
+  Wave 2 (Completed):
+    [✓] Phase C: [Objective] → Agent: [agent-name]
+
+Aggregated Deliverables:
+  From Phase A:
+    - [Deliverables with absolute paths]
+    - Key decisions: [summary]
+
+  From Phase B:
+    - [Deliverables with absolute paths]
+    - Key decisions: [summary]
+
+  From Phase C:
+    - [Deliverables with absolute paths]
+    - Key decisions: [summary]
+
+Overall Status: SUCCESS
+
+Next Steps:
+  - [Recommended next steps based on all phase outputs]
+```
+
+---
+
+Provide the user with the appropriate completion display format based on task type:
 
 **For Single-Step Tasks:**
 - Summary of what agent handled the task
@@ -510,14 +806,339 @@ This context gets included in the next orchestrator call to inform Phase 2 plann
 
 ---
 
+## Visual Output Examples
+
+### Example 1: Single-Step Task Flow
+
+**User Request:** `/delegate Refactor the authentication module to improve maintainability`
+
+**Visual Output:**
+```
+═══════════════════════════════════════════════════════════════
+  STAGE 1: ORCHESTRATION - Analysis & Planning
+═══════════════════════════════════════════════════════════════
+
+Status: IN PROGRESS
+Agent: delegation-orchestrator
+
+Task Analysis:
+- Evaluating task complexity (single-step vs multi-step)
+- Identifying appropriate specialized agent(s)
+- Constructing optimized delegation prompts
+
+[Orchestrator analyzing task...]
+
+═══════════════════════════════════════════════════════════════
+  STAGE 1: ORCHESTRATION - COMPLETE
+═══════════════════════════════════════════════════════════════
+
+Task Type: Single-step
+Execution Mode: Direct delegation
+
+Selected Agent: code-cleanup-optimizer
+Selection Rationale: Keywords matched - "refactor" + "improve" + "maintainability" (3 matches)
+
+Next: Proceeding to Stage 2 (Execution)
+
+═══════════════════════════════════════════════════════════════
+  STAGE 2: EXECUTION - Single-Step Delegation
+═══════════════════════════════════════════════════════════════
+
+Agent: code-cleanup-optimizer
+Type: Specialized
+Task: Refactor authentication module for improved maintainability
+
+Status: DELEGATING
+
+[Executing refactoring...]
+
+═══════════════════════════════════════════════════════════════
+  DELEGATION COMPLETE
+═══════════════════════════════════════════════════════════════
+
+Task Type: Single-step
+Agent: code-cleanup-optimizer
+Status: SUCCESS
+
+Deliverables:
+  - Refactored: /Users/user/project/auth/authentication.py
+  - Refactored: /Users/user/project/auth/session_manager.py
+
+Key Decisions:
+  - Extracted session validation logic into separate class
+  - Applied dependency injection for database connections
+  - Reduced cyclomatic complexity from 15 to 6
+
+Next Steps:
+  - Run tests to verify refactoring preserved functionality
+  - Consider adding integration tests for session management
+```
+
+### Example 2: Multi-Step Sequential Workflow
+
+**User Request:** `/delegate Create calculator.py with tests and verify they pass`
+
+**Visual Output:**
+```
+═══════════════════════════════════════════════════════════════
+  STAGE 1: ORCHESTRATION - Analysis & Planning
+═══════════════════════════════════════════════════════════════
+
+Status: IN PROGRESS
+Agent: delegation-orchestrator
+
+Task Analysis:
+- Evaluating task complexity (single-step vs multi-step)
+- Identifying appropriate specialized agent(s)
+- Constructing optimized delegation prompts
+
+[Orchestrator analyzing task...]
+
+═══════════════════════════════════════════════════════════════
+  STAGE 1: ORCHESTRATION - COMPLETE
+═══════════════════════════════════════════════════════════════
+
+Task Type: Multi-step
+Execution Mode: Sequential workflow
+
+Total Phases: 3
+Phase Breakdown:
+  Phase 1: Create calculator.py → Agent: general-purpose
+  Phase 2: Write comprehensive tests → Agent: task-completion-verifier
+  Phase 3: Run tests and verify → Agent: task-completion-verifier
+
+Next: Proceeding to Stage 2 (Execution)
+
+═══════════════════════════════════════════════════════════════
+  STAGE 2: EXECUTION - Multi-Step Workflow
+═══════════════════════════════════════════════════════════════
+
+Workflow Mode: Sequential
+Total Phases: 3
+
+Progress Tracking:
+  [▶] Phase 1: Create calculator.py - IN PROGRESS
+  [ ] Phase 2: Write comprehensive tests - PENDING
+  [ ] Phase 3: Run tests and verify - PENDING
+
+Current Phase Details:
+  Phase: 1
+  Agent: general-purpose
+  Objective: Create calculator.py with basic operations
+
+[Executing Phase 1...]
+
+───────────────────────────────────────────────────────────────
+  Phase 1 COMPLETE
+───────────────────────────────────────────────────────────────
+
+Agent: general-purpose
+Status: SUCCESS
+
+Key Outputs:
+  - Created files: /Users/user/project/calculator.py
+
+Context captured for next phase:
+  - File location: /Users/user/project/calculator.py
+  - Functions implemented: add, subtract, multiply, divide
+  - Type hints: Python 3.12+ style
+
+Next: Proceeding to Phase 2
+
+Progress Tracking:
+  [✓] Phase 1: Create calculator.py - COMPLETED
+  [▶] Phase 2: Write comprehensive tests - IN PROGRESS
+  [ ] Phase 3: Run tests and verify - PENDING
+
+Current Phase Details:
+  Phase: 2
+  Agent: task-completion-verifier
+  Objective: Write comprehensive tests for calculator.py
+  Dependencies: Context from Phase 1
+
+[Executing Phase 2...]
+
+───────────────────────────────────────────────────────────────
+  Phase 2 COMPLETE
+───────────────────────────────────────────────────────────────
+
+Agent: task-completion-verifier
+Status: SUCCESS
+
+Key Outputs:
+  - Created files: /Users/user/project/test_calculator.py
+
+Context captured for next phase:
+  - Test file: /Users/user/project/test_calculator.py
+  - Coverage: 100% of calculator.py functions
+
+Next: Proceeding to Phase 3
+
+Progress Tracking:
+  [✓] Phase 1: Create calculator.py - COMPLETED
+  [✓] Phase 2: Write comprehensive tests - COMPLETED
+  [▶] Phase 3: Run tests and verify - IN PROGRESS
+
+Current Phase Details:
+  Phase: 3
+  Agent: task-completion-verifier
+  Objective: Run tests and verify they pass
+  Dependencies: Context from Phase 2
+
+[Executing Phase 3...]
+
+───────────────────────────────────────────────────────────────
+  Phase 3 COMPLETE
+───────────────────────────────────────────────────────────────
+
+Agent: task-completion-verifier
+Status: SUCCESS
+
+Key Outputs:
+  - All tests passed (8/8)
+  - Coverage: 100%
+
+═══════════════════════════════════════════════════════════════
+  WORKFLOW COMPLETE
+═══════════════════════════════════════════════════════════════
+
+Workflow Type: Multi-step Sequential
+Total Phases: 3
+Execution Time: ~3 minutes
+
+Phase Summary:
+  [✓] Phase 1: Create calculator.py
+      Agent: general-purpose
+      Deliverables: /Users/user/project/calculator.py
+
+  [✓] Phase 2: Write comprehensive tests
+      Agent: task-completion-verifier
+      Deliverables: /Users/user/project/test_calculator.py
+
+  [✓] Phase 3: Run tests and verify
+      Agent: task-completion-verifier
+      Deliverables: Test results (8/8 passed)
+
+Final Deliverables:
+  - /Users/user/project/calculator.py
+  - /Users/user/project/test_calculator.py
+
+Key Context Flow:
+  Phase 1 → Phase 2: Calculator file path and function signatures
+  Phase 2 → Phase 3: Test file path and coverage requirements
+
+Overall Status: SUCCESS
+
+Next Steps:
+  - Consider adding edge case tests (division by zero, etc.)
+  - Ready for integration into main project
+```
+
+### Example 3: Parallel Workflow (Wave-based)
+
+**User Request:** `/delegate Analyze authentication system AND design payment API`
+
+**Visual Output:**
+```
+═══════════════════════════════════════════════════════════════
+  STAGE 1: ORCHESTRATION - Analysis & Planning
+═══════════════════════════════════════════════════════════════
+
+Status: IN PROGRESS
+Agent: delegation-orchestrator
+
+Task Analysis:
+- Evaluating task complexity (single-step vs multi-step)
+- Identifying appropriate specialized agent(s)
+- Constructing optimized delegation prompts
+
+[Orchestrator analyzing task...]
+
+═══════════════════════════════════════════════════════════════
+  STAGE 1: ORCHESTRATION - COMPLETE
+═══════════════════════════════════════════════════════════════
+
+Task Type: Multi-step
+Execution Mode: Parallel workflow
+
+Total Phases: 2
+Phase Breakdown:
+  Wave 1 (Parallel):
+    Phase A: Analyze authentication system → Agent: codebase-context-analyzer
+    Phase B: Design payment API → Agent: tech-lead-architect
+
+Next: Proceeding to Stage 2 (Execution)
+
+═══════════════════════════════════════════════════════════════
+  STAGE 2: EXECUTION - Parallel Workflow (Wave-based)
+═══════════════════════════════════════════════════════════════
+
+Workflow Mode: Parallel
+Total Waves: 1
+Max Concurrent: 4
+
+Wave 1 Progress:
+  [▶] Phase A: Analyze authentication system → Agent: codebase-context-analyzer - IN PROGRESS
+  [▶] Phase B: Design payment API → Agent: tech-lead-architect - IN PROGRESS
+
+Expected Time Savings: ~50% vs sequential execution
+
+[Spawning Wave 1 agents concurrently...]
+
+───────────────────────────────────────────────────────────────
+  Wave 1 COMPLETE
+───────────────────────────────────────────────────────────────
+
+Phase A Status: SUCCESS
+Phase B Status: SUCCESS
+
+═══════════════════════════════════════════════════════════════
+  PARALLEL WORKFLOW COMPLETE
+═══════════════════════════════════════════════════════════════
+
+Workflow Type: Parallel (Wave-based)
+Total Waves: 1
+Total Phases: 2
+Time Savings: ~50% vs sequential execution
+
+Wave Execution Summary:
+  Wave 1 (Completed):
+    [✓] Phase A: Analyze authentication system → Agent: codebase-context-analyzer
+    [✓] Phase B: Design payment API → Agent: tech-lead-architect
+
+Aggregated Deliverables:
+  From Phase A:
+    - /Users/user/project/auth_analysis.md
+    - Key findings: JWT-based authentication, session management patterns
+    - Security requirements: OAuth 2.0 integration needed
+
+  From Phase B:
+    - /Users/user/project/payment_api_design.md
+    - Key decisions: RESTful API, Stripe integration
+    - API endpoints: /payments/create, /payments/verify, /payments/refund
+
+Overall Status: SUCCESS
+
+Next Steps:
+  - Review both documents for integration points
+  - Consider security implications of payment/auth integration
+  - Plan implementation phase
+```
+
+---
+
 ## Best Practices
 
 1. **Always parse carefully** - Extract exact prompt from recommendation code fences
 2. **Preserve prompt structure** - Use delegation prompt exactly as provided by orchestrator
 3. **Track context diligently** - In multi-step workflows, capture comprehensive context
-4. **Report transparently** - Let user know which agents handled which parts
+4. **Report transparently** - Let user know which agents handled which parts using visual displays
 5. **Handle errors gracefully** - Stop and ask user before proceeding after failures
 6. **Use TodoWrite for multi-step workflows** - Create task lists immediately after receiving orchestrator recommendations for multi-step tasks, updating status as each phase completes to maintain transparency
+7. **Display visual progress** - Use the visual output formats defined above at each stage to keep users informed of delegation progress
+8. **Show agent selection rationale** - Always display keyword matches and agent selection reasoning in Stage 1 completion display
+9. **Update phase progress in real-time** - Display current phase status before spawning agents and completion status after each phase
+10. **Aggregate results clearly** - For parallel workflows, show aggregated deliverables from all phases in the final completion display
 
 ---
 

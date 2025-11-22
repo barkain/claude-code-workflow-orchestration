@@ -20,7 +20,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/PostToolUse/python_posttooluse_hook.sh"
+            "command": ".claude/hooks/PostToolUse/python_posttooluse_hook.sh"
           }
         ]
       },
@@ -29,8 +29,18 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/PostToolUse/remind_todo_after_task.sh",
+            "command": ".claude/hooks/PostToolUse/remind_todo_after_task.sh",
             "timeout": 2
+          }
+        ]
+      },
+      {
+        "matcher": "Task|SlashCommand",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/PostToolUse/validation_gate.sh",
+            "timeout": 10
           }
         ]
       }
@@ -40,7 +50,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/Stop/python_stop_hook.sh"
+            "command": ".claude/hooks/Stop/python_stop_hook.sh"
           }
         ]
       }
@@ -51,7 +61,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/PreToolUse/require_delegation.sh",
+            "command": ".claude/hooks/PreToolUse/require_delegation.sh",
             "timeout": 5
           }
         ]
@@ -62,8 +72,19 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/UserPromptSubmit/clear-delegation-sessions.sh",
+            "command": ".claude/hooks/UserPromptSubmit/clear-delegation-sessions.sh",
             "timeout": 2
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/SessionStart/inject_workflow_orchestrator.sh",
+            "timeout": 20
           }
         ]
       }
@@ -74,7 +95,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/SubagentStop/remind_todo_update.sh",
+            "command": ".claude/hooks/SubagentStop/remind_todo_update.sh",
             "timeout": 3
           }
         ]
@@ -83,11 +104,12 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "~/.claude/scripts/statusline.sh",
+    "command": ".claude/scripts/statusline.sh",
     "padding": 0
   },
   "alwaysThinkingEnabled": true,
   "feedbackSurveyState": {
     "lastShownTime": 1753985473996
-  }
+  },
+  "outputStyle": "Technical Adaptive"
 }

@@ -478,7 +478,9 @@ except:
     fi
     
     tool_name="$parse_result"
-    
+
+    # Hybrid Option C: Only handle Edit/Write/MultiEdit tools explicitly
+    # All other tools get exit 0 (silent allow) instead of exit 2
     case "$tool_name" in
         "Edit")
             local extraction_result
@@ -530,7 +532,9 @@ except:
             content="${extraction_result#*|||}"
             ;;
         *)
-            exit 0
+            # DEBUG: Unknown tool, allowing silently (Hybrid Option C)
+            [[ "${DEBUG_HOOK:-0}" == "1" ]] && echo "[DEBUG] PostToolUse: Unknown tool '$tool_name', allowing silently (exit 0)" >&2
+            exit 0  # unknown tool - silently allow (Hybrid Option C)
             ;;
     esac
     

@@ -19,6 +19,9 @@ This system uses Claude Code's hook mechanism to create a delegation-enforced wo
 - **Isolated Subagent Sessions** - Each delegation spawns independent session with custom system prompts
 - **Progress Tracking** - TodoWrite provides visible task list throughout workflow execution
 - **Stateful Session Management** - Fresh delegation enforcement per user message with session registry
+- **Multi-Step Workflow Orchestration** - Automatically detects and orchestrates sequential and parallel workflows with smart dependency analysis
+- **Parallel Execution Support** - Executes independent phases concurrently with automatic wave synchronization
+- **Visualization & Debugging** - Comprehensive logging and debug tools for understanding delegation decisions
 
 ### Execution Model
 
@@ -118,23 +121,44 @@ claude --append-system-prompt "$(cat ./system-prompts/WORKFLOW_ORCHESTRATOR.md)"
 
 ### Installation
 
-1. **Copy configuration to your Claude Code directory:**
+1. **Create a new project with git worktree (or use existing project):**
    ```bash
-   cp -r agents commands hooks system-prompts settings.json ~/.claude/
+   # If creating new project from existing repo
+   git worktree add ../my-project
+   cd ../my-project
+
+   # Or navigate to your existing project directory
+   cd path/to/your-project
    ```
 
-2. **Make hooks executable:**
+2. **Clone the delegation system into .claude directory:**
    ```bash
-   chmod +x ~/.claude/hooks/PreToolUse/require_delegation.sh
-   chmod +x ~/.claude/hooks/UserPromptSubmit/clear-delegation-sessions.sh
-   chmod +x ~/.claude/hooks/PostToolUse/python_posttooluse_hook.sh
-   chmod +x ~/.claude/hooks/stop/python_stop_hook.sh
-   chmod +x ~/.claude/scripts/statusline.sh
+   git clone git@github.com:barkain/claude-code-delegation-system.git .claude
+   cd .claude
    ```
 
-3. **Verify installation:**
+3. **Make all shell scripts executable:**
    ```bash
-   ls -la ~/.claude/hooks/PreToolUse/require_delegation.sh
+   find . -type f -iname "*.sh" -exec printf "Changing permissions for: %s\n" {} \; -exec chmod +x {} \;
+   ```
+
+4. **Verify hook installation:**
+   ```bash
+   # Check that hooks are executable
+   ls -la .claude/hooks/PreToolUse/require_delegation.sh
+   ls -la .claude/hooks/UserPromptSubmit/clear-delegation-sessions.sh
+
+   # Verify settings.json exists
+   ls -la .claude/settings.json
+
+   # Check agent files
+   ls .claude/agents/
+   ```
+
+5. **Run Claude with workflow orchestrator:**
+   ```bash
+   cd ..  # Back to project root
+   claude --append-system-prompt "$(cat .claude/system-prompts/WORKFLOW_ORCHESTRATOR.md)" --dangerously-skip-permissions
    ```
 
 ### Basic Usage
@@ -145,6 +169,35 @@ Once installed, the delegation hook is automatically active. Simply use Claude C
 # Multi-step workflow - enable orchestration for context passing
 claude --append-system-prompt "$(cat ~/.claude/system-prompts/WORKFLOW_ORCHESTRATOR.md)" \
   "Create calculator.py with tests and verify they pass"
+```
+
+#### Multi-Step Workflow Examples
+
+**Sequential Execution (dependent phases):**
+```bash
+# Phases have dependencies - Phase 2 needs Phase 1's output
+claude --append-system-prompt "$(cat .claude/system-prompts/WORKFLOW_ORCHESTRATOR.md)" \
+  "Create calculator.py with tests and verify they pass"
+
+# What happens:
+# 1. Phase 1: Create calculator.py
+# 2. Phase 2: Write tests (uses file path from Phase 1)
+# 3. Phase 3: Run tests (uses tests from Phase 2)
+# Execution mode: Sequential (dependencies detected)
+```
+
+**Parallel Execution (independent phases):**
+```bash
+# Phases are independent - can execute concurrently
+claude --append-system-prompt "$(cat .claude/system-prompts/WORKFLOW_ORCHESTRATOR.md)" \
+  "Analyze authentication system AND design payment API"
+
+# What happens:
+# Wave 1 (Parallel): Phase A + Phase B execute concurrently
+# - Phase A: Analyze auth system (codebase-context-analyzer)
+# - Phase B: Design payment API (tech-lead-architect)
+# Execution mode: Parallel (no dependencies detected)
+# Time savings: ~50% vs sequential execution
 ```
 
 **What happens:**
@@ -191,6 +244,42 @@ The `settings.json` configures the delegation enforcement hooks:
 
 **PreToolUse Hook**: Intercepts every tool call and enforces delegation policy
 **UserPromptSubmit Hook**: Clears delegation state between user prompts to ensure fresh enforcement
+**SessionStart Hook**: Automatically appends WORKFLOW_ORCHESTRATOR system prompt for seamless multi-step workflow detection
+
+### WORKFLOW_ORCHESTRATOR Requirements
+
+Multi-step workflow orchestration requires the WORKFLOW_ORCHESTRATOR system prompt to be appended:
+
+**Automatic (via SessionStart hook):**
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "append_system_prompt",
+            "path": "system-prompts/WORKFLOW_ORCHESTRATOR.md"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Manual (command-line flag):**
+```bash
+claude --append-system-prompt "$(cat .claude/system-prompts/WORKFLOW_ORCHESTRATOR.md)" \
+  "Your multi-step task here"
+```
+
+**What this enables:**
+- Multi-step task detection via pattern matching
+- Dependency analysis for execution mode selection
+- Context passing between workflow phases
+- TodoWrite integration for progress tracking
+- Wave synchronization for parallel execution
 
 ## Usage
 
@@ -670,6 +759,43 @@ Sessions are automatically cleaned up after 1 hour.
 18. **Independence indicators** - use "AND" (capitalized) in task descriptions to hint at parallel-safe phases
 
 ## Troubleshooting
+
+### Multi-step workflow not detected
+
+**Symptoms:**
+- Task has multiple steps but treated as single-step
+- No TodoWrite task list created
+- Context not passed between phases
+
+**Solution:**
+```bash
+# Ensure WORKFLOW_ORCHESTRATOR system prompt is appended
+claude --append-system-prompt "$(cat .claude/system-prompts/WORKFLOW_ORCHESTRATOR.md)" \
+  "Create calculator.py with tests and verify they pass"
+
+# Use multi-step keywords in task description:
+# - Sequential connectors: "and then", "with", "including"
+# - Compound indicators: "with [noun]", "and [verb]"
+# - Phase markers: "first... then...", "start by... then..."
+```
+
+**Verify SessionStart hook (for automatic orchestration):**
+```bash
+# Check settings.json has SessionStart hook configured
+grep -A 10 "SessionStart" .claude/settings.json
+
+# Should contain:
+# "SessionStart": [
+#   {
+#     "hooks": [
+#       {
+#         "type": "append_system_prompt",
+#         "path": "system-prompts/WORKFLOW_ORCHESTRATOR.md"
+#       }
+#     ]
+#   }
+# ]
+```
 
 ### Tools are blocked but delegation fails
 - Check that `settings.json` is in the correct location

@@ -73,6 +73,12 @@ if [[ -n "$TOOL_NAME" ]]; then
             echo "$SESSION_ID" > "$DELEGATED_SESSIONS_FILE"
             [[ "$DEBUG_HOOK" == "1" ]] && echo "REGISTERED: Session '$SESSION_ID' for delegation (new file)" >> "$DEBUG_FILE"
           fi
+
+          # --- FIX: Set delegation flag for subagent session inheritance ---
+          # When Task spawns subagent, subagent gets new session ID not in delegated_sessions.txt
+          # Flag file signals "delegation in progress" - allows all tools until next user prompt
+          touch "$STATE_DIR/delegation_active"
+          [[ "$DEBUG_HOOK" == "1" ]] && echo "FLAG: Created delegation_active for subagent inheritance" >> "$DEBUG_FILE"
         fi
 
         # --- Parallel execution support ---
@@ -139,6 +145,14 @@ FLAG_FILE="$STATE_DIR/delegated.once"
 if [[ -f "$FLAG_FILE" ]]; then
   [[ "$DEBUG_HOOK" == "1" ]] && echo "ALLOWED: Delegation flag found" >> "$DEBUG_FILE"
   rm -f -- "$FLAG_FILE" || true
+  exit 0
+fi
+
+# --- FIX: Check delegation flag BEFORE session validation ---
+# Flag indicates delegation in progress - allows subagent tools (new session IDs)
+DELEGATION_FLAG="$STATE_DIR/delegation_active"
+if [[ -f "$DELEGATION_FLAG" ]]; then
+  [[ "$DEBUG_HOOK" == "1" ]] && echo "ALLOWED: Delegation active flag exists (subagent session inheritance)" >> "$DEBUG_FILE"
   exit 0
 fi
 

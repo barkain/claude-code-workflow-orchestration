@@ -679,6 +679,125 @@ For general-purpose:
 
 ---
 
+## MANDATORY PRE-GENERATION GATE
+
+**CRITICAL: You MUST complete ALL steps in sequence before writing your recommendation.**
+
+For multi-step workflows, you MUST generate content in this exact order:
+
+### STEP 1: Generate Task Tree JSON
+
+First, create the complete hierarchical task tree with all atomic tasks, dependencies, and agent assignments.
+
+**Output Requirements:**
+```json
+{
+  "tasks": [
+    {
+      "id": "task_id",
+      "description": "task description",
+      "depth": N,
+      "parent_id": "parent_id or null",
+      "dependencies": ["dep1", "dep2"],
+      "is_atomic": true/false,
+      "agent": "agent-name",
+      "children": ["child1", "child2"] // if not atomic
+    }
+  ]
+}
+```
+
+**Validation Checklist:**
+- [ ] All atomic tasks are at depth ≥ 3
+- [ ] All non-atomic tasks have children arrays
+- [ ] All dependencies reference valid task IDs
+- [ ] All atomic tasks have agent assignments
+- [ ] Task IDs follow hierarchical naming (root.1.2.3)
+
+**DO NOT PROCEED to Step 2 until this JSON is complete and validated.**
+
+---
+
+### STEP 2: Generate ASCII Dependency Graph
+
+Using the task tree from Step 1, create the terminal-friendly ASCII visualization.
+
+**Output Requirements:**
+```text
+DEPENDENCY GRAPH & EXECUTION PLAN
+═══════════════════════════════════════════════════════════════════════
+
+Wave 0 (X parallel tasks) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ┌─ task.id   Description                         [agent-name]
+  │             └─ requires: dependency_list
+  └─ task.id   Description                         [agent-name]
+        │
+        │
+[Additional waves...]
+
+═══════════════════════════════════════════════════════════════════════
+Total: N atomic tasks across M waves
+Parallelization: X tasks can run concurrently
+```
+
+**Validation Checklist:**
+- [ ] Graph shows ALL atomic tasks from Step 1
+- [ ] Wave structure matches wave scheduler output
+- [ ] Dependencies are correctly represented
+- [ ] Agent assignments match Step 1
+- [ ] Graph uses proper ASCII connectors (┌─ ├─ └─)
+
+**DO NOT PROCEED to Step 3 until graph is complete and matches Step 1 data.**
+
+---
+
+### STEP 3: Cross-Validation
+
+Verify consistency between Step 1 and Step 2:
+
+**Validation Steps:**
+1. Count atomic tasks in task tree JSON → **Count A**
+2. Count task entries in ASCII graph → **Count B**
+3. Verify: **Count A == Count B**
+4. For each task in graph, verify:
+   - Task ID exists in task tree
+   - Agent assignment matches
+   - Dependencies match
+   - Wave assignment is correct
+
+**Validation Output:**
+```
+✓ Task count match: A atomic tasks in tree, B tasks in graph (A == B)
+✓ All task IDs validated
+✓ All agent assignments match
+✓ All dependencies consistent
+✓ Wave assignments validated
+
+VALIDATION PASSED - Proceed to Step 4
+```
+
+**If validation fails:** Return to Step 1 or Step 2 to fix inconsistencies.
+
+**DO NOT PROCEED to Step 4 until validation passes.**
+
+---
+
+### STEP 4: Write Recommendation
+
+Only after Steps 1-3 are complete and validated, write the final recommendation using the "## Output Format" template below.
+
+**Requirements:**
+- Include complete task tree JSON from Step 1
+- Include ASCII dependency graph from Step 2
+- Include validation results from Step 3
+- Follow exact template structure from "## Output Format"
+
+---
+
+**ENFORCEMENT RULE:** If you attempt to write the recommendation (Step 4) without completing Steps 1-3, you MUST stop and restart from Step 1.
+
+---
+
 ## Output Format
 
 **CRITICAL REQUIREMENT FOR MULTI-STEP WORKFLOWS:**
@@ -743,42 +862,38 @@ Failure to include a valid dependency graph renders the output incomplete and un
 
 ### REQUIRED: ASCII Dependency Graph
 
-**STATUS:** [ ] Graph Generated [ ] Validation Passed
+**⚠️ GENERATION STATUS (You MUST complete these):**
+- [ ] Task tree JSON generated (Step 1)
+- [ ] ASCII graph generated (Step 2)
+- [ ] Cross-validation passed (Step 3)
 
-This section is MANDATORY and cannot be empty or contain placeholder text. The dependency graph must show all phases identified in your analysis above, with clear indication of sequential and parallel relationships.
+**CRITICAL:** The template below contains placeholders. You MUST replace ALL `<<<PLACEHOLDER>>>` text with actual values from your analysis. If ANY placeholder text remains in your final output, the output is INVALID and will be rejected.
 
 ```text
-[Your ASCII dependency graph here - use the format from ASCII Dependency Graph Visualization section above]
-```
-
-**VALIDATION CHECKLIST (check all before proceeding):**
-- [ ] Graph shows ALL phases from the plan (count matches phase count above)
-- [ ] Dependencies are correctly represented with arrows/connectors
-- [ ] Wave structure is clearly indicated
-- [ ] Graph is formatted in text code fence
-- [ ] Graph is non-empty (no placeholder text like "TODO" or "[graph here]")
-- [ ] Each phase in the graph corresponds to an agent delegation
-
-**If validation fails:** Regenerate the graph before completing the rest of this template. Do not proceed with incomplete or placeholder graph.
-
-**Example format (replace with your actual graph):**
-
 DEPENDENCY GRAPH & EXECUTION PLAN
 ═══════════════════════════════════════════════════════════════════════
 
-Wave 0 (X parallel tasks) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  ┌─ task.id   Task description                     [agent-name]
-  │             └─ requires: (dependencies or none)
-  └─ task.id   Task description                     [agent-name]
+Wave <<<WAVE_NUMBER>>> (<<<TASK_COUNT>>> parallel tasks) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ┌─ <<<TASK_ID_1>>>   <<<TASK_DESCRIPTION_1>>>           [<<<AGENT_1>>>]
+  │                     └─ requires: <<<DEPENDENCIES_1>>>
+  ├─ <<<TASK_ID_2>>>   <<<TASK_DESCRIPTION_2>>>           [<<<AGENT_2>>>]
+  │                     └─ requires: <<<DEPENDENCIES_2>>>
+  └─ <<<TASK_ID_N>>>   <<<TASK_DESCRIPTION_N>>>           [<<<AGENT_N>>>]
         │
         │
-Wave 1 (Y parallel tasks) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  └─ task.id   Task description                     [agent-name]
-                └─ requires: previous_task
+<<<INSERT_ADDITIONAL_WAVES_HERE>>>
 
 ═══════════════════════════════════════════════════════════════════════
-Total: N atomic tasks across M waves
-Parallelization: X tasks can run concurrently
+Total: <<<TOTAL_ATOMIC_TASKS>>> atomic tasks across <<<TOTAL_WAVES>>> waves
+Parallelization: <<<MAX_CONCURRENT>>> tasks can run concurrently
+```
+
+**Phase Count Validation (REQUIRED):**
+- Atomic tasks in task tree JSON: <<<COUNT_FROM_STEP1>>>
+- Task entries in ASCII graph: <<<COUNT_FROM_STEP2>>>
+- Counts match: <<<YES_OR_NO>>>
+
+⚠️ **WARNING:** If you see ANY `<<<PLACEHOLDER>>>` text in your final output, your generation is INCOMPLETE. Return to the appropriate step and regenerate.
 
 ### Wave Breakdown
 

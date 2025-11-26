@@ -91,6 +91,14 @@ A task is **multi-step** if it contains ANY of these indicators:
 - "read X and analyze Y and create Z"
 - "create A, write B, update C"
 
+**Period-Separated Action Sequences:**
+- "Verb X. Verb Y. Verb Z." (separate sentences with distinct action verbs)
+- Example: "Review code. Analyze patterns. Report findings."
+
+**Imperative Verb Count Threshold:**
+- If task contains ≥3 action verbs → Multi-step (regardless of connectors)
+- Action verbs: review, analyze, create, implement, design, test, verify, document, report, identify, understand, build, fix, update, explore, examine
+
 **Phase Markers:**
 - "first... then...", "start by... then..."
 - "begin with... after that..."
@@ -119,17 +127,36 @@ For validation, use the atomic task detector script with depth parameter:
 
 **Fallback:** If script fails, use keyword heuristics above.
 
+**Atomic Task Definition (Work Parallelizability Criterion):**
+
+A task is **ATOMIC** if work cannot be split into concurrent units that can be executed independently.
+
+A task is **NON-ATOMIC** if work can be parallelized across multiple resources (files, modules, agents, etc.).
+
+**Primary Criterion: Resource Multiplicity**
+- Can this work be split across N independent resources?
+- Can subtasks run concurrently without coordination?
+- Is there natural decomposition into parallel units?
+
 **Examples:**
 
-**Multi-Step Tasks:**
-- "Read docs, analyze structure, then design plugin"
-- "Create calculator with tests"
-- "Fix bug and verify it works"
+**✅ Atomic Tasks (Indivisible Work):**
+- "Read file.py" - Single file read, cannot parallelize
+- "Write function calculate()" - Single coherent implementation unit
+- "Create hello.py script" - Single file creation
+- "Update line 42 in config.json" - Single targeted modification
+- "Run test_auth.py" - Single test execution
 
-**Single-Step Tasks:**
-- "Create hello.py script"
-- "Analyze authentication system"
-- "Refactor database module"
+**❌ Non-Atomic Tasks (Parallelizable Work):**
+- "Review codebase" - N files → can parallelize reads across files
+- "Write tests for module X" - N test files → can parallelize test creation
+- "Analyze authentication system" - Multiple files/components → can analyze concurrently
+- "Refactor database module" - Multiple files in module → can refactor independently
+- "Create calculator with tests" - 2 deliverables (code + tests) → can parallelize creation
+
+**Key Distinction:**
+- **Atomic:** Single resource, single operation, indivisible unit
+- **Non-Atomic:** Multiple resources, multiple operations, divisible into concurrent work
 
 ---
 
@@ -260,7 +287,14 @@ For multi-step tasks, build a dependency graph to determine execution mode (sequ
 
 ### Step 1: Construct Task Tree JSON
 
-Based on your semantic understanding of phases, build:
+Based on your semantic understanding of phases, build the task tree with careful dependency analysis.
+
+**CRITICAL: Apply the Dependency Detection Algorithm from the criteria above.**
+
+For each task pair, determine if a true dependency exists:
+- Data flow between tasks → Add to dependencies array
+- File/state conflicts → Add to dependencies array
+- Independent file operations (read-only on different files) → Empty dependencies array
 
 ```json
 {
@@ -278,6 +312,32 @@ Based on your semantic understanding of phases, build:
   ]
 }
 ```
+
+**Example: Independent Read Operations (Parallel)**
+
+```json
+{
+  "tasks": [
+    {
+      "id": "root.1.1",
+      "description": "Map file structure in auth module",
+      "dependencies": []
+    },
+    {
+      "id": "root.1.2",
+      "description": "Identify patterns in database module",
+      "dependencies": []
+    },
+    {
+      "id": "root.1.3",
+      "description": "Assess code quality in API module",
+      "dependencies": []
+    }
+  ]
+}
+```
+
+All three tasks operate on different modules (auth, database, API) with read-only operations and no data flow. Therefore, all have empty `dependencies: []` arrays and will be assigned to the same wave (Wave 0) for parallel execution.
 
 ### Step 2: Call Dependency Analyzer Script
 
@@ -302,21 +362,65 @@ echo "$TASK_TREE_JSON" | .claude/scripts/dependency-analyzer.sh
 
 ### Dependency Detection Criteria
 
-**Data Flow Dependencies:**
-- Phase B reads files created by Phase A
-- Phase B uses outputs/results from Phase A
+**CRITICAL RULE: Independent file operations should be parallelized.**
 
-**File Access Conflicts:**
-- Both phases modify the same file
-- Shared configuration files
+When analyzing dependencies, explicitly check for resource independence:
 
-**State Mutation Conflicts:**
-- Both phases affect same system state (database, API)
-- Shared resources with write contention
+**True Dependencies (Require Sequential Waves):**
+- **Data Flow:** Phase B reads files created by Phase A
+- **Data Flow:** Phase B uses outputs/results from Phase A
+- **Data Flow:** Phase B depends on decisions made in Phase A
+- **File Conflicts:** Both phases modify the same file
+- **State Conflicts:** Both phases affect same system state (database, API)
+
+**Independent Operations (Enable Parallel Waves):**
+- **Read-Only on Different Files:** All phases read different files with no data flow between them
+- **Different Modules:** Phases operate on separate, isolated modules
+- **No Shared State:** No shared resources, no write contention
+
+**Dependency Detection Algorithm:**
+
+```
+For each pair of subtasks (Task A, Task B):
+
+  # Check for data dependency
+  if B needs outputs from A:
+    → Add B to A's dependents (sequential waves)
+
+  # Check for file conflicts
+  else if A and B modify same file:
+    → Add B to A's dependents (sequential waves)
+
+  # Check for state conflicts
+  else if A and B mutate shared state:
+    → Add B to A's dependents (sequential waves)
+
+  # Check for resource independence
+  else if both are read-only AND operate on different files:
+    → No dependency (assign to same wave for parallelization)
+
+  # Default: No dependency
+  else:
+    → No dependency (can be parallelized)
+```
+
+**Examples:**
+
+**✅ PARALLEL (Same Wave):**
+- "Map file structure in module A" + "Identify patterns in module B"
+  - Different files, read-only, no data flow → Wave 0 (parallel)
+- "Assess code quality in auth.py" + "Review database schema.sql"
+  - Different files, read-only, no shared state → Wave 0 (parallel)
+
+**❌ SEQUENTIAL (Different Waves):**
+- "Create calculator.py" → "Write tests for calculator.py"
+  - Tests need the created file → Wave 0 → Wave 1 (sequential)
+- "Analyze requirements" → "Design architecture based on requirements"
+  - Design needs analysis outputs → Wave 0 → Wave 1 (sequential)
 
 **Decision:**
-- If dependencies exist → Sequential execution
-- If no dependencies → Parallel execution (proceed to wave scheduling)
+- If true dependencies exist → Sequential execution (different waves)
+- If independent operations → Parallel execution (same wave)
 
 ---
 
@@ -383,6 +487,8 @@ echo "$WAVE_INPUT_JSON" | .claude/scripts/wave-scheduler.sh
 ## ASCII Dependency Graph Visualization
 
 **CRITICAL: DO NOT include time estimates, duration, or effort in output.**
+
+**CRITICAL: EVERY task entry in the graph MUST include a human-readable task description between the task ID and the agent name. Format: `task_id  Task description here  [agent-name]`. Graphs with only task IDs (e.g., `root.1.1.1 [agent]`) are INVALID.**
 
 ### ASCII Graph Format
 
@@ -647,11 +753,21 @@ For general-purpose:
    - **Critical:** All leaf nodes must be at depth ≥ 3
 
 3. **Dependency Analysis:**
-   - Identify data flow dependencies (Task B needs Task A's outputs)
-   - Identify ordering dependencies (design before implement)
+   - **Apply Dependency Detection Algorithm for each task pair:**
+     - Check for data flow: Does Task B need outputs from Task A?
+     - Check for file conflicts: Do both modify the same file?
+     - Check for state conflicts: Do both mutate shared state?
+     - Check for independence: Are both read-only on different files?
+   - **Assign dependencies arrays:**
+     - True dependency detected → Add to dependencies array
+     - Independent operations (different files, read-only) → Empty dependencies array `[]`
    - Construct task tree JSON with explicit `dependencies` arrays
    - Run: `echo "$TASK_TREE_JSON" | .claude/scripts/dependency-analyzer.sh`
    - Validate: no cycles, all references valid
+
+   **Example Dependency Assignment:**
+   - "Map files in auth/" + "Identify patterns in db/" → Both `dependencies: []` (parallel)
+   - "Create file.py" → "Test file.py" → Second task `dependencies: ["create_task_id"]` (sequential)
 
 4. **Wave Scheduling:**
    - Extract atomic tasks only (leaf nodes with `is_atomic: true`)
@@ -676,6 +792,125 @@ For general-purpose:
    - Include execution summary (counts only, NO time estimates)
 
 8. **Update TodoWrite:** Mark all tasks completed
+
+---
+
+## MANDATORY PRE-GENERATION GATE
+
+**CRITICAL: You MUST complete ALL steps in sequence before writing your recommendation.**
+
+For multi-step workflows, you MUST generate content in this exact order:
+
+### STEP 1: Generate Task Tree JSON
+
+First, create the complete hierarchical task tree with all atomic tasks, dependencies, and agent assignments.
+
+**Output Requirements:**
+```json
+{
+  "tasks": [
+    {
+      "id": "task_id",
+      "description": "task description",
+      "depth": N,
+      "parent_id": "parent_id or null",
+      "dependencies": ["dep1", "dep2"],
+      "is_atomic": true/false,
+      "agent": "agent-name",
+      "children": ["child1", "child2"] // if not atomic
+    }
+  ]
+}
+```
+
+**Validation Checklist:**
+- [ ] All atomic tasks are at depth ≥ 3
+- [ ] All non-atomic tasks have children arrays
+- [ ] All dependencies reference valid task IDs
+- [ ] All atomic tasks have agent assignments
+- [ ] Task IDs follow hierarchical naming (root.1.2.3)
+
+**DO NOT PROCEED to Step 2 until this JSON is complete and validated.**
+
+---
+
+### STEP 2: Generate ASCII Dependency Graph
+
+Using the task tree from Step 1, create the terminal-friendly ASCII visualization.
+
+**Output Requirements:**
+```text
+DEPENDENCY GRAPH & EXECUTION PLAN
+═══════════════════════════════════════════════════════════════════════
+
+Wave 0 (X parallel tasks) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ┌─ task.id   Description                         [agent-name]
+  │             └─ requires: dependency_list
+  └─ task.id   Description                         [agent-name]
+        │
+        │
+[Additional waves...]
+
+═══════════════════════════════════════════════════════════════════════
+Total: N atomic tasks across M waves
+Parallelization: X tasks can run concurrently
+```
+
+**Validation Checklist:**
+- [ ] Graph shows ALL atomic tasks from Step 1
+- [ ] Wave structure matches wave scheduler output
+- [ ] Dependencies are correctly represented
+- [ ] Agent assignments match Step 1
+- [ ] Graph uses proper ASCII connectors (┌─ ├─ └─)
+
+**DO NOT PROCEED to Step 3 until graph is complete and matches Step 1 data.**
+
+---
+
+### STEP 3: Cross-Validation
+
+Verify consistency between Step 1 and Step 2:
+
+**Validation Steps:**
+1. Count atomic tasks in task tree JSON → **Count A**
+2. Count task entries in ASCII graph → **Count B**
+3. Verify: **Count A == Count B**
+4. For each task in graph, verify:
+   - Task ID exists in task tree
+   - Agent assignment matches
+   - Dependencies match
+   - Wave assignment is correct
+
+**Validation Output:**
+```
+✓ Task count match: A atomic tasks in tree, B tasks in graph (A == B)
+✓ All task IDs validated
+✓ All agent assignments match
+✓ All dependencies consistent
+✓ Wave assignments validated
+
+VALIDATION PASSED - Proceed to Step 4
+```
+
+**If validation fails:** Return to Step 1 or Step 2 to fix inconsistencies.
+
+**DO NOT PROCEED to Step 4 until validation passes.**
+
+---
+
+### STEP 4: Write Recommendation
+
+Only after Steps 1-3 are complete and validated, write the final recommendation using the "## Output Format" template below.
+
+**Requirements:**
+- Include complete task tree JSON from Step 1
+- Include ASCII dependency graph from Step 2
+- Include validation results from Step 3
+- Follow exact template structure from "## Output Format"
+
+---
+
+**ENFORCEMENT RULE:** If you attempt to write the recommendation (Step 4) without completing Steps 1-3, you MUST stop and restart from Step 1.
 
 ---
 
@@ -743,42 +978,38 @@ Failure to include a valid dependency graph renders the output incomplete and un
 
 ### REQUIRED: ASCII Dependency Graph
 
-**STATUS:** [ ] Graph Generated [ ] Validation Passed
+**⚠️ GENERATION STATUS (You MUST complete these):**
+- [ ] Task tree JSON generated (Step 1)
+- [ ] ASCII graph generated (Step 2)
+- [ ] Cross-validation passed (Step 3)
 
-This section is MANDATORY and cannot be empty or contain placeholder text. The dependency graph must show all phases identified in your analysis above, with clear indication of sequential and parallel relationships.
+**CRITICAL:** The template below contains placeholders. You MUST replace ALL `<<<PLACEHOLDER>>>` text with actual values from your analysis. If ANY placeholder text remains in your final output, the output is INVALID and will be rejected.
 
 ```text
-[Your ASCII dependency graph here - use the format from ASCII Dependency Graph Visualization section above]
-```
-
-**VALIDATION CHECKLIST (check all before proceeding):**
-- [ ] Graph shows ALL phases from the plan (count matches phase count above)
-- [ ] Dependencies are correctly represented with arrows/connectors
-- [ ] Wave structure is clearly indicated
-- [ ] Graph is formatted in text code fence
-- [ ] Graph is non-empty (no placeholder text like "TODO" or "[graph here]")
-- [ ] Each phase in the graph corresponds to an agent delegation
-
-**If validation fails:** Regenerate the graph before completing the rest of this template. Do not proceed with incomplete or placeholder graph.
-
-**Example format (replace with your actual graph):**
-
 DEPENDENCY GRAPH & EXECUTION PLAN
 ═══════════════════════════════════════════════════════════════════════
 
-Wave 0 (X parallel tasks) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  ┌─ task.id   Task description                     [agent-name]
-  │             └─ requires: (dependencies or none)
-  └─ task.id   Task description                     [agent-name]
+Wave <<<WAVE_NUMBER>>> (<<<TASK_COUNT>>> parallel tasks) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ┌─ <<<TASK_ID_1>>>   <<<TASK_DESCRIPTION_1>>>           [<<<AGENT_1>>>]
+  │                     └─ requires: <<<DEPENDENCIES_1>>>
+  ├─ <<<TASK_ID_2>>>   <<<TASK_DESCRIPTION_2>>>           [<<<AGENT_2>>>]
+  │                     └─ requires: <<<DEPENDENCIES_2>>>
+  └─ <<<TASK_ID_N>>>   <<<TASK_DESCRIPTION_N>>>           [<<<AGENT_N>>>]
         │
         │
-Wave 1 (Y parallel tasks) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  └─ task.id   Task description                     [agent-name]
-                └─ requires: previous_task
+<<<INSERT_ADDITIONAL_WAVES_HERE>>>
 
 ═══════════════════════════════════════════════════════════════════════
-Total: N atomic tasks across M waves
-Parallelization: X tasks can run concurrently
+Total: <<<TOTAL_ATOMIC_TASKS>>> atomic tasks across <<<TOTAL_WAVES>>> waves
+Parallelization: <<<MAX_CONCURRENT>>> tasks can run concurrently
+```
+
+**Phase Count Validation (REQUIRED):**
+- Atomic tasks in task tree JSON: <<<COUNT_FROM_STEP1>>>
+- Task entries in ASCII graph: <<<COUNT_FROM_STEP2>>>
+- Counts match: <<<YES_OR_NO>>>
+
+⚠️ **WARNING:** If you see ANY `<<<PLACEHOLDER>>>` text in your final output, your generation is INCOMPLETE. Return to the appropriate step and regenerate.
 
 ### Wave Breakdown
 
@@ -911,6 +1142,7 @@ Parallelization: X tasks can run concurrently
 9. **NEVER Estimate Time:** NEVER include duration, time, effort, or time savings in any output
 10. **ASCII Graph Always:** Always generate terminal-friendly ASCII dependency graph for multi-step workflows
 11. **Minimum Decomposition Depth:** Always decompose to at least depth 3 before atomic validation; tasks at depth 0, 1, 2 must never be marked atomic
+12. **Maximize Parallelization:** When subtasks operate on independent resources (different files, modules), assign empty dependencies arrays to enable parallel execution in the same wave; only create sequential dependencies when true data flow or conflicts exist
 
 ### Multi-Step Workflows
 

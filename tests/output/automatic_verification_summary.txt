@@ -1,7 +1,7 @@
 Automatic Deliverable Verification - Test Results Summary
 =========================================================
 Test Run: ג' דצמ  2 00:24:34 IST 2025
-Project: /Users/nadavbarkai/dev/claude-code-delegation-system
+Project: /Users/nadavbarkai/dev/claude-code-workflow-orchestration
 
 TEST GROUP 1: Infrastructure Tests
 -----------------------------------

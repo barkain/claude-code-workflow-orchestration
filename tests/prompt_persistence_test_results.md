@@ -2,9 +2,9 @@
 
 **Test Execution Date:** 2025-12-02
 **Test Suite:** test_prompt_persistence.sh
-**Project:** claude-code-delegation-system
+**Project:** claude-code-workflow-orchestration
 **Implementation:** /tmp/prompt_persistence_implementation.md
-**Test Plan:** /Users/nadavbarkai/dev/claude-code-delegation-system/tests/prompt_persistence_test_plan.md
+**Test Plan:** /Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/prompt_persistence_test_plan.md
 
 ---
 
@@ -41,7 +41,7 @@
 - Start markers positioned in first 10 lines → Confirmed
 - End markers positioned in last 10 lines → Confirmed
 
-**File:** /Users/nadavbarkai/dev/claude-code-delegation-system/.claude/system-prompts/WORKFLOW_ORCHESTRATOR.md
+**File:** /Users/nadavbarkai/dev/claude-code-workflow-orchestration/.claude/system-prompts/WORKFLOW_ORCHESTRATOR.md
 
 **Evidence:**
 ```bash
@@ -67,7 +67,7 @@
 - File size → 4,821 bytes (within 1KB-20KB expected range)
 - Owner → nadavbarkai (current user)
 
-**File:** /Users/nadavbarkai/dev/claude-code-delegation-system/.claude/hooks/PreToolUse/ensure_workflow_orchestrator.sh
+**File:** /Users/nadavbarkai/dev/claude-code-workflow-orchestration/.claude/hooks/PreToolUse/ensure_workflow_orchestrator.sh
 
 **Evidence:**
 ```bash
@@ -88,7 +88,7 @@
 - Description field present → YES
 - Position before require_delegation.sh → YES (confirmed in hook order)
 
-**File:** /Users/nadavbarkai/dev/claude-code-delegation-system/settings.json
+**File:** /Users/nadavbarkai/dev/claude-code-workflow-orchestration/settings.json
 
 **Evidence:**
 ```json
@@ -126,7 +126,7 @@
 - Test flag file content verification → SUCCESS
 - Flag format (Unix timestamp) → CORRECT
 
-**Directory:** /Users/nadavbarkai/dev/claude-code-delegation-system/.claude/state
+**Directory:** /Users/nadavbarkai/dev/claude-code-workflow-orchestration/.claude/state
 
 **Evidence:**
 ```bash
@@ -246,7 +246,7 @@ Result: PASS ✓
 
 **File Locations Checked:**
 1. Primary: ~/.claude/system-prompts/WORKFLOW_ORCHESTRATOR.md (not found)
-2. Fallback: /Users/nadavbarkai/dev/claude-code-delegation-system/system-prompts/WORKFLOW_ORCHESTRATOR.md (FOUND ✓)
+2. Fallback: /Users/nadavbarkai/dev/claude-code-workflow-orchestration/system-prompts/WORKFLOW_ORCHESTRATOR.md (FOUND ✓)
 
 **Evidence:**
 Hook script searches both locations:
@@ -486,9 +486,9 @@ Create regression tests for:
 ✓ Test 12: Error handling functional
 
 ### Deliverables Complete
-✓ Test script created: /Users/nadavbarkai/dev/claude-code-delegation-system/tests/test_prompt_persistence.sh
-✓ Test plan documented: /Users/nadavbarkai/dev/claude-code-delegation-system/tests/prompt_persistence_test_plan.md
-✓ Test results summarized: /Users/nadavbarkai/dev/claude-code-delegation-system/tests/prompt_persistence_test_results.md
+✓ Test script created: /Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/test_prompt_persistence.sh
+✓ Test plan documented: /Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/prompt_persistence_test_plan.md
+✓ Test results summarized: /Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/prompt_persistence_test_results.md
 ✓ Test script executable (chmod +x)
 
 ---
@@ -524,19 +524,19 @@ All blocking tests passed. Implementation is ready for real-world usage and moni
 ## Test Artifacts
 
 ### Files Created
-- **/Users/nadavbarkai/dev/claude-code-delegation-system/tests/test_prompt_persistence.sh** (executable)
+- **/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/test_prompt_persistence.sh** (executable)
   - Comprehensive automated test suite
   - 12 test scenarios across 3 categories
   - Colored output with detailed verification
   - Exit code: 0 (success)
 
-- **/Users/nadavbarkai/dev/claude-code-delegation-system/tests/prompt_persistence_test_plan.md**
+- **/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/prompt_persistence_test_plan.md**
   - 16 test scenarios documented
   - Expected outcomes and pass criteria
   - Manual test procedures
   - Appendices with environment setup
 
-- **/Users/nadavbarkai/dev/claude-code-delegation-system/tests/prompt_persistence_test_results.md** (this file)
+- **/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/prompt_persistence_test_results.md** (this file)
   - Detailed test results with evidence
   - Issue analysis and recommendations
   - Coverage summary and acceptance criteria
@@ -553,7 +553,7 @@ Total Tests: 11 passed, 0 failed, 1 skipped
 
 **Test Report Generated:** 2025-12-02
 **Report Author:** task-completion-verifier (QA Agent)
-**Project:** claude-code-delegation-system
+**Project:** claude-code-workflow-orchestration
 **Feature:** System Prompt Persistence Mechanism
 
 ---

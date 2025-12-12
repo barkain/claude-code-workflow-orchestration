@@ -3,7 +3,7 @@
 **Feature:** System Prompt Persistence Mechanism
 **Implementation:** /tmp/prompt_persistence_implementation.md
 **Test Date:** 2025-12-02
-**Project:** claude-code-delegation-system
+**Project:** claude-code-workflow-orchestration
 
 ---
 
@@ -516,7 +516,7 @@ echo "$(($(date +%s) - 600))" > test_flag.flag
 ### Executed By: _[Agent/Human]_
 ### Environment:
 - OS: macOS (Darwin)
-- Project Path: /Users/nadavbarkai/dev/claude-code-delegation-system
+- Project Path: /Users/nadavbarkai/dev/claude-code-workflow-orchestration
 - Claude Version: _[TBD]_
 
 ### Results Summary
@@ -562,7 +562,7 @@ _[To be populated after test execution]_
 ### Prerequisites
 ```bash
 # Ensure project is in correct location
-cd /Users/nadavbarkai/dev/claude-code-delegation-system
+cd /Users/nadavbarkai/dev/claude-code-workflow-orchestration
 
 # Verify bash version
 bash --version  # Should be 3.2+
@@ -580,7 +580,7 @@ export DEBUG_PROMPT_PERSISTENCE=1
 export PROMPT_PERSISTENCE_DISABLE=1
 
 # Project directory override (if needed)
-export CLAUDE_PROJECT_DIR=/Users/nadavbarkai/dev/claude-code-delegation-system
+export CLAUDE_PROJECT_DIR=/Users/nadavbarkai/dev/claude-code-workflow-orchestration
 ```
 
 ---
@@ -589,7 +589,7 @@ export CLAUDE_PROJECT_DIR=/Users/nadavbarkai/dev/claude-code-delegation-system
 
 ### Running All Automated Tests
 ```bash
-cd /Users/nadavbarkai/dev/claude-code-delegation-system/tests
+cd /Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests
 ./test_prompt_persistence.sh
 ```
 

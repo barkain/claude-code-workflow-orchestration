@@ -53,23 +53,23 @@ Comprehensive verification completed for the task graph enforcement mechanism im
 ### Test Artifacts Created
 
 1. **Test Plan Document**
-   - Location: `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/task_graph_enforcement_test_plan.md`
+   - Location: `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/task_graph_enforcement_test_plan.md`
    - Size: 43 test scenarios across 7 categories
    - Coverage: Installation, syntax, prompts, schema, enforcement, progression, edge cases
 
 2. **Automated Test Script**
-   - Location: `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/test_task_graph_enforcement.sh`
+   - Location: `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/test_task_graph_enforcement.sh`
    - Type: Bash script with 38 automated tests
    - Features: Color output, critical test tracking, detailed error messages
    - Execution: `./tests/test_task_graph_enforcement.sh`
 
 3. **Test Results Summary**
-   - Location: `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/test_results_summary.md`
+   - Location: `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/test_results_summary.md`
    - Content: Detailed analysis of all test failures and passes
    - Recommendations: Immediate, short-term, and long-term actions
 
 4. **Verification Report**
-   - Location: `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/VERIFICATION_REPORT.md`
+   - Location: `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/VERIFICATION_REPORT.md`
    - Content: This document - overall verification assessment
 
 ### Testing Approach
@@ -124,8 +124,8 @@ Comprehensive verification completed for the task graph enforcement mechanism im
 - ✅ All failures analyzed and categorized
 
 **Requirement 5:** Deliverables
-- ✅ `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/test_task_graph_enforcement.sh` (executable)
-- ✅ `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/task_graph_enforcement_test_plan.md`
+- ✅ `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/test_task_graph_enforcement.sh` (executable)
+- ✅ `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/task_graph_enforcement_test_plan.md`
 - ✅ Test results summary provided
 
 ### Acceptance Criteria Assessment
@@ -638,18 +638,18 @@ Full test output available in test results summary document.
 ### Appendix B: File Paths
 
 **Test Artifacts:**
-- Test Script: `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/test_task_graph_enforcement.sh`
-- Test Plan: `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/task_graph_enforcement_test_plan.md`
-- Test Results: `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/test_results_summary.md`
-- This Report: `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/VERIFICATION_REPORT.md`
+- Test Script: `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/test_task_graph_enforcement.sh`
+- Test Plan: `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/task_graph_enforcement_test_plan.md`
+- Test Results: `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/test_results_summary.md`
+- This Report: `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/VERIFICATION_REPORT.md`
 
 **Implementation Files:**
-- PreToolUse Hook: `/Users/nadavbarkai/dev/claude-code-delegation-system/hooks/PreToolUse/validate_task_graph_compliance.sh`
-- PostToolUse Hook: `/Users/nadavbarkai/dev/claude-code-delegation-system/hooks/PostToolUse/update_wave_state.sh`
-- Settings: `/Users/nadavbarkai/dev/claude-code-delegation-system/settings.json`
-- Workflow Orchestrator: `/Users/nadavbarkai/dev/claude-code-delegation-system/system-prompts/WORKFLOW_ORCHESTRATOR.md`
-- Delegation Orchestrator: `/Users/nadavbarkai/dev/claude-code-delegation-system/agents/delegation-orchestrator.md`
-- Delegate Command: `/Users/nadavbarkai/dev/claude-code-delegation-system/commands/delegate.md`
+- PreToolUse Hook: `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/hooks/PreToolUse/validate_task_graph_compliance.sh`
+- PostToolUse Hook: `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/hooks/PostToolUse/update_wave_state.sh`
+- Settings: `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/settings.json`
+- Workflow Orchestrator: `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/system-prompts/WORKFLOW_ORCHESTRATOR.md`
+- Delegation Orchestrator: `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/agents/delegation-orchestrator.md`
+- Delegate Command: `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/commands/delegate.md`
 
 ### Appendix C: Commands Reference
 

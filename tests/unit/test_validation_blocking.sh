@@ -606,8 +606,8 @@ generate_test_report() {
     echo -e "  ✓ Rapid successive reads: Maintains consistency"
 
     echo -e "\n${BLUE}Test Artifacts:${NC}"
-    echo -e "  Test Suite: /Users/nadavbarkai/dev/claude-code-delegation-system/tests/unit/test_validation_blocking.sh"
-    echo -e "  Report Location: /Users/nadavbarkai/dev/claude-code-delegation-system/tests/output/validation_blocking_report.txt"
+    echo -e "  Test Suite: /Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/unit/test_validation_blocking.sh"
+    echo -e "  Report Location: /Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/output/validation_blocking_report.txt"
 
     # Save report to file
     {

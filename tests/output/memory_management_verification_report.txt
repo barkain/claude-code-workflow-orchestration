@@ -7,4 +7,4 @@ Target: hooks/UserPromptSubmit/clear-delegation-sessions.sh
 ============================================================================
 
 [INFO] Pre-flight checks...
-[PASS] Hook script exists - file exists: /Users/nadavbarkai/dev/claude-code-delegation-system/hooks/UserPromptSubmit/clear-delegation-sessions.sh
+[PASS] Hook script exists - file exists: /Users/nadavbarkai/dev/claude-code-workflow-orchestration/hooks/UserPromptSubmit/clear-delegation-sessions.sh

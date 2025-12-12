@@ -26,7 +26,7 @@ TESTS_FAILED=0
 TESTS_RUN=0
 
 # Project root directory
-PROJECT_ROOT="/Users/nadavbarkai/dev/claude-code-delegation-system"
+PROJECT_ROOT="/Users/nadavbarkai/dev/claude-code-workflow-orchestration"
 
 # Test output file
 TEST_OUTPUT="${PROJECT_ROOT}/tests/output/automatic_verification_test_results.txt"

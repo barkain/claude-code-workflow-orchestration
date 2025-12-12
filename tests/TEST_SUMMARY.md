@@ -8,14 +8,14 @@ Comprehensive integration tests have been created for all Phase A components of 
 
 ### 1. Test Infrastructure
 
-**File: `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/integration/test_utils.sh`**
+**File: `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/integration/test_utils.sh`**
 - Helper functions for test setup/teardown
 - Assertion library (10+ assertion types)
 - Test statistics tracking
 - Colored output formatting
 - Mock data generation utilities
 
-**File: `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/run_integration_tests.sh`**
+**File: `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/run_integration_tests.sh`**
 - Master test runner with CLI options
 - Fail-fast and verbose modes
 - Coverage analysis reporting
@@ -24,7 +24,7 @@ Comprehensive integration tests have been created for all Phase A components of 
 
 ### 2. Main Test Suite
 
-**File: `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/integration/test_phase_a.sh`**
+**File: `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/integration/test_phase_a.sh`**
 
 **Test Coverage by Component:**
 
@@ -70,18 +70,18 @@ Comprehensive integration tests have been created for all Phase A components of 
 
 ### 3. Test Fixtures
 
-**File: `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/integration/fixtures/sample_tool_result.json`**
+**File: `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/integration/fixtures/sample_tool_result.json`**
 - Example tool execution result with all required fields
 
-**File: `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/integration/fixtures/sample_retry_state.json`**
+**File: `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/integration/fixtures/sample_retry_state.json`**
 - Example retry state with 2 sessions at different retry stages
 
-**File: `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/integration/fixtures/sample_execution_log.jsonl`**
+**File: `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/integration/fixtures/sample_execution_log.jsonl`**
 - Example execution log with 5 entries including retry recovery
 
 ### 4. Documentation
 
-**File: `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/integration/README.md`**
+**File: `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/integration/README.md`**
 - Comprehensive test documentation
 - Usage instructions and examples
 - Troubleshooting guide
@@ -141,7 +141,7 @@ Comprehensive integration tests have been created for all Phase A components of 
 
 ### Basic Usage
 ```bash
-cd /Users/nadavbarkai/dev/claude-code-delegation-system
+cd /Users/nadavbarkai/dev/claude-code-workflow-orchestration
 ./tests/run_integration_tests.sh
 ```
 
@@ -212,7 +212,7 @@ Test duration: 3s
 ```yaml
 - name: Run Integration Tests
   run: |
-    cd claude-code-delegation-system
+    cd claude-code-workflow-orchestration
     ./tests/run_integration_tests.sh --fail-fast
 ```
 
@@ -220,7 +220,7 @@ Test duration: 3s
 ```yaml
 test:integration:
   script:
-    - cd claude-code-delegation-system
+    - cd claude-code-workflow-orchestration
     - ./tests/run_integration_tests.sh --coverage
 ```
 
@@ -319,7 +319,7 @@ Future test additions can follow established patterns:
 
 ## Files Created
 
-All files are located in: `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/`
+All files are located in: `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/`
 
 1. `run_integration_tests.sh` - Master test runner (executable)
 2. `integration/test_phase_a.sh` - Main test suite (executable)

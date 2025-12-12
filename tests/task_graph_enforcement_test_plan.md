@@ -1,6 +1,6 @@
 # Task Graph Enforcement Test Plan
 
-**Project:** claude-code-delegation-system
+**Project:** claude-code-workflow-orchestration
 **Test Suite:** Task Graph Enforcement Mechanism
 **Version:** 1.0
 **Date:** 2025-12-02
@@ -23,14 +23,14 @@ This test plan validates the three-layer task graph enforcement mechanism that p
 
 ## Test Environment
 
-**Base Directory:** `/Users/nadavbarkai/dev/claude-code-delegation-system`
+**Base Directory:** `/Users/nadavbarkai/dev/claude-code-workflow-orchestration`
 
 **Key Paths:**
-- Hooks: `/Users/nadavbarkai/dev/claude-code-delegation-system/hooks/`
-- Agents: `/Users/nadavbarkai/dev/claude-code-delegation-system/agents/`
-- System Prompts: `/Users/nadavbarkai/dev/claude-code-delegation-system/system-prompts/`
-- Commands: `/Users/nadavbarkai/dev/claude-code-delegation-system/commands/`
-- Settings: `/Users/nadavbarkai/dev/claude-code-delegation-system/settings.json`
+- Hooks: `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/hooks/`
+- Agents: `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/agents/`
+- System Prompts: `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/system-prompts/`
+- Commands: `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/commands/`
+- Settings: `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/settings.json`
 - State Directory: `.claude/state/`
 
 **Required Tools:**

@@ -3,7 +3,7 @@
 **Feature:** Automatic Deliverable Verification Mechanism
 **Version:** 1.0
 **Date:** 2025-12-02
-**Test Script:** `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/test_automatic_verification.sh`
+**Test Script:** `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/test_automatic_verification.sh`
 
 ---
 
@@ -24,18 +24,18 @@ This test plan provides comprehensive validation of the automatic deliverable ve
 
 ## Test Environment
 
-**Project Location:** `/Users/nadavbarkai/dev/claude-code-delegation-system`
+**Project Location:** `/Users/nadavbarkai/dev/claude-code-workflow-orchestration`
 **Branch:** `feature/workflow-reliability-improvements`
 **Test Execution:** Bash script with automated assertions
-**Test Output:** `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/output/automatic_verification_test_results.txt`
+**Test Output:** `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/output/automatic_verification_test_results.txt`
 
 ### Key Files Under Test
 
-1. `/Users/nadavbarkai/dev/claude-code-delegation-system/.claude/state/deliverables/` - State directory
-2. `/Users/nadavbarkai/dev/claude-code-delegation-system/agents/delegation-orchestrator.md` - Manifest generation
-3. `/Users/nadavbarkai/dev/claude-code-delegation-system/agents/task-completion-verifier.md` - Verification protocol
-4. `/Users/nadavbarkai/dev/claude-code-delegation-system/system-prompts/WORKFLOW_ORCHESTRATOR.md` - Verdict processing
-5. `/Users/nadavbarkai/dev/claude-code-delegation-system/CLAUDE.md` - User documentation
+1. `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/.claude/state/deliverables/` - State directory
+2. `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/agents/delegation-orchestrator.md` - Manifest generation
+3. `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/agents/task-completion-verifier.md` - Verification protocol
+4. `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/system-prompts/WORKFLOW_ORCHESTRATOR.md` - Verdict processing
+5. `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/CLAUDE.md` - User documentation
 
 ---
 
@@ -196,7 +196,7 @@ This test plan provides comprehensive validation of the automatic deliverable ve
 
 1. **Environment Setup:**
    ```bash
-   cd /Users/nadavbarkai/dev/claude-code-delegation-system
+   cd /Users/nadavbarkai/dev/claude-code-workflow-orchestration
    git checkout feature/workflow-reliability-improvements
    ```
 
@@ -228,7 +228,7 @@ TEST SUITE: Automatic Deliverable Verification
 ================================================
 
 [INFO] Test 1.1: Verify deliverables state directory exists
-[PASS] Deliverables directory exists at /Users/nadavbarkai/dev/claude-code-delegation-system/.claude/state/deliverables
+[PASS] Deliverables directory exists at /Users/nadavbarkai/dev/claude-code-workflow-orchestration/.claude/state/deliverables
 ...
 [INFO] Test 6.10: Verify user escalation on multiple failures documented
 [PASS] User escalation on failures documented

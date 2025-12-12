@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Task Graph Enforcement Test Suite
-# Project: claude-code-delegation-system
+# Project: claude-code-workflow-orchestration
 # Version: 1.0
 
 set -uo pipefail
@@ -21,7 +21,7 @@ CRITICAL_TESTS=0
 CRITICAL_PASSED=0
 
 # Project paths
-PROJECT_DIR="/Users/nadavbarkai/dev/claude-code-delegation-system"
+PROJECT_DIR="/Users/nadavbarkai/dev/claude-code-workflow-orchestration"
 HOOKS_DIR="${PROJECT_DIR}/hooks"
 AGENTS_DIR="${PROJECT_DIR}/agents"
 SYSTEM_PROMPTS_DIR="${PROJECT_DIR}/system-prompts"

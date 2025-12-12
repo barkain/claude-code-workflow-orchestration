@@ -15,7 +15,7 @@ This document summarizes the implementation of the `invoke_validation()` functio
 
 ### 1. Phase-Validator Agent
 
-**File:** `/Users/nadavbarkai/dev/claude-code-delegation-system/agents/phase-validator.md`
+**File:** `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/agents/phase-validator.md`
 
 **Purpose:** Execute validation rules from configuration files to verify phase completion criteria.
 
@@ -36,7 +36,7 @@ This document summarizes the implementation of the `invoke_validation()` functio
 
 ### 2. invoke_validation() Function
 
-**File:** `/Users/nadavbarkai/dev/claude-code-delegation-system/hooks/PostToolUse/validation_gate.sh`
+**File:** `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/hooks/PostToolUse/validation_gate.sh`
 **Function:** `invoke_validation()` (lines 169-720)
 
 **Function Signature:**
@@ -102,7 +102,7 @@ f) **Logging:**
 
 ### 3. Main Hook Logic Integration
 
-**File:** `/Users/nadavbarkai/dev/claude-code-delegation-system/hooks/PostToolUse/validation_gate.sh`
+**File:** `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/hooks/PostToolUse/validation_gate.sh`
 **Section:** Main hook logic (lines 522-559)
 
 **Integration Flow:**
@@ -125,7 +125,7 @@ f) **Logging:**
 
 ### Test Script
 
-**File:** `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/unit/test_validation_invocation.sh`
+**File:** `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/unit/test_validation_invocation.sh`
 **Executable:** Yes (chmod +x)
 **Test Count:** 23 comprehensive test cases
 
@@ -176,7 +176,7 @@ f) **Logging:**
 **Success Rate:** 100%
 
 **Execution Time:** < 5 seconds
-**Test Output:** `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/unit/test_validation_invocation.sh`
+**Test Output:** `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/unit/test_validation_invocation.sh`
 
 ---
 
@@ -402,24 +402,24 @@ The `invoke_validation()` function integrates with the validation gate hook syst
 
 ### Files Created
 
-1. `/Users/nadavbarkai/dev/claude-code-delegation-system/agents/phase-validator.md`
+1. `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/agents/phase-validator.md`
    - Phase-validator agent configuration
    - Activation keywords, tools, system prompt
    - Complete rule type specifications
 
-2. `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/unit/test_validation_invocation.sh`
+2. `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/unit/test_validation_invocation.sh`
    - Executable test script (chmod +x)
    - 23 comprehensive test cases
    - 100% pass rate
 
-3. `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/unit/VALIDATION_INVOCATION_SUMMARY.md`
+3. `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/unit/VALIDATION_INVOCATION_SUMMARY.md`
    - This implementation summary
    - Test coverage analysis
    - Usage examples
 
 ### Files Modified
 
-1. `/Users/nadavbarkai/dev/claude-code-delegation-system/hooks/PostToolUse/validation_gate.sh`
+1. `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/hooks/PostToolUse/validation_gate.sh`
    - Implemented `invoke_validation()` function (lines 169-720)
    - Updated main hook logic to call invoke_validation (lines 522-559)
    - Added cross-platform compatibility (macOS timeout detection)

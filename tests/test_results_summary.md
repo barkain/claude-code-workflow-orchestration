@@ -367,9 +367,9 @@ Update test to accept either "*" or "Task" matcher as valid.
 
 ## Test Artifacts
 
-**Test Script:** `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/test_task_graph_enforcement.sh`
-**Test Plan:** `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/task_graph_enforcement_test_plan.md`
-**Test Results:** `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/test_results_summary.md` (this file)
+**Test Script:** `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/test_task_graph_enforcement.sh`
+**Test Plan:** `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/task_graph_enforcement_test_plan.md`
+**Test Results:** `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/test_results_summary.md` (this file)
 
 **Command to Re-Run:**
 ```bash

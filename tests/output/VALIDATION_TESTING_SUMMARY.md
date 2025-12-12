@@ -4,8 +4,8 @@
 
 **Status:** PASS
 **Pass Rate:** 100% (26/26 tests passed)
-**Test Suite:** /Users/nadavbarkai/dev/claude-code-delegation-system/tests/unit/test_validation_blocking.sh
-**Implementation:** /Users/nadavbarkai/dev/claude-code-delegation-system/hooks/PostToolUse/validation_gate.sh
+**Test Suite:** /Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/unit/test_validation_blocking.sh
+**Implementation:** /Users/nadavbarkai/dev/claude-code-workflow-orchestration/hooks/PostToolUse/validation_gate.sh
 
 All requirements have been met. The validation blocking mechanism has been thoroughly tested and verified to work correctly across all scenarios.
 
@@ -185,22 +185,22 @@ State files follow the correct pattern:
 
 ### Files Created
 
-1. **Test Suite:** `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/unit/test_validation_blocking.sh`
+1. **Test Suite:** `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/unit/test_validation_blocking.sh`
    - Comprehensive test suite with 26 tests
    - Uses custom test framework (assert_equals, assert_exit_code)
    - 685 lines of test code
 
-2. **Test Report:** `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/output/validation_blocking_report.txt`
+2. **Test Report:** `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/output/validation_blocking_report.txt`
    - Detailed test execution report
    - Code coverage metrics
    - Edge cases documentation
 
-3. **Test Execution Log:** `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/output/test_run_final.log`
+3. **Test Execution Log:** `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/output/test_run_final.log`
    - Complete test execution output
    - Color-coded pass/fail indicators
    - Detailed test results
 
-4. **This Summary:** `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/output/VALIDATION_TESTING_SUMMARY.md`
+4. **This Summary:** `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/output/VALIDATION_TESTING_SUMMARY.md`
    - Comprehensive testing summary
    - Requirements verification
    - Code coverage analysis

@@ -3,7 +3,7 @@
 
 **Date:** 2025-11-17
 **Verifier:** Task Completion Verifier
-**Hook Script:** `/Users/nadavbarkai/dev/claude-code-delegation-system/hooks/PostToolUse/validation_gate.sh`
+**Hook Script:** `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/hooks/PostToolUse/validation_gate.sh`
 
 ---
 
@@ -658,7 +658,7 @@ Only minor deduction for:
 ## Appendix: Files Referenced
 
 ### Hook Script
-- `/Users/nadavbarkai/dev/claude-code-delegation-system/hooks/PostToolUse/validation_gate.sh`
+- `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/hooks/PostToolUse/validation_gate.sh`
   - Total lines: 975
   - Simplified semantic_validation: lines 331-456
   - Decision extraction and mapping: lines 863-947

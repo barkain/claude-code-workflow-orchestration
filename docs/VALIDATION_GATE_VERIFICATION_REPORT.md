@@ -1,6 +1,6 @@
 # Validation Gate Hook Verification Report
 
-**Hook Script:** `/Users/nadavbarkai/dev/claude-code-delegation-system/hooks/PreToolUse/check_validation_state.sh`
+**Hook Script:** `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/hooks/PreToolUse/check_validation_state.sh`
 
 **Test Date:** 2025-11-25
 

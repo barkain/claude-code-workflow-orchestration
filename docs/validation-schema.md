@@ -756,7 +756,7 @@ This file demonstrates:
 
 **Full JSON Schema:** `.claude/state/validation/validation_schema.json`
 
-**Schema ID:** `https://claude-code-delegation-system/schemas/phase-validation-v1.json`
+**Schema ID:** `https://claude-code-workflow-orchestration/schemas/phase-validation-v1.json`
 
 **JSON Schema Draft:** Draft 7 (`http://json-schema.org/draft-07/schema#`)
 

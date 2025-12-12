@@ -528,7 +528,7 @@ Context from Phase 1 (Research):
 
 ### Settings File Structure
 
-**File:** `/Users/nadavbarkai/dev/claude-code-delegation-system/settings.json`
+**File:** `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/settings.json`
 
 **Permissions (deny sensitive files):**
 ```json
@@ -906,10 +906,10 @@ cat .claude/state/active_delegations.json
 ## File Reference
 
 ### Hook Scripts
-- `/Users/nadavbarkai/dev/claude-code-delegation-system/hooks/PreToolUse/require_delegation.sh` - Tool blocking enforcement
-- `/Users/nadavbarkai/dev/claude-code-delegation-system/hooks/UserPromptSubmit/clear-delegation-sessions.sh` - State cleanup
-- `/Users/nadavbarkai/dev/claude-code-delegation-system/hooks/PostToolUse/python_posttooluse_hook.sh` - Post-tool operations
-- `/Users/nadavbarkai/dev/claude-code-delegation-system/hooks/stop/python_stop_hook.sh` - Cleanup on exit
+- `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/hooks/PreToolUse/require_delegation.sh` - Tool blocking enforcement
+- `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/hooks/UserPromptSubmit/clear-delegation-sessions.sh` - State cleanup
+- `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/hooks/PostToolUse/python_posttooluse_hook.sh` - Post-tool operations
+- `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/hooks/stop/python_stop_hook.sh` - Cleanup on exit
 
 ### Agent Configurations
 - `~/.claude/agents/delegation-orchestrator.md` - Meta-agent for routing
@@ -925,17 +925,17 @@ cat .claude/state/active_delegations.json
 - `~/.claude/agents/phase-validator.md` - Phase validation
 
 ### Command Definitions
-- `/Users/nadavbarkai/dev/claude-code-delegation-system/commands/delegate.md` - Intelligent delegation command
-- `/Users/nadavbarkai/dev/claude-code-delegation-system/commands/ask.md` - Read-only question answering
-- `/Users/nadavbarkai/dev/claude-code-delegation-system/commands/pre-commit.md` - Pre-commit checks
+- `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/commands/delegate.md` - Intelligent delegation command
+- `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/commands/ask.md` - Read-only question answering
+- `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/commands/pre-commit.md` - Pre-commit checks
 
 ### System Prompts
-- `/Users/nadavbarkai/dev/claude-code-delegation-system/system-prompts/WORKFLOW_ORCHESTRATOR.md` - Multi-step workflow orchestration
+- `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/system-prompts/WORKFLOW_ORCHESTRATOR.md` - Multi-step workflow orchestration
 
 ### Configuration
-- `/Users/nadavbarkai/dev/claude-code-delegation-system/settings.json` - Hook registration, permissions
-- `/Users/nadavbarkai/dev/claude-code-delegation-system/CLAUDE.md` - Project delegation policy (this file)
-- `/Users/nadavbarkai/dev/claude-code-delegation-system/README.md` - User-facing documentation
+- `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/settings.json` - Hook registration, permissions
+- `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/CLAUDE.md` - Project delegation policy (this file)
+- `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/README.md` - User-facing documentation
 
 ### State Files (Runtime)
 - `.claude/state/delegated_sessions.txt` - Session registry

@@ -1,6 +1,6 @@
 Automatic Verification Test Results
 Test Run: ג' דצמ  2 00:30:47 IST 2025
-Project: /Users/nadavbarkai/dev/claude-code-delegation-system
+Project: /Users/nadavbarkai/dev/claude-code-workflow-orchestration
 
 
 [0;34m================================================[0m
@@ -11,4 +11,4 @@ Project: /Users/nadavbarkai/dev/claude-code-delegation-system
 [0;34mTest Group 1: Infrastructure Tests[0m
 [0;34m================================================[0m
 [0;34m[INFO][0m Test 1.1: Verify deliverables state directory exists
-[0;32m[PASS][0m Deliverables directory exists at /Users/nadavbarkai/dev/claude-code-delegation-system/.claude/state/deliverables
+[0;32m[PASS][0m Deliverables directory exists at /Users/nadavbarkai/dev/claude-code-workflow-orchestration/.claude/state/deliverables

@@ -23,6 +23,7 @@ set -euo pipefail
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
 STATE_DIR="$PROJECT_DIR/.claude/state"
 TASK_GRAPH_FILE="$STATE_DIR/active_task_graph.json"
+LOCK_FILE="$STATE_DIR/.update_wave.lock"
 
 # Debug logging (if enabled)
 if [[ "${DEBUG_TASK_GRAPH:-0}" == "1" ]]; then
@@ -30,6 +31,12 @@ if [[ "${DEBUG_TASK_GRAPH:-0}" == "1" ]]; then
     echo "=== Wave State Update ===" >&2
     echo "Timestamp: $(date -u +"%Y-%m-%dT%H:%M:%SZ")" >&2
 fi
+
+# Ensure lock file directory exists
+mkdir -p "$STATE_DIR"
+
+# Cleanup trap for lock file
+trap 'rm -f "$LOCK_FILE"' EXIT
 
 # Read tool result from stdin
 TOOL_RESULT=$(cat)
@@ -69,10 +76,18 @@ fi
 
 [[ "${DEBUG_TASK_GRAPH:-0}" == "1" ]] && echo "Processing Phase ID: $PHASE_ID" >&2
 
-# Load current task graph
-TASK_GRAPH=$(cat "$TASK_GRAPH_FILE")
-CURRENT_WAVE=$(echo "$TASK_GRAPH" | jq -r '.current_wave // 0')
-TOTAL_WAVES=$(echo "$TASK_GRAPH" | jq -r '.execution_plan.total_waves // 0')
+# === BEGIN CRITICAL SECTION (flock protected) ===
+(
+    # Acquire exclusive lock with 5 second timeout
+    if ! flock -x -w 5 200; then
+        echo "ERROR: Failed to acquire lock on $LOCK_FILE (timeout after 5s)" >&2
+        exit 1
+    fi
+
+    # Load current task graph
+    TASK_GRAPH=$(cat "$TASK_GRAPH_FILE")
+    CURRENT_WAVE=$(echo "$TASK_GRAPH" | jq -r '.current_wave // 0')
+    TOTAL_WAVES=$(echo "$TASK_GRAPH" | jq -r '.execution_plan.total_waves // 0')
 
 # Get phase wave
 PHASE_WAVE=$(echo "$TASK_GRAPH" | jq -r --arg phase_id "$PHASE_ID" '
@@ -187,5 +202,8 @@ if [[ "$COMPLETED_COUNT" -eq "$TOTAL_PHASES" ]]; then
         echo "" >&2
     fi
 fi
+
+) 200>"$LOCK_FILE"
+# === END CRITICAL SECTION ===
 
 exit 0

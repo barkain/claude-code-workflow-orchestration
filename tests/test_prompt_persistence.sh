@@ -5,14 +5,15 @@
 ################################################################################
 # Project: claude-code-workflow-orchestration
 # Feature: System Prompt Persistence Mechanism
-# Test Plan: /Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/prompt_persistence_test_plan.md
+# Test Plan: <PROJECT_ROOT>/tests/prompt_persistence_test_plan.md
 # Created: 2025-12-02
 ################################################################################
 
 set -euo pipefail
 
 # --- Configuration ---
-PROJECT_ROOT="/Users/nadavbarkai/dev/claude-code-workflow-orchestration"
+# Auto-detect project root from script location
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CLAUDE_DIR="${PROJECT_ROOT}/.claude"
 HOOK_SCRIPT="${CLAUDE_DIR}/hooks/PreToolUse/ensure_workflow_orchestrator.sh"
 PROMPT_FILE="${CLAUDE_DIR}/system-prompts/WORKFLOW_ORCHESTRATOR.md"

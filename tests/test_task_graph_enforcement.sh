@@ -20,8 +20,8 @@ FAILED_TESTS=0
 CRITICAL_TESTS=0
 CRITICAL_PASSED=0
 
-# Project paths
-PROJECT_DIR="/Users/nadavbarkai/dev/claude-code-workflow-orchestration"
+# Project paths - dynamically resolve from test file location
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 HOOKS_DIR="${PROJECT_DIR}/hooks"
 AGENTS_DIR="${PROJECT_DIR}/agents"
 SYSTEM_PROMPTS_DIR="${PROJECT_DIR}/system-prompts"

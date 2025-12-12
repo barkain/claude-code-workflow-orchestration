@@ -25,8 +25,8 @@ TESTS_PASSED=0
 TESTS_FAILED=0
 TESTS_RUN=0
 
-# Project root directory
-PROJECT_ROOT="/Users/nadavbarkai/dev/claude-code-workflow-orchestration"
+# Project root directory (dynamically determined from script location)
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # Test output file
 TEST_OUTPUT="${PROJECT_ROOT}/tests/output/automatic_verification_test_results.txt"

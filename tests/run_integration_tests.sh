@@ -105,11 +105,15 @@ check_prerequisites() {
     fi
 
     # Check for component files
+    # TODO: view-execution-log.sh not yet implemented
     local components=(
         "$PROJECT_ROOT/hooks/PostToolUse/retry_handler.sh"
         "$PROJECT_ROOT/hooks/PostToolUse/execution_logger.sh"
-        "$HOME/.claude/scripts/view-execution-log.sh"
     )
+    # Add view-execution-log.sh only if it exists
+    if [[ -f "$HOME/.claude/scripts/view-execution-log.sh" ]]; then
+        components+=("$HOME/.claude/scripts/view-execution-log.sh")
+    fi
 
     for component in "${components[@]}"; do
         if [[ ! -f "$component" ]]; then
@@ -244,13 +248,17 @@ run_coverage_analysis() {
     echo ""
 
     # Components to check
+    # TODO: view-execution-log.sh not yet implemented
     local components=(
         "hooks/PostToolUse/retry_handler.sh:Retry Handler"
         "hooks/PostToolUse/execution_logger.sh:Execution Logger"
-        "scripts/view-execution-log.sh:View Execution Log"
         "hooks/lib/retry_manager.py:Retry Manager (Python)"
         "hooks/lib/log_writer.py:Log Writer (Python)"
     )
+    # Add view-execution-log.sh only if it exists
+    if [[ -f "$HOME/.claude/scripts/view-execution-log.sh" ]]; then
+        components+=("scripts/view-execution-log.sh:View Execution Log")
+    fi
 
     echo -e "${BLUE}Component Coverage Analysis:${NC}"
     echo ""

@@ -64,7 +64,7 @@ Once installed, the delegation hook is automatically active. Simply use Claude C
 
 ```bash
 # Multi-step workflow - enable orchestration for context passing
-claude --append-system-prompt "$(cat ~/.claude/system-prompts/WORKFLOW_ORCHESTRATOR.md)" \
+claude --append-system-prompt "$(cat ~/.claude/src/system-prompts/WORKFLOW_ORCHESTRATOR.md)" \
   "Create calculator.py with tests and verify they pass"
 ```
 
@@ -73,7 +73,7 @@ claude --append-system-prompt "$(cat ~/.claude/system-prompts/WORKFLOW_ORCHESTRA
 **Sequential Execution (dependent phases):**
 ```bash
 # Phases have dependencies - Phase 2 needs Phase 1's output
-claude --append-system-prompt "$(cat .claude/system-prompts/WORKFLOW_ORCHESTRATOR.md)" \
+claude --append-system-prompt "$(cat .claude/src/system-prompts/WORKFLOW_ORCHESTRATOR.md)" \
   "Create calculator.py with tests and verify they pass"
 
 # What happens:
@@ -86,7 +86,7 @@ claude --append-system-prompt "$(cat .claude/system-prompts/WORKFLOW_ORCHESTRATO
 **Parallel Execution (independent phases):**
 ```bash
 # Phases are independent - can execute concurrently
-claude --append-system-prompt "$(cat .claude/system-prompts/WORKFLOW_ORCHESTRATOR.md)" \
+claude --append-system-prompt "$(cat .claude/src/system-prompts/WORKFLOW_ORCHESTRATOR.md)" \
   "Analyze authentication system AND design payment API"
 
 # What happens:
@@ -156,7 +156,7 @@ Multi-step workflow orchestration requires the WORKFLOW_ORCHESTRATOR system prom
         "hooks": [
           {
             "type": "append_system_prompt",
-            "path": "system-prompts/WORKFLOW_ORCHESTRATOR.md"
+            "path": "src/system-prompts/WORKFLOW_ORCHESTRATOR.md"
           }
         ]
       }
@@ -167,7 +167,7 @@ Multi-step workflow orchestration requires the WORKFLOW_ORCHESTRATOR system prom
 
 **Manual (command-line flag):**
 ```bash
-claude --append-system-prompt "$(cat .claude/system-prompts/WORKFLOW_ORCHESTRATOR.md)" \
+claude --append-system-prompt "$(cat .claude/src/system-prompts/WORKFLOW_ORCHESTRATOR.md)" \
   "Your multi-step task here"
 ```
 
@@ -181,7 +181,7 @@ claude --append-system-prompt "$(cat .claude/system-prompts/WORKFLOW_ORCHESTRATO
 
 ## Core Components
 
-### 1. Delegation Hook (`hooks/PreToolUse/require_delegation.sh`)
+### 1. Delegation Hook (`src/hooks/PreToolUse/require_delegation.sh`)
 
 Blocks most tools and forces delegation to specialized agents.
 
@@ -197,7 +197,7 @@ Blocks most tools and forces delegation to specialized agents.
 ✅ REQUIRED: Use /delegate command immediately
 ```
 
-### 2. Specialized Agents (`agents/`)
+### 2. Specialized Agents (`src/agents/`)
 
 11 specialized agents for different task types:
 
@@ -213,7 +213,7 @@ Blocks most tools and forces delegation to specialized agents.
 - **dependency-manager** - Dependency management and updates
 - **phase-validator** - Phase completion validation, deliverable verification, quality gates
 
-### 3. Delegation Command (`commands/delegate.md`)
+### 3. Delegation Command (`src/commands/delegate.md`)
 
 The `/delegate` command provides intelligent task delegation:
 
@@ -228,13 +228,13 @@ The `/delegate` command provides intelligent task delegation:
 4. Constructs optimized delegation prompt
 5. Returns recommendation for execution
 
-### 4. Workflow Orchestration System Prompt (`system-prompts/WORKFLOW_ORCHESTRATOR.md`)
+### 4. Workflow Orchestration System Prompt (`src/system-prompts/WORKFLOW_ORCHESTRATOR.md`)
 
 Enables multi-step workflow orchestration for complex tasks.
 
 **Activate via:**
 ```bash
-claude --append-system-prompt "$(cat ./system-prompts/WORKFLOW_ORCHESTRATOR.md)"
+claude --append-system-prompt "$(cat ./src/system-prompts/WORKFLOW_ORCHESTRATOR.md)"
 ```
 
 **Multi-step detection patterns:**
@@ -653,25 +653,25 @@ When `/delegate` is invoked:
 
 ## Configuration Files
 
-### `settings.json`
+### `src/settings.json`
 - Hook configuration (PreToolUse, PostToolUse, UserPromptSubmit, Stop)
 - Permissions (block sensitive files)
 - Status line configuration
 
-### `agents/*.md`
+### `src/agents/*.md`
 - Agent system prompts
 - Agent metadata (name, description, tools, keywords)
 
-### `commands/*.md`
+### `src/commands/*.md`
 - Slash command definitions
 - Command metadata (description, allowed tools)
 
-### `hooks/PreToolUse/require_delegation.sh`
+### `src/hooks/PreToolUse/require_delegation.sh`
 - Tool blocking logic
 - Delegation session tracking
 - Allowed tool allowlist
 
-### `system-prompts/WORKFLOW_ORCHESTRATOR.md`
+### `src/system-prompts/WORKFLOW_ORCHESTRATOR.md`
 - Multi-step workflow detection patterns
 - Context passing protocol
 - TodoWrite integration rules
@@ -734,7 +734,7 @@ Sessions are automatically cleaned up after 1 hour.
 
 ### Agent Selection
 15. **Include relevant keywords** in task descriptions to trigger specialized agents
-16. **Check agent capabilities** (in commands/delegate.md) to understand which keywords activate which agents
+16. **Check agent capabilities** (in src/commands/delegate.md) to understand which keywords activate which agents
 17. **Let orchestrator select agents** - it uses keyword matching with ≥2 match threshold
 18. **Independence indicators** - use "AND" (capitalized) in task descriptions to hint at parallel-safe phases
 
@@ -750,7 +750,7 @@ Sessions are automatically cleaned up after 1 hour.
 **Solution:**
 ```bash
 # Ensure WORKFLOW_ORCHESTRATOR system prompt is appended
-claude --append-system-prompt "$(cat .claude/system-prompts/WORKFLOW_ORCHESTRATOR.md)" \
+claude --append-system-prompt "$(cat .claude/src/system-prompts/WORKFLOW_ORCHESTRATOR.md)" \
   "Create calculator.py with tests and verify they pass"
 
 # Use multi-step keywords in task description:
@@ -762,7 +762,7 @@ claude --append-system-prompt "$(cat .claude/system-prompts/WORKFLOW_ORCHESTRATO
 **Verify SessionStart hook (for automatic orchestration):**
 ```bash
 # Check settings.json has SessionStart hook configured
-grep -A 10 "SessionStart" .claude/settings.json
+grep -A 10 "SessionStart" .claude/src/settings.json
 
 # Should contain:
 # "SessionStart": [
@@ -770,7 +770,7 @@ grep -A 10 "SessionStart" .claude/settings.json
 #     "hooks": [
 #       {
 #         "type": "append_system_prompt",
-#         "path": "system-prompts/WORKFLOW_ORCHESTRATOR.md"
+#         "path": "src/system-prompts/WORKFLOW_ORCHESTRATOR.md"
 #       }
 #     ]
 #   }
@@ -778,8 +778,8 @@ grep -A 10 "SessionStart" .claude/settings.json
 ```
 
 ### Tools are blocked but delegation fails
-- Check that `settings.json` is in the correct location
-- Verify hook scripts are executable: `chmod +x hooks/PreToolUse/*.sh`
+- Check that `src/settings.json` is in the correct location
+- Verify hook scripts are executable: `chmod +x src/hooks/PreToolUse/*.sh`
 - Enable debug mode: `export DEBUG_DELEGATION_HOOK=1`
 
 ### Agent not found
@@ -795,25 +795,27 @@ grep -A 10 "SessionStart" .claude/settings.json
 ```
 .
 ├── README.md
-├── settings.json                  # Claude Code configuration
 ├── CLAUDE.md                      # Project delegation policy
-├── agents/                        # Specialized agent definitions
-│   ├── delegation-orchestrator.md
-│   ├── tech-lead-architect.md
-│   ├── codebase-context-analyzer.md
-│   └── ...
-├── commands/                      # Slash command definitions
-│   ├── delegate.md
-│   └── ask.md
-├── hooks/                         # Hook implementations
-│   ├── PreToolUse/
-│   │   └── require_delegation.sh
-│   └── UserPromptSubmit/
-│       └── clear-delegation-sessions.sh
-├── system-prompts/               # System prompt augmentations
-│   └── WORKFLOW_ORCHESTRATOR.md
-└── scripts/                      # Utility scripts
-    └── statusline.sh
+├── src/                           # Installable source files
+│   ├── settings.json              # Claude Code configuration
+│   ├── agents/                    # Specialized agent definitions
+│   │   ├── delegation-orchestrator.md
+│   │   ├── tech-lead-architect.md
+│   │   ├── codebase-context-analyzer.md
+│   │   └── ...
+│   ├── commands/                  # Slash command definitions
+│   │   ├── delegate.md
+│   │   └── ask.md
+│   ├── hooks/                     # Hook implementations
+│   │   ├── PreToolUse/
+│   │   │   └── require_delegation.sh
+│   │   └── UserPromptSubmit/
+│   │       └── clear-delegation-sessions.sh
+│   ├── system-prompts/           # System prompt augmentations
+│   │   └── WORKFLOW_ORCHESTRATOR.md
+│   └── scripts/                  # Utility scripts
+│       └── statusline.sh
+└── install.sh                    # Installation script
 ```
 
 ## Technical Details

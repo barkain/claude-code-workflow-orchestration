@@ -78,7 +78,7 @@ flowchart TD
 
 ```bash
 # Copy configuration to Claude Code directory
-cp -r agents commands hooks system-prompts settings.json ~/.claude/
+cp -r src/agents src/commands src/hooks src/system-prompts src/scripts src/settings.json ~/.claude/
 
 # Make hooks executable
 chmod +x ~/.claude/hooks/PreToolUse/require_delegation.sh
@@ -138,14 +138,14 @@ cat .claude/state/delegated_sessions.txt
 
 The delegation system uses Claude Code's hook mechanism to create hard constraints on tool usage:
 
-**PreToolUse Hook** (`hooks/PreToolUse/require_delegation.sh`)
+**PreToolUse Hook** (`src/hooks/PreToolUse/require_delegation.sh`)
 - **Trigger:** Before EVERY tool invocation
 - **Function:** Enforces allowlist policy, blocks non-allowed tools
 - **Allowlist:** `AskUserQuestion`, `TodoWrite`, `SlashCommand`, `Task`, `SubagentTask`, `AgentTask`
 - **All other tools:** BLOCKED with error message
 - **Session Registration:** When `Task` or `SlashCommand` invoked, registers session ID as "delegated"
 
-**UserPromptSubmit Hook** (`hooks/UserPromptSubmit/clear-delegation-sessions.sh`)
+**UserPromptSubmit Hook** (`src/hooks/UserPromptSubmit/clear-delegation-sessions.sh`)
 - **Trigger:** Before each user message
 - **Function:** Clears delegation state file (`.claude/state/delegated_sessions.txt`)
 - **Purpose:** Ensures fresh enforcement per user message, prevents privilege persistence
@@ -535,7 +535,7 @@ Context from Phase 1 (Research):
 
 ### Settings File Structure
 
-**File:** `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/settings.json`
+**File:** `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/src/settings.json`
 
 **Permissions (deny sensitive files):**
 ```json
@@ -720,7 +720,7 @@ activation_keywords: ["keyword1", "keyword2"]
     - Example: "refactor and optimize" → code-cleanup-optimizer
     - Example: "test and verify" → task-completion-verifier
 
-16. **Check agent capabilities** in `commands/delegate.md`
+16. **Check agent capabilities** in `src/commands/delegate.md`
     - Lists all 11 specialized agents
     - Shows activation keywords for each
     - Describes key capabilities and use cases
@@ -761,7 +761,7 @@ ls ~/.claude/agents/
 **Solutions:**
 ```bash
 # Reinstall configuration
-cp -r agents commands hooks system-prompts settings.json ~/.claude/
+cp -r src/agents src/commands src/hooks src/system-prompts src/scripts src/settings.json ~/.claude/
 
 # Make hooks executable
 chmod +x ~/.claude/hooks/PreToolUse/require_delegation.sh
@@ -790,7 +790,7 @@ cat ~/.claude/agents/delegation-orchestrator.md
 # Filenames should match agent names (kebab-case)
 
 # Copy missing agents
-cp agents/*.md ~/.claude/agents/
+cp src/agents/*.md ~/.claude/agents/
 ```
 
 ### Multi-Step Workflow Not Detected
@@ -913,10 +913,10 @@ cat .claude/state/active_delegations.json
 ## File Reference
 
 ### Hook Scripts
-- `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/hooks/PreToolUse/require_delegation.sh` - Tool blocking enforcement
-- `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/hooks/UserPromptSubmit/clear-delegation-sessions.sh` - State cleanup
-- `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/hooks/PostToolUse/python_posttooluse_hook.sh` - Post-tool operations
-- `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/hooks/stop/python_stop_hook.sh` - Cleanup on exit
+- `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/src/hooks/PreToolUse/require_delegation.sh` - Tool blocking enforcement
+- `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/src/hooks/UserPromptSubmit/clear-delegation-sessions.sh` - State cleanup
+- `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/src/hooks/PostToolUse/python_posttooluse_hook.sh` - Post-tool operations
+- `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/src/hooks/stop/python_stop_hook.sh` - Cleanup on exit
 
 ### Agent Configurations
 - `~/.claude/agents/delegation-orchestrator.md` - Meta-agent for routing
@@ -932,15 +932,15 @@ cat .claude/state/active_delegations.json
 - `~/.claude/agents/phase-validator.md` - Phase validation
 
 ### Command Definitions
-- `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/commands/delegate.md` - Intelligent delegation command
-- `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/commands/ask.md` - Read-only question answering
-- `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/commands/pre-commit.md` - Pre-commit checks
+- `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/src/commands/delegate.md` - Intelligent delegation command
+- `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/src/commands/ask.md` - Read-only question answering
+- `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/src/commands/pre-commit.md` - Pre-commit checks
 
 ### System Prompts
-- `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/system-prompts/WORKFLOW_ORCHESTRATOR.md` - Multi-step workflow orchestration
+- `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/src/system-prompts/WORKFLOW_ORCHESTRATOR.md` - Multi-step workflow orchestration
 
 ### Configuration
-- `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/settings.json` - Hook registration, permissions
+- `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/src/settings.json` - Hook registration, permissions
 - `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/CLAUDE.md` - Project delegation policy (this file)
 - `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/README.md` - User-facing documentation
 
@@ -1136,7 +1136,7 @@ subprocess.run(f"git commit -m {message}", shell=True)  # Command injection
 
 ### Hook Enforcement
 
-All standards above are enforced by `hooks/PostToolUse/python_posttooluse_hook.sh` which runs:
+All standards above are enforced by `src/hooks/PostToolUse/python_posttooluse_hook.sh` which runs:
 
 1. **Critical Security Check:** Fast pattern matching for immediate vulnerabilities
 2. **Ruff Validation:** Enforces syntax, security, and quality rules
@@ -1150,11 +1150,11 @@ Test your code against these standards:
 
 ```bash
 # Full validation
-./hooks/PostToolUse/python_posttooluse_hook.sh your_file.py
+./src/hooks/PostToolUse/python_posttooluse_hook.sh your_file.py
 
 # Skip specific checks
-CHECK_RUFF=0 ./hooks/PostToolUse/python_posttooluse_hook.sh your_file.py
-CHECK_PYRIGHT=0 ./hooks/PostToolUse/python_posttooluse_hook.sh your_file.py
+CHECK_RUFF=0 ./src/hooks/PostToolUse/python_posttooluse_hook.sh your_file.py
+CHECK_PYRIGHT=0 ./src/hooks/PostToolUse/python_posttooluse_hook.sh your_file.py
 ```
 
 ### Automatic Deliverable Verification
@@ -1216,4 +1216,4 @@ Wave 3: Verification phases
 }
 ```
 
-For complete workflow orchestration documentation, see `system-prompts/WORKFLOW_ORCHESTRATOR.md`.
+For complete workflow orchestration documentation, see `src/system-prompts/WORKFLOW_ORCHESTRATOR.md`.

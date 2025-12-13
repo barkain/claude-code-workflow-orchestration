@@ -1,0 +1,67 @@
+name: CI Tests
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
+
+permissions:
+  contents: read
+
+env:
+  BASH_ENV: ~/.bashrc
+  SHELL: /bin/bash
+
+jobs:
+  test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup test environment
+        run: |
+          find tests -name "*.sh" -type f -exec chmod +x {} \;
+          find hooks -name "*.sh" -type f -exec chmod +x {} \;
+          test -f tests/run_integration_tests.sh || exit 1
+          mkdir -p .claude/state
+
+      - name: Setup Python for validation hooks
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+        if: hashFiles('hooks/PostToolUse/python_posttooluse_hook.sh') != ''
+
+      - name: Install Python validation tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff pyright
+        if: hashFiles('hooks/PostToolUse/python_posttooluse_hook.sh') != ''
+
+      - name: Run integration tests
+        run: |
+          bash tests/run_integration_tests.sh --verbose
+        env:
+          VERBOSE: 1
+          CI: true
+
+      - name: Upload test logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-logs
+          path: |
+            tests/test-logs/
+            tests/output/
+          retention-days: 7

@@ -14,7 +14,7 @@ NC='\033[0m' # No Color
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-INTEGRATION_DIR="$SCRIPT_DIR/integration"
+TESTS_DIR="$SCRIPT_DIR"
 
 # Test execution mode
 FAIL_FAST=0
@@ -55,7 +55,10 @@ show_help() {
     cat <<EOF
 Usage: $0 [OPTIONS]
 
-Run integration tests for Claude Code Delegation System
+Run all test suites for Claude Code Delegation System
+
+Automatically discovers and executes all test_*.sh files in the tests directory
+and subdirectories (unit/, integration/, verification/, etc.)
 
 OPTIONS:
     --fail-fast     Stop at first test failure
@@ -99,27 +102,10 @@ check_prerequisites() {
     fi
 
     # Check for test files
-    if [[ ! -d "$INTEGRATION_DIR" ]]; then
-        echo -e "${RED}Integration test directory not found: $INTEGRATION_DIR${NC}"
+    if [[ ! -d "$TESTS_DIR" ]]; then
+        echo -e "${RED}Tests directory not found: $TESTS_DIR${NC}"
         exit 1
     fi
-
-    # Check for component files
-    # TODO: view-execution-log.sh not yet implemented
-    local components=(
-        "$PROJECT_ROOT/hooks/PostToolUse/retry_handler.sh"
-        "$PROJECT_ROOT/hooks/PostToolUse/execution_logger.sh"
-    )
-    # Add view-execution-log.sh only if it exists
-    if [[ -f "$HOME/.claude/scripts/view-execution-log.sh" ]]; then
-        components+=("$HOME/.claude/scripts/view-execution-log.sh")
-    fi
-
-    for component in "${components[@]}"; do
-        if [[ ! -f "$component" ]]; then
-            echo -e "${YELLOW}Warning: Component not found: $component${NC}"
-        fi
-    done
 
     echo -e "${GREEN}✓${NC} Prerequisites satisfied"
     echo ""
@@ -163,40 +149,27 @@ run_test_suite() {
 
 # Run all integration tests
 run_all_tests() {
-    # Check if Phase A components exist
-    local phase_a_required=(
-        "$PROJECT_ROOT/hooks/PostToolUse/retry_handler.sh"
-        "$PROJECT_ROOT/hooks/PostToolUse/execution_logger.sh"
-    )
-
-    local phase_a_implemented=true
-    for component in "${phase_a_required[@]}"; do
-        if [[ ! -f "$component" ]]; then
-            phase_a_implemented=false
-            break
-        fi
-    done
-
     local test_files=()
 
-    # Only add Phase A tests if components are implemented
-    if [[ "$phase_a_implemented" == "true" ]]; then
-        test_files+=("$INTEGRATION_DIR/test_phase_a.sh")
-    else
-        echo -e "${YELLOW}Skipping Phase A tests: Components not yet implemented${NC}"
-        echo -e "${YELLOW}Required components:${NC}"
-        for component in "${phase_a_required[@]}"; do
-            echo -e "${YELLOW}  - $(basename "$component")${NC}"
-        done
-        echo ""
-    fi
+    # Dynamically discover all test_*.sh files in tests directory and subdirectories
+    # Exclude test_utils.sh as it contains helper functions, not tests
+    while IFS= read -r -d '' test_file; do
+        local basename=$(basename "$test_file")
+        # Skip utility files that aren't actual test suites
+        if [[ "$basename" != "test_utils.sh" ]]; then
+            test_files+=("$test_file")
+        fi
+    done < <(find "$TESTS_DIR" -name 'test_*.sh' -type f -print0 | sort -z)
 
     # If no tests to run, report success
     if [[ ${#test_files[@]} -eq 0 ]]; then
-        echo -e "${GREEN}No tests to run (Phase A pending implementation)${NC}"
+        echo -e "${YELLOW}No test files found in $TESTS_DIR${NC}"
         echo ""
         return 0
     fi
+
+    echo -e "${CYAN}Discovered ${#test_files[@]} test suite(s)${NC}"
+    echo ""
 
     local total_tests=0
     local passed_tests=0
@@ -232,7 +205,8 @@ run_all_tests() {
     local overall_duration=$((overall_end - overall_start))
 
     # Print final summary
-    print_final_summary "$total_tests" "$passed_tests" "$failed_tests" "$overall_duration" "${failed_test_names[@]}"
+    # Use "${failed_test_names[@]:-}" to safely handle empty array in strict mode
+    print_final_summary "$total_tests" "$passed_tests" "$failed_tests" "$overall_duration" "${failed_test_names[@]:-}"
 
     # Return exit code
     [[ $failed_tests -eq 0 ]]
@@ -249,7 +223,7 @@ print_final_summary() {
 
     echo ""
     echo -e "${BLUE}=========================================${NC}"
-    echo -e "${BLUE}INTEGRATION TEST SUMMARY${NC}"
+    echo -e "${BLUE}TEST SUMMARY${NC}"
     echo -e "${BLUE}=========================================${NC}"
     echo -e "Total Test Suites: ${BLUE}$total${NC}"
     echo -e "Passed:            ${GREEN}$passed${NC}"
@@ -258,11 +232,11 @@ print_final_summary() {
     echo -e "${BLUE}=========================================${NC}"
 
     if [[ $failed -eq 0 ]]; then
-        echo -e "${GREEN}✓ ALL INTEGRATION TESTS PASSED${NC}"
+        echo -e "${GREEN}✓ ALL TESTS PASSED${NC}"
         echo ""
         return 0
     else
-        echo -e "${RED}✗ SOME INTEGRATION TESTS FAILED${NC}"
+        echo -e "${RED}✗ SOME TESTS FAILED${NC}"
         echo ""
         echo -e "${RED}Failed test suites:${NC}"
         for name in "${failed_names[@]}"; do
@@ -278,49 +252,20 @@ run_coverage_analysis() {
     echo -e "${CYAN}Running coverage analysis...${NC}"
     echo ""
 
-    # Components to check
-    # TODO: view-execution-log.sh not yet implemented
-    local components=(
-        "hooks/PostToolUse/retry_handler.sh:Retry Handler"
-        "hooks/PostToolUse/execution_logger.sh:Execution Logger"
-        "hooks/lib/retry_manager.py:Retry Manager (Python)"
-        "hooks/lib/log_writer.py:Log Writer (Python)"
-    )
-    # Add view-execution-log.sh only if it exists
-    if [[ -f "$HOME/.claude/scripts/view-execution-log.sh" ]]; then
-        components+=("scripts/view-execution-log.sh:View Execution Log")
-    fi
-
-    echo -e "${BLUE}Component Coverage Analysis:${NC}"
-    echo ""
-
-    for component_info in "${components[@]}"; do
-        IFS=':' read -r component_path component_name <<< "$component_info"
-        local full_path="$HOME/.claude/$component_path"
-
-        if [[ ! -f "$full_path" ]]; then
-            full_path="$PROJECT_ROOT/$component_path"
-        fi
-
-        if [[ -f "$full_path" ]]; then
-            echo -e "${GREEN}✓${NC} $component_name"
-            echo -e "  Path: $full_path"
-        else
-            echo -e "${YELLOW}?${NC} $component_name (not found)"
-        fi
-    done
-
-    echo ""
     echo -e "${CYAN}Test Coverage Metrics:${NC}"
     echo ""
 
     # Count test assertions
-    local total_assertions=$(grep -r "assert" "$INTEGRATION_DIR" | wc -l | tr -d ' ')
+    local total_assertions=$(grep -r "assert" "$TESTS_DIR" --include="test_*.sh" | wc -l | tr -d ' ')
     echo -e "Total Assertions: ${BLUE}$total_assertions${NC}"
 
     # Count test functions
-    local total_test_functions=$(grep -r "^test_" "$INTEGRATION_DIR" | wc -l | tr -d ' ')
+    local total_test_functions=$(grep -r "^test_" "$TESTS_DIR" --include="test_*.sh" | wc -l | tr -d ' ')
     echo -e "Test Functions:   ${BLUE}$total_test_functions${NC}"
+
+    # Count test files
+    local total_test_files=$(find "$TESTS_DIR" -name 'test_*.sh' -type f ! -name 'test_utils.sh' | wc -l | tr -d ' ')
+    echo -e "Test Files:       ${BLUE}$total_test_files${NC}"
 
     echo ""
 }
@@ -328,7 +273,7 @@ run_coverage_analysis() {
 # Cleanup function
 cleanup() {
     echo -e "${CYAN}Cleaning up temporary files...${NC}"
-    rm -f /tmp/test_phase_a_output.log
+    rm -f /tmp/test_*_output.log
     echo -e "${GREEN}✓${NC} Cleanup complete"
 }
 
@@ -340,7 +285,7 @@ main() {
     # Print header
     echo -e "${BLUE}"
     echo "========================================="
-    echo "  INTEGRATION TEST RUNNER"
+    echo "  TEST RUNNER"
     echo "  Claude Code Delegation System"
     echo "========================================="
     echo -e "${NC}"

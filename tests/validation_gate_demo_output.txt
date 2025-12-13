@@ -18,7 +18,7 @@ Phase Summary:
 
   [✓] Phase 3: Generate cleanup report
       Agent: general-purpose
-      Deliverables: /Users/nadavbarkai/dev/claude-code-delegation-system/test-logs/cleanup_report_20251117.txt
+      Deliverables: /Users/nadavbarkai/dev/claude-code-workflow-orchestration/test-logs/cleanup_report_20251117.txt
 
 Final Deliverables:
   - 5 log files successfully deleted from ./test-logs directory

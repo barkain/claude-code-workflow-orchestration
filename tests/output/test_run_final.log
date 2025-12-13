@@ -88,8 +88,8 @@
   ✓ Rapid successive reads: Maintains consistency
 
 [0;34mTest Artifacts:[0m
-  Test Suite: /Users/nadavbarkai/dev/claude-code-delegation-system/tests/unit/test_validation_blocking.sh
-  Report Location: /Users/nadavbarkai/dev/claude-code-delegation-system/tests/output/validation_blocking_report.txt
+  Test Suite: /Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/unit/test_validation_blocking.sh
+  Report Location: /Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/output/validation_blocking_report.txt
 awk: syntax error at source line 1
  context is
 	BEGIN >>>  printf <<<  "%.1f"

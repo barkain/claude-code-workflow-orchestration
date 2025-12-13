@@ -49,7 +49,7 @@ rules            validation
 
 #### 1. `semantic_validation()` Function
 
-**Location:** `/Users/nadavbarkai/dev/claude-code-delegation-system/hooks/PostToolUse/validation_gate.sh` (lines 307-503)
+**Location:** `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/hooks/PostToolUse/validation_gate.sh` (lines 307-503)
 
 **Purpose:** Compare task objectives with subagent deliverables using AI
 
@@ -281,7 +281,7 @@ export PATH="/tmp:$PATH"
 
 2. **Source the validation_gate.sh script**:
 ```bash
-source /Users/nadavbarkai/dev/claude-code-delegation-system/hooks/PostToolUse/validation_gate.sh
+source /Users/nadavbarkai/dev/claude-code-workflow-orchestration/hooks/PostToolUse/validation_gate.sh
 ```
 
 3. **Test with sample inputs**:
@@ -337,7 +337,7 @@ echo '{
   },
   "sessionId": "test_session",
   "workflowId": "test_workflow"
-}' | /Users/nadavbarkai/dev/claude-code-delegation-system/hooks/PostToolUse/validation_gate.sh
+}' | /Users/nadavbarkai/dev/claude-code-workflow-orchestration/hooks/PostToolUse/validation_gate.sh
 ```
 
 4. **Check logs and state**:
@@ -449,7 +449,7 @@ which claude
 
 ### Files Modified
 
-1. **`/Users/nadavbarkai/dev/claude-code-delegation-system/hooks/PostToolUse/validation_gate.sh`**
+1. **`/Users/nadavbarkai/dev/claude-code-workflow-orchestration/hooks/PostToolUse/validation_gate.sh`**
    - Added `semantic_validation()` function (lines 307-503)
    - Modified `main()` function to integrate semantic validation (lines 755-940)
    - Total additions: ~250 lines of code

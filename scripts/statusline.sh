@@ -5,6 +5,9 @@
 ################################################################################
 
 # Configuration
+# NOTE: These session paths (~/.claude/sessions/ and ~/.claude/projects/) are aspirational
+# infrastructure for custom session tracking. They don't exist in standard Claude Code.
+# The script falls back to recursive search in ~/.claude/ if these directories aren't found.
 readonly SUMMARY_BASE_DIR="$HOME/.claude/sessions"
 readonly DEBUG_LOG="/tmp/statusline_debug.log"
 
@@ -130,10 +133,12 @@ find_session_file() {
         return 0
     fi
     
-    # Method 4: Search in all .claude subdirectories
+    # Method 4: Fallback - recursive search in all .claude subdirectories
+    # This fallback is needed because ~/.claude/sessions/ and ~/.claude/projects/ are aspirational
+    # and don't exist in standard Claude Code installations
     local found_file=$(find "$HOME/.claude" -name "${session_id}.jsonl" -type f 2>/dev/null | head -1)
     if [[ -n "$found_file" ]]; then
-        debug_log "Found session file (search): $found_file"
+        debug_log "Found session file (fallback recursive search): $found_file"
         echo "$found_file"
         return 0
     fi

@@ -36,6 +36,35 @@ The **main agent** (you are reading this now) receives the orchestrator's recomm
 
 ---
 
+## Automatic Verification Injection
+
+**CRITICAL:** The delegation system automatically injects verification phases for ALL workflows.
+
+### Minimum 2-Phase Structure
+
+ALL workflows have minimum 2 phases:
+- **Phase 1:** Implementation (create, build, design, refactor, etc.)
+- **Phase 2:** Verification (validate implementation meets acceptance criteria)
+
+Even simple single-file tasks like "Create calculator.py" follow this structure:
+1. Implementation phase: Create the file
+2. Verification phase: Validate file exists, functions work, type hints present
+
+### How Verification Injection Works
+
+1. Orchestrator identifies implementation phases
+2. Automatically creates verification phase for each implementation
+3. Verification uses task-completion-verifier or phase-validator agent
+4. Verification scheduled in wave after implementation completes
+
+### Verification Verdicts
+
+- **PASS:** Proceed to next phase
+- **FAIL:** Re-implementation with remediation steps
+- **PASS_WITH_MINOR_ISSUES:** Proceed with warnings tracked
+
+---
+
 ## Available Specialized Agents
 
 The orchestrator has access to these specialized agents:
@@ -503,6 +532,63 @@ Extract from orchestrator's output:
 - Note the context passing requirements for subsequent phases
 
 **Important:** For multi-step workflows, immediately create a TodoWrite task list capturing all phases from the orchestrator's recommendation. This ensures systematic progress tracking and transparent communication with the user throughout the workflow execution.
+
+---
+
+### Step 2.5: Initialize Task Graph State (Multi-Step Only)
+
+**For Multi-Step Workflows with JSON Execution Plan:**
+
+1. **Locate JSON Execution Plan:**
+   - Find section titled "REQUIRED: Execution Plan (Machine-Parsable)"
+   - Extract complete JSON between code fence markers
+
+2. **Parse and Validate:**
+   - Parse JSON to verify valid structure
+   - Validate schema_version == "1.0"
+   - Verify all required fields present
+
+3. **Initialize State File:**
+   - Create `.claude/state/active_task_graph.json`
+   - Include: execution_plan, phase_status (all "pending"), wave_status, current_wave=0
+
+4. **Verify Enforcement Active:**
+   - State file presence signals hooks to enforce compliance
+   - PreToolUse hook will validate all Task invocations against this plan
+
+**CRITICAL:** If JSON execution plan is present, you MUST initialize state file before executing any phases.
+
+---
+
+### Step 3: Execute According to Wave Structure
+
+**Phase Invocation Format (MANDATORY):**
+
+Every Task tool invocation MUST include phase ID marker:
+
+```
+Phase ID: phase_0_0
+Agent: codebase-context-analyzer
+
+[Delegation prompt from orchestrator for this phase]
+```
+
+**Wave Execution Protocol:**
+
+**For Sequential Waves:**
+- Execute one phase at a time
+- Wait for completion before next phase
+
+**For Parallel Waves (`wave.parallel_execution == true`):**
+- Invoke ALL wave phases in SINGLE message
+- Do NOT wait between individual invocations
+
+**Wave Transition:**
+- PostToolUse hook automatically advances current_wave when all phases complete
+- You will see message: "✅ Wave N complete. Advanced to Wave N+1."
+- Proceed to next wave's phases
+
+---
 
 ### STAGE 2: EXECUTION (Delegation to Specialized Agents)
 
@@ -1160,3 +1246,63 @@ Execute the delegation process now using Steps 1-4 above.
 - Parse the delegation prompt from orchestrator's structured output
 - Use the extracted prompt verbatim when spawning the specialized agent
 - The main agent will automatically interpret your instructions and spawn the correct subagents using Claude's built-in subagent system
+
+---
+
+## ⚠️ TASK GRAPH COMPLIANCE - BINDING CONTRACT
+
+When the delegation-orchestrator returns an execution plan with a JSON task graph, the main agent MUST treat it as a **BINDING CONTRACT**.
+
+### CRITICAL RULES - NO EXCEPTIONS
+
+1. **PARSE JSON EXECUTION PLAN IMMEDIATELY**
+   - Extract JSON from "Execution Plan JSON" code fence
+   - Write to `.claude/state/active_task_graph.json`
+   - This JSON is a **BINDING CONTRACT** you MUST follow exactly
+
+2. **PROHIBITED ACTIONS**
+   - ❌ PROHIBITED: Simplifying the execution plan
+   - ❌ PROHIBITED: Collapsing parallel waves to sequential
+   - ❌ PROHIBITED: Changing agent assignments
+   - ❌ PROHIBITED: Reordering phases
+   - ❌ PROHIBITED: Skipping phases
+   - ❌ PROHIBITED: Adding phases not in plan
+   - ❌ PROHIBITED: Deciding "this is simple enough to do in one step"
+   - ❌ PROHIBITED: Summarizing or condensing the orchestrator's breakdown
+
+3. **EXACT WAVE EXECUTION REQUIRED**
+   - Execute Wave 0 before Wave 1, Wave 1 before Wave 2
+   - For parallel waves (`wave.parallel_execution == true`):
+     - Spawn ALL phase Tasks in SINGLE message (concurrent execution)
+     - Do NOT wait between individual spawns
+   - For sequential waves:
+     - Execute phases in order, waiting for completion
+
+4. **PHASE ID MARKERS MANDATORY**
+   - EVERY Task invocation MUST include phase ID in prompt:
+     ```
+     Phase ID: phase_0_0
+     Agent: [agent-name]
+
+     [Task description...]
+     ```
+
+5. **ESCAPE HATCH (Legitimate Exceptions Only)**
+   - If execution plan appears genuinely impractical:
+     1. Do NOT simplify
+     2. Use `/ask` to notify user of concern
+     3. Wait for user decision to override or proceed
+   - Legitimate concerns:
+     - Orchestrator assigned non-existent agent
+     - Phase dependencies form circular loop
+     - Resource constraints make parallel execution unsafe
+   - NOT legitimate: "Plan seems complex" or "Sequential feels safer"
+
+### Why This Matters
+
+The orchestrator has analyzed task dependencies, selected specialized agents, and planned optimal execution order. Overriding this analysis:
+- Loses the benefit of specialized agent expertise
+- Breaks dependency management
+- Defeats the purpose of the delegation system
+
+**Trust the orchestrator. Execute the plan exactly as specified.**

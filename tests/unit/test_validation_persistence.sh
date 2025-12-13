@@ -3,7 +3,7 @@
 # Unit Test Suite: Validation State Persistence Mechanism
 #
 # Purpose: Comprehensive testing of persist_validation_state() function
-# Target: /Users/nadavbarkai/dev/claude-code-delegation-system/hooks/PostToolUse/validation_gate.sh
+# Target: /Users/nadavbarkai/dev/claude-code-workflow-orchestration/hooks/PostToolUse/validation_gate.sh
 # Coverage: 13 test scenarios (core functionality, error handling, edge cases)
 #
 # Author: Claude Code Delegation System

@@ -2,8 +2,8 @@
 
 ## Overview
 
-**Implementation File:** `/Users/nadavbarkai/dev/claude-code-delegation-system/hooks/PostToolUse/validation_gate.sh`
-**Test Suite:** `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/unit/test_validation_blocking.sh`
+**Implementation File:** `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/hooks/PostToolUse/validation_gate.sh`
+**Test Suite:** `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/unit/test_validation_blocking.sh`
 **Coverage:** Estimated 95%+ of critical code paths
 
 ---

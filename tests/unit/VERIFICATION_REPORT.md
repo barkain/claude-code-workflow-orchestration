@@ -19,7 +19,7 @@ The validation state persistence mechanism has been thoroughly tested with 27 co
 
 ### Requirement 1: Test Script Creation
 - **Status:** MET
-- **Evidence:** Test script created at `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/unit/test_validation_persistence.sh`
+- **Evidence:** Test script created at `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/unit/test_validation_persistence.sh`
 - **File Permissions:** Executable (chmod +x applied)
 - **Implementation:** 750 lines of comprehensive test code
 
@@ -154,7 +154,7 @@ Created comprehensive test suite with 27 test scenarios across 3 priority levels
 - Schema enum compliance (3 assertions: PASSED, FAILED, UNKNOWN)
 
 **Test Script Location:**
-`/Users/nadavbarkai/dev/claude-code-delegation-system/tests/unit/test_validation_persistence.sh`
+`/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/unit/test_validation_persistence.sh`
 
 ---
 
@@ -251,24 +251,24 @@ All integration points verified in Phase 2 testing:
 
 **Test Script:**
 ```
-/Users/nadavbarkai/dev/claude-code-delegation-system/tests/unit/test_validation_persistence.sh
+/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/unit/test_validation_persistence.sh
 ```
 
 **Implementation File:**
 ```
-/Users/nadavbarkai/dev/claude-code-delegation-system/hooks/PostToolUse/validation_gate.sh
+/Users/nadavbarkai/dev/claude-code-workflow-orchestration/hooks/PostToolUse/validation_gate.sh
 Lines 62-143 (persist_validation_state function)
 ```
 
 **Schema File:**
 ```
-/Users/nadavbarkai/dev/claude-code-delegation-system/.claude/state/validation/validation_schema.json
+/Users/nadavbarkai/dev/claude-code-workflow-orchestration/.claude/state/validation/validation_schema.json
 Lines 211-307 (execution_state section)
 ```
 
 **Test Results:**
 ```
-/Users/nadavbarkai/dev/claude-code-delegation-system/tests/unit/test_validation_persistence_results.txt
+/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/unit/test_validation_persistence_results.txt
 ```
 
 ### Code Snippets
@@ -388,7 +388,7 @@ One minor edge case improvement was identified (validation_status enum validatio
 
 **Test Command:**
 ```bash
-/Users/nadavbarkai/dev/claude-code-delegation-system/tests/unit/test_validation_persistence.sh
+/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/unit/test_validation_persistence.sh
 ```
 
 **Test Output Summary:**
@@ -401,9 +401,9 @@ Coverage:     Priority 1 (5/5), Priority 2 (5/5), Priority 3 (3/3)
 ```
 
 **Test Artifacts:**
-- Test script: `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/unit/test_validation_persistence.sh`
-- Test results: `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/unit/test_validation_persistence_results.txt`
-- Verification report: `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/unit/VERIFICATION_REPORT.md` (this file)
+- Test script: `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/unit/test_validation_persistence.sh`
+- Test results: `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/unit/test_validation_persistence_results.txt`
+- Verification report: `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/unit/VERIFICATION_REPORT.md` (this file)
 
 ---
 

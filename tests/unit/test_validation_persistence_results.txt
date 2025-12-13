@@ -2,8 +2,8 @@
 VALIDATION STATE PERSISTENCE TEST SUITE RESULTS
 ================================================================================
 
-Test Script: /Users/nadavbarkai/dev/claude-code-delegation-system/tests/unit/test_validation_persistence.sh
-Target Implementation: /Users/nadavbarkai/dev/claude-code-delegation-system/hooks/PostToolUse/validation_gate.sh
+Test Script: /Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/unit/test_validation_persistence.sh
+Target Implementation: /Users/nadavbarkai/dev/claude-code-workflow-orchestration/hooks/PostToolUse/validation_gate.sh
 Function Tested: persist_validation_state()
 Execution Date: 2025-11-15
 Execution Time: <1 second
@@ -223,10 +223,10 @@ TEST ARTIFACTS
 ================================================================================
 
 Test Script:
-  /Users/nadavbarkai/dev/claude-code-delegation-system/tests/unit/test_validation_persistence.sh
+  /Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/unit/test_validation_persistence.sh
 
 Test State Directory (cleaned up after execution):
-  /Users/nadavbarkai/dev/claude-code-delegation-system/.claude/state/validation/test
+  /Users/nadavbarkai/dev/claude-code-workflow-orchestration/.claude/state/validation/test
 
 Generated State Files (examples from test execution):
   - phase_wf_test_001_phase_1_test_validation.json
@@ -235,7 +235,7 @@ Generated State Files (examples from test execution):
   - ... (27 total test scenarios)
 
 Log File (test execution logs):
-  /Users/nadavbarkai/dev/claude-code-delegation-system/.claude/state/validation/test/test_gate_invocations.log
+  /Users/nadavbarkai/dev/claude-code-workflow-orchestration/.claude/state/validation/test/test_gate_invocations.log
 
 ================================================================================
 CONCLUSION

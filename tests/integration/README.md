@@ -58,7 +58,7 @@ tests/
 ### Run All Tests
 
 ```bash
-cd /Users/nadavbarkai/dev/claude-code-delegation-system
+cd /Users/nadavbarkai/dev/claude-code-workflow-orchestration
 ./tests/run_integration_tests.sh
 ```
 

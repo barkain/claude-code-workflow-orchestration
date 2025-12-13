@@ -9,7 +9,7 @@
 set -euo pipefail
 
 # --- Configuration ---
-TEST_DIR="/Users/nadavbarkai/dev/claude-code-delegation-system"
+TEST_DIR="/Users/nadavbarkai/dev/claude-code-workflow-orchestration"
 STATE_DIR="$TEST_DIR/.claude/state"
 VALIDATION_DIR="$STATE_DIR/validation"
 HOOK_SCRIPT="$TEST_DIR/hooks/UserPromptSubmit/clear-delegation-sessions.sh"

@@ -12,7 +12,7 @@ Successfully implemented trigger detection logic for the Claude Code Delegation 
 
 ### 1. detect_validation_trigger() Function
 
-**Location**: `/Users/nadavbarkai/dev/claude-code-delegation-system/hooks/PostToolUse/validation_gate.sh` (Lines 51-111)
+**Location**: `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/hooks/PostToolUse/validation_gate.sh` (Lines 51-111)
 
 **Functionality**:
 - Reads JSON input from stdin (hook system format)
@@ -35,7 +35,7 @@ Successfully implemented trigger detection logic for the Claude Code Delegation 
 
 ### 2. should_validate_phase() Function
 
-**Location**: `/Users/nadavbarkai/dev/claude-code-delegation-system/hooks/PostToolUse/validation_gate.sh` (Lines 113-167)
+**Location**: `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/hooks/PostToolUse/validation_gate.sh` (Lines 113-167)
 
 **Functionality**:
 - Searches for validation config files in `.claude/state/validation/`
@@ -58,7 +58,7 @@ Successfully implemented trigger detection logic for the Claude Code Delegation 
 
 ### 3. Main Hook Logic Integration
 
-**Location**: `/Users/nadavbarkai/dev/claude-code-delegation-system/hooks/PostToolUse/validation_gate.sh` (Lines 195-247)
+**Location**: `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/hooks/PostToolUse/validation_gate.sh` (Lines 195-247)
 
 **Flow**:
 1. Ensure validation state directory exists
@@ -72,7 +72,7 @@ Successfully implemented trigger detection logic for the Claude Code Delegation 
 
 ## Test Suite
 
-**Location**: `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/unit/test_trigger_detection.sh`
+**Location**: `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/unit/test_trigger_detection.sh`
 
 **Test Coverage**: 18 tests, 100% passing
 
@@ -172,7 +172,7 @@ tail -n 5 .claude/state/validation/gate_invocations.log
 
 ## Files Modified
 
-1. `/Users/nadavbarkai/dev/claude-code-delegation-system/hooks/PostToolUse/validation_gate.sh`
+1. `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/hooks/PostToolUse/validation_gate.sh`
    - Lines 51-111: `detect_validation_trigger()` implementation
    - Lines 113-167: `should_validate_phase()` implementation
    - Lines 195-247: Main hook logic integration
@@ -180,13 +180,13 @@ tail -n 5 .claude/state/validation/gate_invocations.log
 
 ## Files Created
 
-1. `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/unit/test_trigger_detection.sh`
+1. `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/unit/test_trigger_detection.sh`
    - 18 comprehensive test cases
    - Test helpers for setup/cleanup
    - Color-coded output
    - Integration test scenarios
 
-2. `/Users/nadavbarkai/dev/claude-code-delegation-system/tests/unit/TRIGGER_DETECTION_SUMMARY.md`
+2. `/Users/nadavbarkai/dev/claude-code-workflow-orchestration/tests/unit/TRIGGER_DETECTION_SUMMARY.md`
    - This implementation summary document
 
 ## Next Steps (Future Micro-Steps)

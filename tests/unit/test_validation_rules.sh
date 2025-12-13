@@ -18,7 +18,7 @@ FAILED_TESTS=0
 
 # Test setup
 TEST_DIR="/tmp/phase_validator_tests_$$"
-AGENT_FILE="/Users/nadavbarkai/dev/claude-code-delegation-system/agents/phase-validator.md"
+AGENT_FILE="/Users/nadavbarkai/dev/claude-code-workflow-orchestration/agents/phase-validator.md"
 
 # Cleanup function
 cleanup() {

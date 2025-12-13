@@ -15,8 +15,11 @@ readonly BLUE='\033[0;34m'
 readonly YELLOW='\033[1;33m'
 readonly NC='\033[0m' # No Color
 
-# Directories and files to copy
-readonly DIRS_TO_COPY=("agents" "commands" "hooks" "output-styles" "scripts" "system-prompts")
+# Source directory containing installable files
+readonly SRC_DIR="src"
+
+# Directories and files to copy (relative to SRC_DIR)
+readonly DIRS_TO_COPY=("agents" "commands" "hooks" "scripts" "system-prompts")
 readonly FILES_TO_COPY=("settings.json")
 
 # Hooks that need to be made executable
@@ -66,15 +69,15 @@ validate_source() {
 
     # Check directories
     for dir in "${DIRS_TO_COPY[@]}"; do
-        if [[ ! -d "$SCRIPT_DIR/$dir" ]]; then
-            missing_items+=("directory: $dir")
+        if [[ ! -d "$SCRIPT_DIR/$SRC_DIR/$dir" ]]; then
+            missing_items+=("directory: $SRC_DIR/$dir")
         fi
     done
 
     # Check files
     for file in "${FILES_TO_COPY[@]}"; do
-        if [[ ! -f "$SCRIPT_DIR/$file" ]]; then
-            missing_items+=("file: $file")
+        if [[ ! -f "$SCRIPT_DIR/$SRC_DIR/$file" ]]; then
+            missing_items+=("file: $SRC_DIR/$file")
         fi
     done
 
@@ -157,17 +160,17 @@ copy_files() {
     # Copy directories
     for dir in "${DIRS_TO_COPY[@]}"; do
         print_info "Copying $dir/..."
-        if cp -r "$SCRIPT_DIR/$dir"/* "$claude_dir/$dir/" 2>/dev/null; then
+        if cp -r "$SCRIPT_DIR/$SRC_DIR/$dir"/* "$claude_dir/$dir/" 2>/dev/null; then
             print_success "Copied $dir/"
         else
-            print_warning "No files found in $dir/ or copy failed"
+            print_warning "No files found in $SRC_DIR/$dir/ or copy failed"
         fi
     done
 
     # Copy individual files
     for file in "${FILES_TO_COPY[@]}"; do
         print_info "Copying $file..."
-        if cp "$SCRIPT_DIR/$file" "$claude_dir/$file"; then
+        if cp "$SCRIPT_DIR/$SRC_DIR/$file" "$claude_dir/$file"; then
             print_success "Copied $file"
         else
             print_error "Failed to copy $file"

@@ -19,7 +19,7 @@ readonly NC='\033[0m' # No Color
 readonly SRC_DIR="src"
 
 # Directories and files to copy (relative to SRC_DIR)
-readonly DIRS_TO_COPY=("agents" "commands" "hooks" "scripts" "system-prompts")
+readonly DIRS_TO_COPY=("agents" "commands" "hooks" "scripts" "system-prompts" "output-styles")
 readonly FILES_TO_COPY=("settings.json")
 
 # Hooks that need to be made executable

@@ -40,7 +40,7 @@ This system uses Claude Code's hook mechanism to create a delegation-enforced wo
 
 ## Quick Start
 
-### Prerequisites (mac)
+### Prerequisites (macOS)
 - uv: https://docs.astral.sh/uv/getting-started/installation/
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh

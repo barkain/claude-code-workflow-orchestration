@@ -250,7 +250,7 @@ echo "=== Statusline run at $(date) ===" > "$DEBUG_LOG" 2>/dev/null
 TODAY=$(date +%Y%m%d)
 
 # Get today's usage data from ccusage
-DAILY_DATA=$(bunx ccusage daily --json --since $TODAY 2>/dev/null)
+DAILY_DATA=$(bunx ccusage@latest daily --json --since $TODAY 2>/dev/null)
 
 # Initialize variables
 LAST_PROMPT=""

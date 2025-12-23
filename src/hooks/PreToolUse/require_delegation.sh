@@ -42,7 +42,8 @@ SESSION_ID=$(echo "$STDIN_DATA" | grep -o '"session_id":"[^"]*"' | sed 's/"sessi
 ALLOWED_TOOLS=(
   "AskUserQuestion"
   "TodoWrite"
-  "SlashCommand"   # keep this to allow /delegate
+  "Skill"          # NEW: Claude Code 70+ tool name for slash commands
+  "SlashCommand"   # DEPRECATED: Keep for backwards compatibility
   "Task"           # allow delegation Task tool
   "SubagentTask"
   "AgentTask"
@@ -57,8 +58,8 @@ if [[ -n "$TOOL_NAME" ]]; then
     if [[ "$TOOL_NAME" == "$t" ]]; then
       [[ "$DEBUG_HOOK" == "1" ]] && echo "ALLOWED: Matched '$t'" >> "$DEBUG_FILE"
 
-      # If this is a Task or SlashCommand tool, mark this session as delegated
-      if [[ "$TOOL_NAME" == "Task" || "$TOOL_NAME" == "SubagentTask" || "$TOOL_NAME" == "AgentTask" || "$TOOL_NAME" == "SlashCommand" ]]; then
+      # If this is a Task or SlashCommand/Skill tool, mark this session as delegated
+      if [[ "$TOOL_NAME" == "Task" || "$TOOL_NAME" == "SubagentTask" || "$TOOL_NAME" == "AgentTask" || "$TOOL_NAME" == "SlashCommand" || "$TOOL_NAME" == "Skill" ]]; then
         STATE_DIR="${CLAUDE_PROJECT_DIR:-$PWD}/.claude/state"
         mkdir -p "$STATE_DIR"
         DELEGATED_SESSIONS_FILE="$STATE_DIR/delegated_sessions.txt"

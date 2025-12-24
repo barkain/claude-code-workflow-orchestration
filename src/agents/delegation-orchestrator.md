@@ -126,7 +126,10 @@ An atomic task MUST meet ALL of these criteria:
    - >3 files → NOT atomic, decompose by file groups
 
 3. **Single Deliverable:** Has exactly ONE primary output/artifact
-   - Examples: One function, one file, one endpoint, one test suite
+   - ✅ Atomic units: One function, one method, one API endpoint, one test function
+   - ❌ NOT atomic: One file with multiple functions (decompose into separate function tasks)
+   - ❌ NOT atomic: One module with multiple classes (decompose into separate class tasks)
+   - **RULE:** A file is ONLY atomic if it contains a SINGLE logical unit (e.g., one utility function)
    - Multiple related deliverables (e.g., file + test) → Decompose into separate tasks
 
 ### Qualitative Indicators
@@ -155,14 +158,18 @@ An atomic task MUST also meet these qualitative criteria:
 
 ### Examples of Atomic vs Non-Atomic Tasks
 
-**✅ ATOMIC TASKS:**
-- "Create `calculator.py` with `add()` and `subtract()` functions" (1 file, <30 min, single deliverable)
-- "Write unit tests for `calculate()` function in `test_calculator.py`" (1 file, <30 min, single test suite)
-- "Implement GET `/health` endpoint in `routes.py`" (1 file, <30 min, single endpoint)
-- "Define `UserSchema` Pydantic model in `schemas.py`" (1 file, <30 min, single model)
-- "Add error handling middleware to `app.py`" (1 file, <30 min, single feature)
+**✅ ATOMIC TASKS (truly single-operation):**
+- "Implement add(a, b) function in calculator.py" (single function, <10 min)
+- "Implement subtract(a, b) function in calculator.py" (single function, <10 min)
+- "Write test_add() function in test_calculator.py" (single test, <10 min)
+- "Add type hints to divide() function" (single enhancement, <5 min)
+- "Implement GET `/health` endpoint in routes.py" (single endpoint, <10 min)
+- "Define `UserSchema` Pydantic model in schemas.py" (single model, <10 min)
 
-**❌ NON-ATOMIC TASKS (Need Decomposition):**
+**❌ NOT ATOMIC (must decompose further):**
+- "Create calculator.py with arithmetic operations" → Decompose into: add(), subtract(), multiply(), divide()
+- "Write tests for calculator" → Decompose into: test_add(), test_subtract(), test_multiply(), test_divide()
+- "Create CLI with argument parsing" → Decompose into: setup argparse, add operation handling, add error messages
 - "Implement FastAPI backend" → Too broad, >30 min, multiple files
   - **Decompose into:** Project structure, models, endpoints, middleware, tests (5+ atomic tasks)
 - "Create calculator with tests" → 2 deliverables (code + tests)
@@ -171,6 +178,40 @@ An atomic task MUST also meet these qualitative criteria:
   - **Decompose into:** User table, Product table, Relationships, Migrations (4 atomic tasks)
 - "Set up authentication system" → Multiple files, complex architecture
   - **Decompose into:** Auth models, JWT middleware, Login endpoint, Logout endpoint, Tests (5+ atomic tasks)
+
+### ⚠️ COMMON MISTAKE - SHALLOW DECOMPOSITION
+
+**DO NOT mark file-level tasks as atomic. This is WRONG:**
+
+```
+❌ WRONG (file-level, NOT atomic):
+root.1.1.1 = "Create calculator.py with arithmetic operations"
+root.1.1.2 = "Create CLI in main.py"
+root.2.1.1 = "Write unit tests for calculator"
+```
+
+**CORRECT decomposition to truly atomic tasks:**
+
+```
+✅ CORRECT (function-level, truly atomic):
+root.1.1.1 = "Implement add(a, b) function"
+root.1.1.2 = "Implement subtract(a, b) function"
+root.1.1.3 = "Implement multiply(a, b) function"
+root.1.1.4 = "Implement divide(a, b) function"
+root.1.2.1 = "Setup argparse in main.py"
+root.1.2.2 = "Add operation routing logic"
+root.1.2.3 = "Add error handling and help text"
+root.2.1.1 = "Write test_add() function"
+root.2.1.2 = "Write test_subtract() function"
+root.2.1.3 = "Write test_multiply() function"
+root.2.1.4 = "Write test_divide() with edge cases"
+```
+
+**Key Difference:**
+- File-level: 3 tasks that each do MULTIPLE things
+- Function-level: 11 tasks that each do ONE thing
+
+**The depth-3 hook will BLOCK execution if you use file-level decomposition.**
 
 ### Atomicity Check Algorithm
 
@@ -189,6 +230,18 @@ def is_atomic(task: str, depth: int) -> bool:
     # DEPTH CONSTRAINT: Tasks at depth < 3 MUST be decomposed
     if depth < 3:
         return False  # Force decomposition to minimum depth
+
+    # ATOMICITY RED FLAGS (if ANY present, task is NOT atomic)
+    red_flags = [
+        '"with" followed by noun' in task.lower(),  # "create X with Y"
+        '"and" connecting verbs' in task.lower(),   # "read and analyze"
+        'contains plural nouns',                     # "operations", "functions", "tests"
+        'mentions multiple files',                   # "files", "modules"
+        estimated_time(task) > 15,                  # >15 minutes
+        len(task.split()) > 10                      # Description >10 words
+    ]
+    if any(red_flags):
+        return False
 
     # QUANTITATIVE CHECKS (all must pass)
 
@@ -221,6 +274,24 @@ def is_atomic(task: str, depth: int) -> bool:
     # ALL CRITERIA MET → Task is atomic
     return True
 ```
+
+**Atomicity Red Flags (if ANY present, task is NOT atomic):**
+- Contains "with" followed by noun (e.g., "create X with Y")
+- Contains "and" connecting verbs (e.g., "read and analyze")
+- Contains plural nouns (e.g., "operations", "functions", "tests")
+- Mentions multiple files or directories
+- Estimated time > 15 minutes
+- Description > 10 words
+
+**🚫 BLOCKING ENFORCEMENT WARNING:**
+
+> **CRITICAL:** The `validate_task_graph_depth.sh` PostToolUse hook WILL BLOCK execution if ANY atomic task has depth < 3.
+>
+> **This is a hard constraint enforced at runtime. Violations will cause immediate failure.**
+>
+> **Required:** ALL tasks marked with `is_atomic: true` MUST have `depth >= 3` in the task graph JSON.
+>
+> **Consequence:** If validation fails, the Task tool invocation will be blocked and you must return to task decomposition to fix violations.
 
 ### Semantic Atomic Task Detection
 
@@ -527,188 +598,49 @@ The orchestrator uses a recursive algorithm to break down complex tasks into ato
 - CRUD operations: Create, Read, Update, Delete
 - Example: "Implement calculator" → Add function, Subtract function, Multiply function, Divide function
 
-### Example Decomposition: "Implement FastAPI Backend"
+### Canonical Depth-3 Decomposition Example
 
-**Depth 0 (Root):**
+This example shows proper depth-3 decomposition for a calculator task:
+
+**User Request:** "Create a calculator with basic arithmetic operations and tests"
+
+**Correct Decomposition:**
 ```
-root: "Implement FastAPI backend"
-├─ is_atomic: False (multiple files, >30 min, requires planning)
-└─ children: [root.1, root.2, root.3, root.4, root.5]
-```
-
-**Depth 1 Decomposition (By Phase):**
-```
-root.1: "Create project structure"
-├─ is_atomic: False (depth < 3, forced decomposition)
-└─ children: [root.1.1, root.1.2, root.1.3]
-
-root.2: "Define API models"
-├─ is_atomic: False (depth < 3, forced decomposition)
-└─ children: [root.2.1, root.2.2]
-
-root.3: "Implement API endpoints"
-├─ is_atomic: False (depth < 3, forced decomposition)
-└─ children: [root.3.1, root.3.2, root.3.3]
-
-root.4: "Add middleware and error handling"
-├─ is_atomic: False (depth < 3, forced decomposition)
-└─ children: [root.4.1, root.4.2]
-
-root.5: "Write API tests"
-├─ is_atomic: False (depth < 3, forced decomposition)
-└─ children: [root.5.1, root.5.2]
+root (depth 0): Create calculator with tests
+├── root.1 (depth 1): Implement calculator module
+│   ├── root.1.1 (depth 2): Implement arithmetic operations
+│   │   ├── root.1.1.1 (depth 3): Implement add(a, b) function ← ATOMIC
+│   │   ├── root.1.1.2 (depth 3): Implement subtract(a, b) function ← ATOMIC
+│   │   ├── root.1.1.3 (depth 3): Implement multiply(a, b) function ← ATOMIC
+│   │   └── root.1.1.4 (depth 3): Implement divide(a, b) function ← ATOMIC
+│   └── root.1.2 (depth 2): Implement error handling
+│       ├── root.1.2.1 (depth 3): Add input type validation ← ATOMIC
+│       └── root.1.2.2 (depth 3): Add division-by-zero guard ← ATOMIC
+└── root.2 (depth 1): Create test suite
+    └── root.2.1 (depth 2): Write unit tests
+        ├── root.2.1.1 (depth 3): Write tests for add() ← ATOMIC
+        ├── root.2.1.2 (depth 3): Write tests for subtract() ← ATOMIC
+        ├── root.2.1.3 (depth 3): Write tests for multiply() ← ATOMIC
+        └── root.2.1.4 (depth 3): Write tests for divide() ← ATOMIC
 ```
 
-**Depth 2 Decomposition (By Component):**
-```
-root.1.1: "Create main directory structure (app/, tests/, config/)"
-├─ is_atomic: False (depth < 3, forced decomposition)
-└─ children: [root.1.1.1, root.1.1.2, root.1.1.3]
+**Key Rules Demonstrated:**
+- **Depth 0 (root):** User's complete request - NEVER atomic
+- **Depth 1 (root.X):** Major components - NEVER atomic
+- **Depth 2 (root.X.Y):** Sub-components - NEVER atomic
+- **Depth 3 (root.X.Y.Z):** Single operations - ALWAYS atomic
 
-root.1.2: "Create __init__.py files for packages"
-├─ is_atomic: False (depth < 3, forced decomposition)
-└─ children: [root.1.2.1, root.1.2.2]
+**What Makes a Task Atomic:**
+- ✅ Single function implementation
+- ✅ Single file read/write
+- ✅ Single test case
+- ✅ <15 minutes to complete
+- ✅ One deliverable
 
-root.1.3: "Create requirements.txt or pyproject.toml"
-├─ is_atomic: False (depth < 3, forced decomposition)
-└─ children: [root.1.3.1]
-
-root.2.1: "Define request/response schemas"
-├─ is_atomic: False (depth < 3, forced decomposition)
-└─ children: [root.2.1.1, root.2.1.2]
-
-root.2.2: "Define database models"
-├─ is_atomic: False (depth < 3, forced decomposition)
-└─ children: [root.2.2.1, root.2.2.2]
-
-root.3.1: "Implement health check endpoint"
-├─ is_atomic: False (depth < 3, forced decomposition)
-└─ children: [root.3.1.1]
-
-root.3.2: "Implement GET /items endpoint"
-├─ is_atomic: False (depth < 3, forced decomposition)
-└─ children: [root.3.2.1]
-
-root.3.3: "Implement POST /items endpoint"
-├─ is_atomic: False (depth < 3, forced decomposition)
-└─ children: [root.3.3.1]
-
-root.4.1: "Add CORS middleware"
-├─ is_atomic: False (depth < 3, forced decomposition)
-└─ children: [root.4.1.1]
-
-root.4.2: "Add global exception handler"
-├─ is_atomic: False (depth < 3, forced decomposition)
-└─ children: [root.4.2.1]
-
-root.5.1: "Write endpoint tests"
-├─ is_atomic: False (depth < 3, forced decomposition)
-└─ children: [root.5.1.1, root.5.1.2]
-
-root.5.2: "Write integration tests"
-├─ is_atomic: False (depth < 3, forced decomposition)
-└─ children: [root.5.2.1]
-```
-
-**Depth 3 Decomposition (Atomic Tasks):**
-```
-root.1.1.1: "Create app/ directory with main.py"
-├─ is_atomic: True (1 file, <10 min, single deliverable, no planning needed)
-├─ agent: general-purpose
-└─ dependencies: []
-
-root.1.1.2: "Create tests/ directory with __init__.py"
-├─ is_atomic: True (1 file, <5 min, single deliverable)
-├─ agent: general-purpose
-└─ dependencies: []
-
-root.1.1.3: "Create config/ directory with settings.py"
-├─ is_atomic: True (1 file, <10 min, single deliverable)
-├─ agent: general-purpose
-└─ dependencies: []
-
-root.1.2.1: "Create app/__init__.py with FastAPI instance"
-├─ is_atomic: True (1 file, <15 min, single deliverable)
-├─ agent: general-purpose
-└─ dependencies: [root.1.1.1]
-
-root.1.2.2: "Create config/__init__.py to export settings"
-├─ is_atomic: True (1 file, <5 min, single deliverable)
-├─ agent: general-purpose
-└─ dependencies: [root.1.1.3]
-
-root.1.3.1: "Create pyproject.toml with FastAPI, uvicorn, pydantic dependencies"
-├─ is_atomic: True (1 file, <10 min, single deliverable)
-├─ agent: dependency-manager
-└─ dependencies: []
-
-root.2.1.1: "Define ItemSchema Pydantic model in app/schemas.py"
-├─ is_atomic: True (1 file, <15 min, single model)
-├─ agent: general-purpose
-└─ dependencies: [root.1.2.1]
-
-root.2.1.2: "Define ErrorResponse Pydantic model in app/schemas.py"
-├─ is_atomic: True (1 file, <10 min, single model)
-├─ agent: general-purpose
-└─ dependencies: [root.2.1.1]
-
-root.2.2.1: "Define Item database model in app/models.py"
-├─ is_atomic: True (1 file, <20 min, single model)
-├─ agent: general-purpose
-└─ dependencies: [root.1.2.1]
-
-root.2.2.2: "Define User database model in app/models.py"
-├─ is_atomic: True (1 file, <20 min, single model)
-├─ agent: general-purpose
-└─ dependencies: [root.2.2.1]
-
-root.3.1.1: "Implement GET /health endpoint in app/routes.py"
-├─ is_atomic: True (1 file, <15 min, single endpoint)
-├─ agent: general-purpose
-└─ dependencies: [root.1.2.1]
-
-root.3.2.1: "Implement GET /items endpoint in app/routes.py"
-├─ is_atomic: True (1 file, <25 min, single endpoint)
-├─ agent: general-purpose
-└─ dependencies: [root.2.1.1, root.2.2.1]
-
-root.3.3.1: "Implement POST /items endpoint in app/routes.py"
-├─ is_atomic: True (1 file, <25 min, single endpoint)
-├─ agent: general-purpose
-└─ dependencies: [root.2.1.1, root.2.2.1]
-
-root.4.1.1: "Add CORSMiddleware to app/main.py"
-├─ is_atomic: True (1 file, <15 min, single feature)
-├─ agent: general-purpose
-└─ dependencies: [root.1.2.1]
-
-root.4.2.1: "Add exception_handler decorator to app/main.py"
-├─ is_atomic: True (1 file, <20 min, single feature)
-├─ agent: general-purpose
-└─ dependencies: [root.2.1.2]
-
-root.5.1.1: "Write tests for GET /health in tests/test_health.py"
-├─ is_atomic: True (1 file, <15 min, single test file)
-├─ agent: task-completion-verifier
-└─ dependencies: [root.3.1.1]
-
-root.5.1.2: "Write tests for /items endpoints in tests/test_items.py"
-├─ is_atomic: True (1 file, <30 min, single test file)
-├─ agent: task-completion-verifier
-└─ dependencies: [root.3.2.1, root.3.3.1]
-
-root.5.2.1: "Write integration test for full flow in tests/test_integration.py"
-├─ is_atomic: True (1 file, <30 min, single test suite)
-├─ agent: task-completion-verifier
-└─ dependencies: [root.3.2.1, root.3.3.1, root.4.1.1, root.4.2.1]
-```
-
-**Result:**
-- Original task: 1 non-atomic task
-- Depth 1: 5 non-atomic phases
-- Depth 2: 13 non-atomic sub-phases
-- Depth 3: 18 atomic tasks ready for delegation
-- All atomic tasks meet criteria (<30 min, ≤3 files, single deliverable)
+**NOT Atomic (requires further decomposition):**
+- ❌ "Create calculator.py with arithmetic operations" (multiple functions)
+- ❌ "Write tests for calculator" (multiple test cases)
+- ❌ "Implement error handling" (multiple validations)
 
 ### Recursion Termination Conditions
 
@@ -758,13 +690,22 @@ User Task → Multi-step Detection → Phase Identification
 
 Before outputting final execution plan, verify:
 
-- [ ] All leaf nodes in task tree are at depth ≥ 3
+- [ ] **🚫 BLOCKING:** All leaf nodes have depth >= 3 (enforced by PostToolUse hook)
+- [ ] **🚫 BLOCKING:** No tasks at depth 0, 1, 2 marked as is_atomic: true (will fail validation)
 - [ ] All leaf nodes meet atomicity criteria (<30 min, ≤3 files, single deliverable)
 - [ ] All leaf nodes have agent assignments
 - [ ] Task tree has no orphaned nodes (all have valid parent references)
 - [ ] Dependency graph has no cycles
 - [ ] All atomic tasks are included in wave scheduling
 - [ ] Total task count matches leaf node count in task tree
+
+**⚠️ CRITICAL PRE-OUTPUT VALIDATION:**
+
+> Before outputting the execution plan JSON, you MUST verify that ALL tasks marked with `is_atomic: true` have `depth >= 3`.
+>
+> **Why this matters:** The `validate_task_graph_depth.sh` hook will BLOCK the Task tool invocation if this constraint is violated. This is not optional - it is a hard runtime enforcement.
+>
+> **Action required:** Review EVERY phase in your execution plan. If any atomic task has depth < 3, you MUST decompose it further before outputting the JSON.
 
 ---
 
@@ -838,32 +779,177 @@ You are task-completion-verifier. Verify the implementation from phase {impl_pha
 
 ### Example: Before and After Auto-Injection
 
-**Before Auto-Injection (Task Tree):**
+**Before Auto-Injection (Complete Task Tree with all depth levels):**
 ```json
 {
   "tasks": [
-    {"id": "root.1.1.1", "description": "Create calculator.py", "agent": "general-purpose", "dependencies": []},
-    {"id": "root.1.1.2", "description": "Create utils.py", "agent": "general-purpose", "dependencies": []},
-    {"id": "root.1.2.1", "description": "Write documentation", "agent": "documentation-expert", "dependencies": ["root.1.1.1", "root.1.1.2"]}
+    {
+      "id": "root",
+      "description": "Create calculator module with documentation",
+      "depth": 0,
+      "is_atomic": false,
+      "children": ["root.1", "root.2"]
+    },
+    {
+      "id": "root.1",
+      "description": "Implementation phase",
+      "parent_id": "root",
+      "depth": 1,
+      "is_atomic": false,
+      "children": ["root.1.1"]
+    },
+    {
+      "id": "root.1.1",
+      "description": "Core modules",
+      "parent_id": "root.1",
+      "depth": 2,
+      "is_atomic": false,
+      "children": ["root.1.1.1", "root.1.1.2"]
+    },
+    {
+      "id": "root.1.1.1",
+      "description": "Create calculator.py",
+      "parent_id": "root.1.1",
+      "depth": 3,
+      "is_atomic": true,
+      "dependencies": [],
+      "agent": "general-purpose"
+    },
+    {
+      "id": "root.1.1.2",
+      "description": "Create utils.py",
+      "parent_id": "root.1.1",
+      "depth": 3,
+      "is_atomic": true,
+      "dependencies": [],
+      "agent": "general-purpose"
+    },
+    {
+      "id": "root.2",
+      "description": "Documentation phase",
+      "parent_id": "root",
+      "depth": 1,
+      "is_atomic": false,
+      "children": ["root.2.1"]
+    },
+    {
+      "id": "root.2.1",
+      "description": "User documentation",
+      "parent_id": "root.2",
+      "depth": 2,
+      "is_atomic": false,
+      "children": ["root.2.1.1"]
+    },
+    {
+      "id": "root.2.1.1",
+      "description": "Write README.md",
+      "parent_id": "root.2.1",
+      "depth": 3,
+      "is_atomic": true,
+      "dependencies": ["root.1.1.1", "root.1.1.2"],
+      "agent": "documentation-expert"
+    }
   ]
 }
 ```
 
-**After Auto-Injection:**
+**After Auto-Injection (Verification phases added):**
 ```json
 {
   "tasks": [
-    {"id": "root.1.1.1", "description": "Create calculator.py", "agent": "general-purpose", "dependencies": []},
-    {"id": "root.1.1.1_verify", "description": "Verify: Create calculator.py", "agent": "task-completion-verifier", "dependencies": ["root.1.1.1"]},
-    {"id": "root.1.1.2", "description": "Create utils.py", "agent": "general-purpose", "dependencies": []},
-    {"id": "root.1.1.2_verify", "description": "Verify: Create utils.py", "agent": "task-completion-verifier", "dependencies": ["root.1.1.2"]},
-    {"id": "root.1.2.1", "description": "Write documentation", "agent": "documentation-expert", "dependencies": ["root.1.1.1_verify", "root.1.1.2_verify"]}
+    {
+      "id": "root",
+      "description": "Create calculator module with documentation",
+      "depth": 0,
+      "is_atomic": false,
+      "children": ["root.1", "root.2"]
+    },
+    {
+      "id": "root.1",
+      "description": "Implementation phase",
+      "parent_id": "root",
+      "depth": 1,
+      "is_atomic": false,
+      "children": ["root.1.1"]
+    },
+    {
+      "id": "root.1.1",
+      "description": "Core modules",
+      "parent_id": "root.1",
+      "depth": 2,
+      "is_atomic": false,
+      "children": ["root.1.1.1", "root.1.1.2", "root.1.1.1_verify", "root.1.1.2_verify"]
+    },
+    {
+      "id": "root.1.1.1",
+      "description": "Create calculator.py",
+      "parent_id": "root.1.1",
+      "depth": 3,
+      "is_atomic": true,
+      "dependencies": [],
+      "agent": "general-purpose"
+    },
+    {
+      "id": "root.1.1.1_verify",
+      "description": "Verify: Create calculator.py",
+      "parent_id": "root.1.1",
+      "depth": 3,
+      "is_atomic": true,
+      "dependencies": ["root.1.1.1"],
+      "agent": "task-completion-verifier",
+      "auto_injected": true
+    },
+    {
+      "id": "root.1.1.2",
+      "description": "Create utils.py",
+      "parent_id": "root.1.1",
+      "depth": 3,
+      "is_atomic": true,
+      "dependencies": [],
+      "agent": "general-purpose"
+    },
+    {
+      "id": "root.1.1.2_verify",
+      "description": "Verify: Create utils.py",
+      "parent_id": "root.1.1",
+      "depth": 3,
+      "is_atomic": true,
+      "dependencies": ["root.1.1.2"],
+      "agent": "task-completion-verifier",
+      "auto_injected": true
+    },
+    {
+      "id": "root.2",
+      "description": "Documentation phase",
+      "parent_id": "root",
+      "depth": 1,
+      "is_atomic": false,
+      "children": ["root.2.1"]
+    },
+    {
+      "id": "root.2.1",
+      "description": "User documentation",
+      "parent_id": "root.2",
+      "depth": 2,
+      "is_atomic": false,
+      "children": ["root.2.1.1"]
+    },
+    {
+      "id": "root.2.1.1",
+      "description": "Write README.md",
+      "parent_id": "root.2.1",
+      "depth": 3,
+      "is_atomic": true,
+      "dependencies": ["root.1.1.1_verify", "root.1.1.2_verify"],
+      "agent": "documentation-expert"
+    }
   ]
 }
 ```
 
 **Key Changes:**
-- Two verification phases added (one per implementation phase)
+- Two verification phases added at depth 3 (root.1.1.1_verify, root.1.1.2_verify)
+- Verification phases inherit same parent as implementation tasks (root.1.1)
 - Documentation phase now depends on verification phases, not implementation phases
 - Wave scheduling will place verification in wave after implementation
 
@@ -878,7 +964,21 @@ After auto-injection, the wave scheduler will automatically place:
 ```
 Wave 0: root.1.1.1 (Create calculator.py), root.1.1.2 (Create utils.py)
 Wave 1: root.1.1.1_verify (Verify calculator), root.1.1.2_verify (Verify utils)
-Wave 2: root.1.2.1 (Write documentation)
+Wave 2: root.2.1.1 (Write README.md)
+```
+
+**Tree Visualization:**
+```
+root (depth 0)
+├── root.1 Implementation phase (depth 1)
+│   └── root.1.1 Core modules (depth 2)
+│       ├── root.1.1.1 Create calculator.py (depth 3) ← ATOMIC
+│       ├── root.1.1.1_verify Verify calculator (depth 3) ← ATOMIC (auto-injected)
+│       ├── root.1.1.2 Create utils.py (depth 3) ← ATOMIC
+│       └── root.1.1.2_verify Verify utils (depth 3) ← ATOMIC (auto-injected)
+└── root.2 Documentation phase (depth 1)
+    └── root.2.1 User documentation (depth 2)
+        └── root.2.1.1 Write README.md (depth 3) ← ATOMIC
 ```
 
 ### Skip Verification Conditions
@@ -957,71 +1057,6 @@ Tasks at depth < 3 MUST be decomposed further, regardless of whether they appear
 
 Build complete tree JSON with semantic dependencies. Note that tasks can only be marked as `is_atomic: true` at depth ≥ 3:
 
-```json
-{
-  "tasks": [
-    {
-      "id": "root",
-      "description": "Build full-stack application",
-      "depth": 0,
-      "is_atomic": false,
-      "children": ["root.1", "root.2", "root.3"]
-    },
-    {
-      "id": "root.1",
-      "description": "Design phase",
-      "parent_id": "root",
-      "depth": 1,
-      "is_atomic": false,
-      "children": ["root.1.1", "root.1.2", "root.1.3"]
-    },
-    {
-      "id": "root.1.1",
-      "description": "Design data model",
-      "parent_id": "root.1",
-      "depth": 2,
-      "is_atomic": false,
-      "children": ["root.1.1.1", "root.1.1.2"]
-    },
-    {
-      "id": "root.1.1.1",
-      "description": "Define entity schemas",
-      "parent_id": "root.1.1",
-      "depth": 3,
-      "dependencies": [],
-      "is_atomic": true,
-      "agent": "tech-lead-architect"
-    },
-    {
-      "id": "root.1.1.2",
-      "description": "Design relationships and constraints",
-      "parent_id": "root.1.1",
-      "depth": 3,
-      "dependencies": ["root.1.1.1"],
-      "is_atomic": true,
-      "agent": "tech-lead-architect"
-    },
-    {
-      "id": "root.2.1",
-      "description": "Implement backend API",
-      "parent_id": "root.2",
-      "depth": 2,
-      "is_atomic": false,
-      "children": ["root.2.1.1", "root.2.1.2"]
-    },
-    {
-      "id": "root.2.1.1",
-      "description": "Implement authentication endpoints",
-      "parent_id": "root.2.1",
-      "depth": 3,
-      "dependencies": ["root.1.1.1", "root.1.1.2"],
-      "is_atomic": true,
-      "agent": "general-purpose"
-    }
-  ]
-}
-```
-
 **Important Notes:**
 - All atomic tasks (leaf nodes) must be at depth ≥ 3
 - Tasks at depth 0, 1, 2 must have `is_atomic: false`
@@ -1052,48 +1087,118 @@ For each task pair, determine if a true dependency exists:
 - File/state conflicts → Add to dependencies array
 - Independent file operations (read-only on different files) → Empty dependencies array
 
+**Example 1: Sequential Tasks (Data Dependency)**
+
 ```json
 {
   "tasks": [
+    {
+      "id": "root",
+      "description": "Research and analyze architecture",
+      "depth": 0,
+      "is_atomic": false,
+      "children": ["root.1"]
+    },
     {
       "id": "root.1",
-      "description": "Read documentation",
-      "dependencies": []
+      "description": "Architecture analysis phase",
+      "parent_id": "root",
+      "depth": 1,
+      "is_atomic": false,
+      "children": ["root.1.1"]
     },
     {
-      "id": "root.2",
-      "description": "Analyze architecture",
-      "dependencies": ["root.1"]
+      "id": "root.1.1",
+      "description": "Documentation research and analysis",
+      "parent_id": "root.1",
+      "depth": 2,
+      "is_atomic": false,
+      "children": ["root.1.1.1", "root.1.1.2"]
+    },
+    {
+      "id": "root.1.1.1",
+      "description": "Read documentation",
+      "parent_id": "root.1.1",
+      "depth": 3,
+      "is_atomic": true,
+      "dependencies": [],
+      "agent": "codebase-context-analyzer"
+    },
+    {
+      "id": "root.1.1.2",
+      "description": "Analyze architecture based on documentation",
+      "parent_id": "root.1.1",
+      "depth": 3,
+      "is_atomic": true,
+      "dependencies": ["root.1.1.1"],
+      "agent": "tech-lead-architect"
     }
   ]
 }
 ```
 
-**Example: Independent Read Operations (Parallel)**
+Note: root.1.1.2 depends on root.1.1.1 because analysis needs documentation findings.
+
+**Example 2: Independent Read Operations (Parallel)**
 
 ```json
 {
   "tasks": [
     {
+      "id": "root",
+      "description": "Analyze codebase modules",
+      "depth": 0,
+      "is_atomic": false,
+      "children": ["root.1"]
+    },
+    {
+      "id": "root.1",
+      "description": "Module analysis phase",
+      "parent_id": "root",
+      "depth": 1,
+      "is_atomic": false,
+      "children": ["root.1.1"]
+    },
+    {
       "id": "root.1.1",
-      "description": "Map file structure in auth module",
-      "dependencies": []
+      "description": "Analyze all modules",
+      "parent_id": "root.1",
+      "depth": 2,
+      "is_atomic": false,
+      "children": ["root.1.1.1", "root.1.1.2", "root.1.1.3"]
     },
     {
-      "id": "root.1.2",
-      "description": "Identify patterns in database module",
-      "dependencies": []
+      "id": "root.1.1.1",
+      "description": "Read auth/__init__.py",
+      "parent_id": "root.1.1",
+      "depth": 3,
+      "is_atomic": true,
+      "dependencies": [],
+      "agent": "codebase-context-analyzer"
     },
     {
-      "id": "root.1.3",
-      "description": "Assess code quality in API module",
-      "dependencies": []
+      "id": "root.1.1.2",
+      "description": "Read database/models.py",
+      "parent_id": "root.1.1",
+      "depth": 3,
+      "is_atomic": true,
+      "dependencies": [],
+      "agent": "codebase-context-analyzer"
+    },
+    {
+      "id": "root.1.1.3",
+      "description": "Read api/routes.py",
+      "parent_id": "root.1.1",
+      "depth": 3,
+      "is_atomic": true,
+      "dependencies": [],
+      "agent": "codebase-context-analyzer"
     }
   ]
 }
 ```
 
-All three tasks operate on different modules (auth, database, API) with read-only operations and no data flow. Therefore, all have empty `dependencies: []` arrays and will be assigned to the same wave (Wave 0) for parallel execution.
+All three atomic tasks at depth 3 operate on different files with read-only operations and no data flow. Therefore, all have empty `dependencies: []` arrays and will be assigned to the same wave (Wave 0) for parallel execution.
 
 ### Step 2: Validate Dependency Graph
 
@@ -1107,17 +1212,7 @@ Using semantic analysis, validate the dependency graph:
 - Ensure all task IDs in dependencies arrays exist in task tree
 - Flag any invalid or missing references
 
-**Expected structure:**
-```json
-{
-  "dependency_graph": {
-    "root.1": [],
-    "root.2": ["root.1"]
-  },
-  "cycles": [],
-  "valid": true
-}
-```
+Note: Only atomic tasks (depth 3) appear in dependency graph for wave scheduling.
 
 ### Dependency Detection Criteria
 
@@ -1210,45 +1305,59 @@ Using the dependency graph, assign tasks to waves:
 
 ### Example Wave Assignment
 
-**Input dependency graph:**
+**Input dependency graph (atomic tasks only, depth 3):**
 ```json
 {
   "dependency_graph": {
-    "root.1": [],
-    "root.2.1": ["root.1"],
-    "root.2.2": ["root.1"],
-    "root.3": ["root.2.1", "root.2.2"]
+    "root.1.1.1": [],
+    "root.2.1.1": ["root.1.1.1"],
+    "root.2.1.2": ["root.1.1.1"],
+    "root.3.1.1": ["root.2.1.1", "root.2.1.2"]
   }
 }
 ```
+
+**Task descriptions:**
+- root.1.1.1: Create project structure
+- root.2.1.1: Implement authentication module
+- root.2.1.2: Implement database layer
+- root.3.1.1: Write integration tests
 
 **Output wave assignments:**
 ```json
 {
   "wave_assignments": {
-    "root.1": 0,
-    "root.2.1": 1,
-    "root.2.2": 1,
-    "root.3": 2
+    "root.1.1.1": 0,
+    "root.2.1.1": 1,
+    "root.2.1.2": 1,
+    "root.3.1.1": 2
   },
   "total_waves": 3,
   "parallel_opportunities": 2,
   "execution_plan": [
     {
       "wave": 0,
-      "tasks": ["root.1"]
+      "tasks": ["root.1.1.1"],
+      "description": "Foundation - Create project structure"
     },
     {
       "wave": 1,
-      "tasks": ["root.2.1", "root.2.2"]
+      "tasks": ["root.2.1.1", "root.2.1.2"],
+      "description": "Parallel Implementation - Auth and Database modules"
     },
     {
       "wave": 2,
-      "tasks": ["root.3"]
+      "tasks": ["root.3.1.1"],
+      "description": "Integration Testing"
     }
   ]
 }
 ```
+
+**Explanation:**
+- Wave 0: root.1.1.1 has no dependencies (foundation)
+- Wave 1: root.2.1.1 and root.2.1.2 both depend only on root.1.1.1 (parallel execution)
+- Wave 2: root.3.1.1 depends on both Wave 1 tasks (sequential after Wave 1)
 
 **CRITICAL:** For parallel phases within a wave, instruct executor to spawn all Task tools simultaneously in a single message.
 
@@ -1289,6 +1398,7 @@ This execution plan is a **BINDING CONTRACT** between the orchestrator and the m
 
 **⚠️ COMPLIANCE MANDATORY - Extract and Follow This Plan EXACTLY:**
 
+**Template:**
 ```json
 {
   "schema_version": "1.0",
@@ -1303,6 +1413,9 @@ This execution plan is a **BINDING CONTRACT** between the orchestrator and the m
       "phases": [
         {
           "phase_id": "phase_W_P",
+          "depth": 3,
+          "is_atomic": true,
+          "parent_id": "root",
           "description": "Phase description",
           "agent": "agent-name",
           "dependencies": ["phase_id1", "phase_id2"],
@@ -1320,6 +1433,153 @@ This execution plan is a **BINDING CONTRACT** between the orchestrator and the m
   }
 }
 ```
+
+**Concrete Example (Calculator Module with Verification):**
+```json
+{
+  "schema_version": "1.0",
+  "task_graph_id": "tg_20251223_143022",
+  "execution_mode": "parallel",
+  "total_waves": 3,
+  "total_phases": 10,
+  "waves": [
+    {
+      "wave_id": 0,
+      "parallel_execution": true,
+      "description": "Implement core arithmetic functions (can run in parallel)",
+      "phases": [
+        {
+          "phase_id": "root.1.1.1",
+          "depth": 3,
+          "is_atomic": true,
+          "parent_id": "root.1.1",
+          "description": "Implement add(a, b) function in calculator.py",
+          "agent": "general-purpose",
+          "dependencies": [],
+          "context_from_phases": []
+        },
+        {
+          "phase_id": "root.1.1.2",
+          "depth": 3,
+          "is_atomic": true,
+          "parent_id": "root.1.1",
+          "description": "Implement subtract(a, b) function in calculator.py",
+          "agent": "general-purpose",
+          "dependencies": [],
+          "context_from_phases": []
+        },
+        {
+          "phase_id": "root.1.1.3",
+          "depth": 3,
+          "is_atomic": true,
+          "parent_id": "root.1.1",
+          "description": "Implement multiply(a, b) function in calculator.py",
+          "agent": "general-purpose",
+          "dependencies": [],
+          "context_from_phases": []
+        },
+        {
+          "phase_id": "root.1.1.4",
+          "depth": 3,
+          "is_atomic": true,
+          "parent_id": "root.1.1",
+          "description": "Implement divide(a, b) function with zero-check",
+          "agent": "general-purpose",
+          "dependencies": [],
+          "context_from_phases": []
+        }
+      ]
+    },
+    {
+      "wave_id": 1,
+      "parallel_execution": false,
+      "description": "Verify implementation",
+      "phases": [
+        {
+          "phase_id": "root.1.1.5",
+          "depth": 3,
+          "is_atomic": true,
+          "parent_id": "root.1.1",
+          "description": "Verify all arithmetic functions work correctly",
+          "agent": "task-completion-verifier",
+          "dependencies": ["root.1.1.1", "root.1.1.2", "root.1.1.3", "root.1.1.4"],
+          "context_from_phases": ["root.1.1.1", "root.1.1.2", "root.1.1.3", "root.1.1.4"],
+          "auto_injected": true
+        }
+      ]
+    },
+    {
+      "wave_id": 2,
+      "parallel_execution": true,
+      "description": "Write unit tests (can run in parallel)",
+      "phases": [
+        {
+          "phase_id": "root.2.1.1",
+          "depth": 3,
+          "is_atomic": true,
+          "parent_id": "root.2.1",
+          "description": "Write test_add() function in test_calculator.py",
+          "agent": "general-purpose",
+          "dependencies": ["root.1.1.5"],
+          "context_from_phases": ["root.1.1.5"]
+        },
+        {
+          "phase_id": "root.2.1.2",
+          "depth": 3,
+          "is_atomic": true,
+          "parent_id": "root.2.1",
+          "description": "Write test_subtract() function in test_calculator.py",
+          "agent": "general-purpose",
+          "dependencies": ["root.1.1.5"],
+          "context_from_phases": ["root.1.1.5"]
+        },
+        {
+          "phase_id": "root.2.1.3",
+          "depth": 3,
+          "is_atomic": true,
+          "parent_id": "root.2.1",
+          "description": "Write test_multiply() function in test_calculator.py",
+          "agent": "general-purpose",
+          "dependencies": ["root.1.1.5"],
+          "context_from_phases": ["root.1.1.5"]
+        },
+        {
+          "phase_id": "root.2.1.4",
+          "depth": 3,
+          "is_atomic": true,
+          "parent_id": "root.2.1",
+          "description": "Write test_divide() function with edge cases",
+          "agent": "general-purpose",
+          "dependencies": ["root.1.1.5"],
+          "context_from_phases": ["root.1.1.5"]
+        }
+      ]
+    }
+  ],
+  "dependency_graph": {
+    "root.1.1.1": [],
+    "root.1.1.2": [],
+    "root.1.1.3": [],
+    "root.1.1.4": [],
+    "root.1.1.5": ["root.1.1.1", "root.1.1.2", "root.1.1.3", "root.1.1.4"],
+    "root.2.1.1": ["root.1.1.5"],
+    "root.2.1.2": ["root.1.1.5"],
+    "root.2.1.3": ["root.1.1.5"],
+    "root.2.1.4": ["root.1.1.5"]
+  },
+  "metadata": {
+    "created_at": "2025-12-23T14:30:22Z",
+    "created_by": "delegation-orchestrator"
+  }
+}
+```
+
+**Explanation of Concrete Example:**
+- **Wave 0:** 4 parallel implementation tasks (individual arithmetic functions)
+- **Wave 1:** 1 verification task (verifies all 4 functions together)
+- **Wave 2:** 4 parallel test tasks (individual test functions)
+- **Total:** 10 atomic tasks across 3 waves
+- **Key Point:** Each phase implements/tests ONE function (truly atomic), not one file with multiple functions
 
 ---
 
@@ -1519,16 +1779,113 @@ Workflow state enables:
 
 Include workflow initialization in your orchestration output:
 
-```markdown
-### Workflow State Initialized
+---
 
-- **Workflow ID:** wf_20250105_143022
-- **State File:** .claude/state/workflow.json
-- **Status View:** .claude/WORKFLOW_STATUS.md
-- **Phases:** 3 phases initialized (phase_0 active)
+## ⚠️ MANDATORY: Hierarchical Task Tree Visualization
 
-Main agent should monitor WORKFLOW_STATUS.md for progress updates.
+**THIS IS REQUIRED FOR ALL WORKFLOWS - SHOWS COMPLETE DECOMPOSITION**
+
+**CRITICAL REQUIREMENTS:**
+- ✅ Tree MUST show ALL depth levels (0, 1, 2, 3)
+- ✅ Non-atomic parent nodes MUST be displayed with their descriptions
+- ✅ Atomic leaf nodes MUST be marked with `← ATOMIC` indicator
+- ✅ Tree MUST use proper indentation and connectors
+- ❌ DO NOT skip intermediate depth levels
+
+### Hierarchical Tree Format
+
+Generate a complete task tree showing the full decomposition hierarchy:
+
+**Template Format:**
 ```
+HIERARCHICAL TASK TREE
+═══════════════════════════════════════════════════════════════════════════════════
+
+root (depth 0): [Original user task description]
+├── root.1 (depth 1): [Major phase description]
+│   ├── root.1.1 (depth 2): [Component group description]
+│   │   ├── root.1.1.1 (depth 3): [Task] ← ATOMIC [agent-name]
+│   │   ├── root.1.1.2 (depth 3): [Task] ← ATOMIC [agent-name]
+│   │   └── root.1.1.3 (depth 3): [Task] ← ATOMIC [agent-name]
+│   └── root.1.2 (depth 2): [Component group description]
+│       ├── root.1.2.1 (depth 3): [Task] ← ATOMIC [agent-name]
+│       └── root.1.2.2 (depth 3): [Task] ← ATOMIC [agent-name]
+└── root.2 (depth 1): [Major phase description]
+    └── root.2.1 (depth 2): [Component group description]
+        ├── root.2.1.1 (depth 3): [Task] ← ATOMIC [agent-name]
+        └── root.2.1.2 (depth 3): [Task] ← ATOMIC [agent-name]
+
+═══════════════════════════════════════════════════════════════════════════════════
+Total: N tasks | Depth levels: 4 (0→3) | Atomic tasks: X at depth 3
+═══════════════════════════════════════════════════════════════════════════════════
+```
+
+### Complete Example (Calculator CLI)
+
+```
+HIERARCHICAL TASK TREE
+═══════════════════════════════════════════════════════════════════════════════════
+
+root (depth 0): Create calculator CLI with tests and 90% coverage
+├── root.1 (depth 1): Calculator module implementation
+│   └── root.1.1 (depth 2): Arithmetic operations
+│       ├── root.1.1.1 (depth 3): Implement add(a, b) function ← ATOMIC [general-purpose]
+│       ├── root.1.1.2 (depth 3): Implement subtract(a, b) function ← ATOMIC [general-purpose]
+│       ├── root.1.1.3 (depth 3): Implement multiply(a, b) function ← ATOMIC [general-purpose]
+│       └── root.1.1.4 (depth 3): Implement divide(a, b) function ← ATOMIC [general-purpose]
+├── root.2 (depth 1): CLI interface implementation
+│   └── root.2.1 (depth 2): CLI components
+│       ├── root.2.1.1 (depth 3): Implement argument parser ← ATOMIC [general-purpose]
+│       ├── root.2.1.2 (depth 3): Implement operation routing ← ATOMIC [general-purpose]
+│       └── root.2.1.3 (depth 3): Implement error handling ← ATOMIC [general-purpose]
+├── root.3 (depth 1): Test suite implementation
+│   └── root.3.1 (depth 2): Unit tests
+│       ├── root.3.1.1 (depth 3): Implement test_add() ← ATOMIC [general-purpose]
+│       ├── root.3.1.2 (depth 3): Implement test_subtract() ← ATOMIC [general-purpose]
+│       ├── root.3.1.3 (depth 3): Implement test_multiply() ← ATOMIC [general-purpose]
+│       ├── root.3.1.4 (depth 3): Implement test_divide() ← ATOMIC [general-purpose]
+│       └── root.3.1.5 (depth 3): Implement CLI integration tests ← ATOMIC [general-purpose]
+└── root.4 (depth 1): Verification phase
+    └── root.4.1 (depth 2): Test execution
+        └── root.4.1.1 (depth 3): Run pytest with coverage ← ATOMIC [task-completion-verifier]
+
+═══════════════════════════════════════════════════════════════════════════════════
+Total: 13 tasks | Depth levels: 4 (0→3) | Atomic tasks: 13 at depth 3
+═══════════════════════════════════════════════════════════════════════════════════
+```
+
+### Tree Node Format Rules
+
+**Non-atomic nodes (depth 0, 1, 2):**
+```
+node_id (depth N): Description of grouping/phase
+```
+
+**Atomic nodes (depth 3):**
+```
+node_id (depth 3): Specific task description ← ATOMIC [agent-name]
+```
+
+### Tree Connectors
+
+| Connector | Usage |
+|-----------|-------|
+| `├──` | Non-last child at current level |
+| `└──` | Last child at current level |
+| `│   ` | Vertical continuation (4 chars total) |
+| `    ` | Blank indent after last child (4 spaces) |
+
+### Output Order
+
+When generating workflow output, ALWAYS include BOTH visualizations in this order:
+
+1. **HIERARCHICAL TASK TREE** - Shows complete decomposition structure
+2. **DEPENDENCY GRAPH & EXECUTION PLAN** - Shows wave-based execution with parallelization
+3. **EXECUTION PLAN JSON** - Machine-readable format
+
+Both visualizations serve different purposes:
+- **Tree:** Understand HOW the task was decomposed (parent-child relationships)
+- **Dependency Graph:** Understand WHEN tasks execute (waves, parallelization, dependencies)
 
 ---
 
@@ -1615,17 +1972,17 @@ Wave 0: Foundation & Architecture Design
   subsequent implementation work will depend on. No external dependencies.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ┌─ root.1.1   Design data model                              [tech-lead-architect]
-  │             Define database schema, entity relationships, and data validation
-  │             rules. Output: ERD diagram and schema migration files.
+  ┌─ root.1.1.1   Define database schema                      [tech-lead-architect]
+  │               Create entity models, relationships, and data validation rules.
+  │               Output: ERD diagram and SQL schema migration files.
   │
-  ├─ root.1.2   Design UI wireframes                           [tech-lead-architect]
-  │             Create low-fidelity wireframes for all user-facing screens.
-  │             Define component hierarchy and user flow diagrams.
+  ├─ root.1.2.1   Design UI component hierarchy               [tech-lead-architect]
+  │               Create wireframes for all screens with component breakdown.
+  │               Define state flow and user interaction patterns.
   │
-  └─ root.1.3   Plan tech stack                                [tech-lead-architect]
-               Evaluate and select frameworks, libraries, and infrastructure.
-               Document trade-offs and rationale for each technology choice.
+  └─ root.1.3.1   Evaluate and select tech stack              [tech-lead-architect]
+                 Research frameworks, libraries, and infrastructure options.
+                 Document technology choices with trade-off analysis.
 
         │
         ▼
@@ -1635,20 +1992,20 @@ Wave 1: Core Implementation
   Backend and frontend can proceed in parallel as they share no code dependencies.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ┌─ root.2.1   Implement backend API                          [general-purpose]
-  │             Build RESTful endpoints, business logic, and data access layer.
-  │             Includes authentication middleware and error handling.
-  │             └─ requires: root.1.1, root.1.3
+  ┌─ root.2.1.1   Build authentication endpoints              [general-purpose]
+  │               Implement user registration, login, JWT token generation.
+  │               Add authentication middleware and session management.
+  │               └─ requires: root.1.1.1, root.1.3.1
   │
-  ├─ root.2.2   Implement database layer                       [general-purpose]
-  │             Create ORM models, repositories, and database migrations.
-  │             Set up connection pooling and query optimization.
-  │             └─ requires: root.1.1
+  ├─ root.2.2.1   Create ORM models and repositories          [general-purpose]
+  │               Implement data access layer with SQLAlchemy models.
+  │               Set up database connection pooling and query optimization.
+  │               └─ requires: root.1.1.1
   │
-  └─ root.2.3   Implement frontend UI                          [general-purpose]
-               Build React components, state management, and API integration.
-               Implement responsive design and accessibility features.
-               └─ requires: root.1.2, root.1.3
+  └─ root.2.3.1   Build React component library               [general-purpose]
+               Implement reusable UI components with state management.
+               Add responsive design and accessibility features (ARIA labels).
+               └─ requires: root.1.2.1, root.1.3.1
 
         │
         ▼
@@ -1658,15 +2015,20 @@ Wave 2: Integration & Testing
   until all implementation tasks complete as it tests integrated behavior.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  └─ root.3.1   Integration testing                       [task-completion-verifier]
-               Execute end-to-end test suites covering all user journeys.
-               Validate API contracts, data flow, and error scenarios.
-               └─ requires: root.2.1, root.2.2, root.2.3
+  └─ root.3.1.1   Execute end-to-end integration tests   [task-completion-verifier]
+                 Run test suites covering all user journeys and API contracts.
+                 Validate data flow, error handling, and edge cases.
+                 └─ requires: root.2.1.1, root.2.2.1, root.2.3.1
 
 ═══════════════════════════════════════════════════════════════════════════════════
-Summary: 6 tasks │ 3 waves │ Max parallel: 3 │ Critical path: root.1.1 → root.2.1 → root.3.1
+Summary: 6 tasks │ 3 waves │ Max parallel: 3 │ Critical path: root.1.1.1 → root.2.1.1 → root.3.1.1
 ═══════════════════════════════════════════════════════════════════════════════════
 ```
+
+**Note:** All task IDs are at depth 3 (atomic tasks). This example shows:
+- **Wave 0:** 3 independent design tasks (parallel execution)
+- **Wave 1:** 3 implementation tasks depending on Wave 0 designs (parallel execution)
+- **Wave 2:** 1 integration test depending on all Wave 1 implementations (sequential)
 
 ### Generation Guidelines
 
@@ -1698,79 +2060,6 @@ Summary: 6 tasks │ 3 waves │ Max parallel: 3 │ Critical path: root.1.1 →
 
 ### Generation Algorithm
 
-```python
-# For each wave in execution_plan
-for wave_num, wave_data in enumerate(execution_plan):
-    tasks = wave_data["tasks"]
-    wave_title = wave_data["title"]  # e.g., "Foundation & Architecture Design"
-    wave_desc = wave_data["description"]  # 2-line purpose description
-
-    # Print wave header
-    print("\nDEPENDENCY GRAPH & EXECUTION PLAN" if wave_num == 0 else "")
-    print("═" * 87 if wave_num == 0 else "")
-    print()
-    print(f"Wave {wave_num}: {wave_title}")
-    print(f"  {wave_desc}")
-    print("━" * 87)
-    print()
-
-    # Print each task
-    for i, task in enumerate(tasks):
-        task_id = task["id"]
-        title = task["title"]
-        agent = task["agent"]
-        description_lines = task["description"].split("\n")  # 2-3 lines
-        deps = task.get("dependencies", [])
-
-        # Determine tree connector
-        if i == 0:
-            connector = "┌─"
-        elif i == len(tasks) - 1:
-            connector = "└─"
-        else:
-            connector = "├─"
-
-        # Print task header line
-        print(f"  {connector} {task_id:<12} {title:<50} [{agent}]")
-
-        # Print description lines (indented)
-        for desc_line in description_lines:
-            print(f"  │             {desc_line}")
-
-        # Print dependencies if present
-        if deps:
-            dep_str = ", ".join(deps)
-            print(f"  │             └─ requires: {dep_str}")
-
-        # Blank line between tasks (except for last task)
-        if i < len(tasks) - 1:
-            print("  │")
-
-    print()
-
-    # Print wave separator (vertical flow)
-    if wave_num < len(execution_plan) - 1:
-        print("        │")
-        print("        ▼")
-        print()
-
-# Print summary footer
-print("═" * 87)
-critical_path = " → ".join(critical_path_ids)
-print(f"Summary: {total_tasks} tasks │ {total_waves} waves │ Max parallel: {max_parallel} │ Critical path: {critical_path}")
-print("═" * 87)
-```
-
-### Key Enhancements
-
-1. **Wave Context:** Each wave has descriptive title and 2-line purpose explanation
-2. **Detailed Descriptions:** Tasks include 2-3 lines explaining deliverables and scope
-3. **Inline Dependencies:** Dependencies shown with `└─ requires:` on line after description
-4. **Visual Hierarchy:** Clear wave sections with `━` separators
-5. **Critical Path:** Summary includes longest dependency chain
-6. **Vertical Layout:** Original tree structure preserved (no side-by-side boxes)
-7. **Professional Appearance:** Clean, scannable layout for terminal output
-
 ### Box Drawing Characters Reference
 
 - **Tree connectors:** `┌─` (top), `├─` (middle), `└─` (bottom), `│` (vertical)
@@ -1801,28 +2090,6 @@ The delegation system will:
 For each phase, specify in your recommendation what context should be captured:
 
 **Example Context Template:**
-```json
-{
-  "phase_id": "root.1",
-  "phase_name": "Research Documentation",
-  "required_outputs": [
-    {
-      "type": "file",
-      "description": "Research findings document"
-    }
-  ],
-  "required_decisions": [
-    "architecture_type",
-    "framework_choice"
-  ],
-  "metadata_to_capture": [
-    "status",
-    "agent_used",
-    "execution_time"
-  ]
-}
-```
-
 ### Context Passing
 
 For dependent phases, specify context requirements:
@@ -1896,21 +2163,6 @@ The delegation system handles all configuration loading automatically.
 **CRITICAL: Use the new Recursive Task Decomposition workflow with Atomicity Criteria validation.**
 
 1. **Create TodoWrite:**
-```json
-[
-  {content: "Analyze task and identify top-level phases", status: "in_progress"},
-  {content: "Recursively decompose phases to depth 3 using atomicity criteria", status: "pending"},
-  {content: "Validate all leaf nodes meet atomicity requirements", status: "pending"},
-  {content: "Build complete task tree with dependencies", status: "pending"},
-  {content: "Validate dependency graph for cycles", status: "pending"},
-  {content: "Determine wave scheduling for parallel execution", status: "pending"},
-  {content: "Map atomic tasks to specialized agents", status: "pending"},
-  {content: "Auto-inject verification phases for implementation tasks", status: "pending"},
-  {content: "Generate task graph JSON with waves and tasks", status: "pending"},
-  {content: "Generate structured recommendation with ASCII dependency graph", status: "pending"}
-]
-```
-
 2. **Recursive Decomposition (Using New Atomicity Criteria):**
    - **Step 1:** Identify top-level phases from user task (depth 1)
    - **Step 2:** For each phase, apply atomicity check:
@@ -2099,10 +2351,6 @@ Verify the implementation from Phase [X].[Y] meets all requirements and delivera
 [original implementation objective]
 
 **Expected Deliverables (Manifest):**
-```json
-[deliverable manifest from phase X.Y]
-```
-
 **Phase [X].[Y] Implementation Results:**
 [CONTEXT_FROM_PREVIOUS_PHASE will be inserted here during execution]
 
@@ -2396,9 +2644,38 @@ First, create the complete hierarchical task tree with all atomic tasks, depende
 
 ---
 
-### STEP 2: Generate ASCII Dependency Graph
+### STEP 2: Generate BOTH Required Visualizations
 
-Using the task tree from Step 1, create the terminal-friendly ASCII visualization.
+Using the task tree from Step 1, create BOTH terminal-friendly ASCII visualizations in order:
+
+#### 2A. Hierarchical Task Tree
+
+**Output Requirements:**
+```text
+HIERARCHICAL TASK TREE
+═══════════════════════════════════════════════════════════════════════
+
+root (depth 0): [Original user task]
+├── root.1 (depth 1): [Major phase]
+│   └── root.1.1 (depth 2): [Component group]
+│       ├── root.1.1.1 (depth 3): [Task] ← ATOMIC [agent-name]
+│       └── root.1.1.2 (depth 3): [Task] ← ATOMIC [agent-name]
+└── root.2 (depth 1): [Major phase]
+    └── root.2.1 (depth 2): [Component group]
+        └── root.2.1.1 (depth 3): [Task] ← ATOMIC [agent-name]
+
+═══════════════════════════════════════════════════════════════════════
+Total: N tasks | Depth levels: 4 (0→3) | Atomic tasks: X at depth 3
+═══════════════════════════════════════════════════════════════════════
+```
+
+**Validation Checklist:**
+- [ ] Tree shows ALL depth levels (0, 1, 2, 3)
+- [ ] Non-atomic parent nodes show descriptions
+- [ ] Atomic leaf nodes marked with `← ATOMIC`
+- [ ] Proper indentation and connectors (├── └── │)
+
+#### 2B. ASCII Dependency Graph
 
 **Output Requirements:**
 ```text
@@ -2425,7 +2702,7 @@ Parallelization: X tasks can run concurrently
 - [ ] Agent assignments match Step 1
 - [ ] Graph uses proper ASCII connectors (┌─ ├─ └─)
 
-**DO NOT PROCEED to Step 3 until graph is complete and matches Step 1 data.**
+**DO NOT PROCEED to Step 3 until BOTH visualizations are complete and match Step 1 data.**
 
 ---
 
@@ -2466,7 +2743,9 @@ Only after Steps 1-3 are complete and validated, write the final recommendation 
 
 **Requirements:**
 - Include complete task tree JSON from Step 1
-- Include ASCII dependency graph from Step 2
+- Include BOTH visualizations from Step 2:
+  - Hierarchical Task Tree (showing decomposition structure)
+  - ASCII Dependency Graph (showing wave execution plan)
 - Include validation results from Step 3
 - Follow exact template structure from "## Output Format"
 
@@ -2480,16 +2759,17 @@ Only after Steps 1-3 are complete and validated, write the final recommendation 
 
 **CRITICAL REQUIREMENT FOR MULTI-STEP WORKFLOWS:**
 
-Before generating your recommendation output, you MUST first create the ASCII dependency graph showing all phases and their dependencies. This is non-negotiable and non-optional for multi-step workflows.
+Before generating your recommendation output, you MUST first create BOTH required visualizations showing the complete workflow structure. This is non-negotiable and non-optional for multi-step workflows.
 
 **Pre-Generation Checklist:**
 1. Identify all phases in the workflow
 2. Determine dependencies between phases
-3. Generate the ASCII dependency graph (see generation guidelines below)
-4. Validate the graph is complete and properly formatted
-5. THEN proceed to complete the full recommendation template
+3. Generate the Hierarchical Task Tree (showing decomposition structure)
+4. Generate the ASCII Dependency Graph (showing wave execution plan)
+5. Validate both visualizations are complete and properly formatted
+6. THEN proceed to complete the full recommendation template
 
-Failure to include a valid dependency graph renders the output incomplete and unusable.
+Failure to include BOTH visualizations renders the output incomplete and unusable.
 
 ---
 
@@ -2573,6 +2853,9 @@ This execution plan is a **BINDING CONTRACT** between the orchestrator and the m
       "phases": [
         {
           "phase_id": "phase_W_P",
+          "depth": 3,
+          "is_atomic": true,
+          "parent_id": "root",
           "description": "Phase description",
           "agent": "agent-name",
           "dependencies": ["phase_id1", "phase_id2"],
@@ -2699,38 +2982,6 @@ Context from previous phases:
 ## Analysis Results
 
 **Atomic Task Detection (Semantic Analysis):**
-```json
-{
-  "phase_0_0": {"is_atomic": true, "rationale": "Single file operation, <30 min, ≤3 files"},
-  "phase_0_1": {"is_atomic": true, "rationale": "Single API endpoint, atomic unit"}
-}
-```
-
-**Dependency Graph Validation:**
-```json
-{
-  "valid": true,
-  "cycles": [],
-  "dependency_graph": {
-    "phase_0_0": [],
-    "phase_1_0": ["phase_0_0"]
-  }
-}
-```
-
-**Wave Scheduling (Semantic Analysis):**
-```json
-{
-  "wave_assignments": {
-    "phase_0_0": 0,
-    "phase_0_1": 0,
-    "phase_1_0": 1
-  },
-  "total_waves": 2,
-  "parallel_opportunities": 2
-}
-```
-
 ---
 
 ## Compliance Verification

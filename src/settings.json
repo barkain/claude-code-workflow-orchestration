@@ -36,6 +36,12 @@
                 [
                     {
                         "type": "command",
+                        "command": "./.claude/hooks/PostToolUse/validate_task_graph_depth.sh",
+                        "timeout": 5,
+                        "description": "Enforce minimum depth-3 decomposition for atomic tasks"
+                    },
+                    {
+                        "type": "command",
                         "command": "./.claude/hooks/PostToolUse/update_wave_state.sh",
                         "timeout": 5,
                         "description": "Auto-advance waves when all phases complete"

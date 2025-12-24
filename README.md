@@ -79,44 +79,29 @@ Installs to a specific project's `.claude/` directory instead of `~/.claude/`. U
 
 The installer automatically copies all files to ~/.claude/ and makes hooks executable.
 
-### Basic Usage
+### Basic Usage - Multi-Step Workflow
 
 Once installed, the delegation hook is automatically active. Simply use Claude Code normally:
 
 ```bash
 # Multi-step workflow - enable orchestration for context passing
 claude --append-system-prompt "$(cat ./.claude/src/system-prompts/WORKFLOW_ORCHESTRATOR.md)"
-prompt: "Create calculator.py with tests and verify they pass"
+```
+and then prompt claude with:
+```text
+> create simple calculator cli app.
+  the calculator should have basic arithmetic operations.
+  add unit tests with coverage of at least 90% and make sure all tests are pass successfully.
+  add verification after each deliverable step
 ```
 
-#### Multi-Step Workflow Examples
+**What happens:**
+1. First, claude will delegate the task to the delegation-orchestrator subagent for: 
+   - Evaluating task complexity (single-step vs multi-step)
+   - Identifying appropriate specialized agent(s)
+   - Constructing optimized delegation prompts
+2. 
 
-**Sequential Execution (dependent phases):**
-```bash
-# Phases have dependencies - Phase 2 needs Phase 1's output
-claude --append-system-prompt "$(cat .claude/src/system-prompts/WORKFLOW_ORCHESTRATOR.md)"
-prompt: "Create calculator.py with tests and verify they pass"
-
-# What happens:
-# 1. Phase 1: Create calculator.py
-# 2. Phase 2: Write tests (uses file path from Phase 1)
-# 3. Phase 3: Run tests (uses tests from Phase 2)
-# Execution mode: Sequential (dependencies detected)
-```
-
-**Parallel Execution (independent phases):**
-```bash
-# Phases are independent - can execute concurrently
-claude --append-system-prompt "$(cat .claude/src/system-prompts/WORKFLOW_ORCHESTRATOR.md)"
-prompt: "Analyze authentication system AND design payment API"
-
-# What happens:
-# Wave 1 (Parallel): Phase A + Phase B execute concurrently
-# - Phase A: Analyze auth system (codebase-context-analyzer)
-# - Phase B: Design payment API (tech-lead-architect)
-# Execution mode: Parallel (no dependencies detected)
-# Time savings: ~50% vs sequential execution
-```
 
 **What happens:**
 1. You submit a task to Claude Code

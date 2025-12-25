@@ -488,16 +488,14 @@ sess_jkl012
 
 ### StatusLine System
 
-The delegation system includes a **real-time status display** that provides visibility into workflow execution state, active delegations, and system health.
+The delegation system includes a **real-time status display** that provides visibility into workflow execution state and active delegations.
 
 #### Overview
 
 **StatusLine** is a dynamic status bar displayed at the top of the Claude Code terminal interface. It updates in real-time to show:
 - Current workflow execution mode (sequential vs parallel)
 - Active subagent count and wave information
-- Memory pressure and resource limits
-- Recent warnings and errors
-- System health indicators
+- Recent workflow events
 
 **Visibility:** Always displayed during delegation workflows, automatically updated by hooks.
 
@@ -506,7 +504,7 @@ The delegation system includes a **real-time status display** that provides visi
 **Location:** `src/scripts/statusline.sh`
 
 **Functions:**
-- Reads state files (`.claude/state/active_delegations.json`, memory metrics)
+- Reads state files (`.claude/state/active_delegations.json`)
 - Formats status information with color-coding
 - Displays in compact, single-line format
 - Updates on hook triggers (SessionStart, SubagentStop, etc.)
@@ -530,61 +528,19 @@ bash ~/.claude/scripts/statusline.sh
 
 **2. Active Delegations Counter**
 ```
-Active: 2/4 - 2 subagents running, max 4 concurrent
+Active: 2 - 2 subagents running
 Wave 1 - Currently executing Wave 1 phases
 ```
 
-**3. Memory Pressure Indicator**
-```
-Mem: OK - Memory usage normal
-Mem: WARN - Approaching limit (80-95%)
-Mem: CRIT - Critical memory pressure (>95%)
-```
-
-**4. Recent Events**
+**3. Recent Events**
 ```
 Last: Subagent-A completed (113s)
 Last: Wave 1 sync complete
 ```
 
-**5. Complete Example**
+**4. Complete Example**
 ```
-[PAR] Active: 2/4 Wave 1 | Mem: OK | Last: Phase-A completed (113s)
-```
-
-#### Configuration
-
-StatusLine behavior is controlled by environment variables:
-
-**MEMORY_LIMIT**
-- **Purpose:** Maximum memory (MB) allowed for parallel execution
-- **Default:** 8192 (8GB)
-- **Usage:** `export MEMORY_LIMIT=4096`
-- **Effect:** Limits concurrent subagent spawning based on available memory
-
-**MEMORY_AGGRESSIVE**
-- **Purpose:** Enable aggressive memory management (kill subagents on pressure)
-- **Values:** 0 (disabled, default), 1 (enabled)
-- **Usage:** `export MEMORY_AGGRESSIVE=1`
-- **Effect:** Automatically terminates lowest-priority subagents when memory >95%
-
-**MAX_PARALLEL_TASKS**
-- **Purpose:** Maximum concurrent subagents in parallel execution
-- **Default:** 4
-- **Usage:** `export MAX_PARALLEL_TASKS=2`
-- **Effect:** Limits Wave execution to N concurrent subagents
-
-**Example Configuration:**
-```bash
-# Conservative resource limits
-export MEMORY_LIMIT=4096          # 4GB max
-export MAX_PARALLEL_TASKS=2       # 2 concurrent subagents
-export MEMORY_AGGRESSIVE=0        # No auto-kill
-
-# Aggressive parallel execution
-export MEMORY_LIMIT=16384         # 16GB max
-export MAX_PARALLEL_TASKS=8       # 8 concurrent subagents
-export MEMORY_AGGRESSIVE=1        # Auto-kill on pressure
+[PAR] Active: 2 Wave 1 | Last: Phase-A completed (113s)
 ```
 
 #### Integration
@@ -600,22 +556,19 @@ export MEMORY_AGGRESSIVE=1        # Auto-kill on pressure
 
 ```
 [User starts workflow]
-SessionStart → StatusLine: [SEQ] Active: 0/4 | Mem: OK
+SessionStart → StatusLine: [SEQ] Active: 0
 
 [Delegation begins]
-PreToolUse → StatusLine: [SEQ] Active: 1/4 | Mem: OK | Last: delegation-orchestrator started
+PreToolUse → StatusLine: [SEQ] Active: 1 | Last: delegation-orchestrator started
 
 [Parallel waves spawn]
-Task spawns Wave 1 → StatusLine: [PAR] Active: 3/4 Wave 1 | Mem: OK
-
-[Memory pressure detected]
-Memory >80% → StatusLine: [PAR] Active: 3/4 Wave 1 | Mem: WARN
+Task spawns Wave 1 → StatusLine: [PAR] Active: 3 Wave 1
 
 [Subagent completes]
-SubagentStop → StatusLine: [PAR] Active: 2/4 Wave 1 | Mem: OK | Last: Phase-A completed (113s)
+SubagentStop → StatusLine: [PAR] Active: 2 Wave 1 | Last: Phase-A completed (113s)
 
 [Wave synchronization]
-All Wave 1 complete → StatusLine: [PAR] Active: 0/4 Wave 2 | Mem: OK | Last: Wave 1 sync complete
+All Wave 1 complete → StatusLine: [PAR] Active: 0 Wave 2 | Last: Wave 1 sync complete
 
 [Session ends]
 Stop → StatusLine cleared
@@ -631,12 +584,7 @@ StatusLine reads from:
    - Current wave number
    - Subagent metadata (agent name, start time)
 
-2. **Memory Metrics** (system calls)
-   - Available memory (via `sysctl` or `/proc/meminfo`)
-   - Process memory usage (via `ps`)
-   - Memory pressure calculation
-
-3. **Session Log** (`/tmp/claude_session_log.txt`)
+2. **Session Log** (`/tmp/claude_session_log.txt`)
    - Recent events (last 5 entries)
    - Subagent completion times
    - Error messages
@@ -650,28 +598,6 @@ watch -n 1 ~/.claude/scripts/statusline.sh
 
 # Check current state
 cat .claude/state/active_delegations.json
-```
-
-**Debugging Memory Issues:**
-```bash
-# Enable memory warnings
-export MEMORY_LIMIT=4096
-
-# Run workflow and monitor
-claude --append-system-prompt "$(cat ~/.claude/system-prompts/WORKFLOW_ORCHESTRATOR.md)" \
-  "Analyze codebase AND design API AND write docs"
-
-# StatusLine will show memory pressure warnings
-```
-
-**Optimizing Parallelism:**
-```bash
-# Start conservative
-export MAX_PARALLEL_TASKS=2
-
-# Observe StatusLine during execution
-# If memory OK and phases independent, increase:
-export MAX_PARALLEL_TASKS=4
 ```
 
 #### Troubleshooting
@@ -688,22 +614,6 @@ ls -la .claude/state/active_delegations.json
 
 # Verify hooks are calling statusline
 grep statusline ~/.claude/hooks/*/*.sh
-```
-
-**Incorrect Memory Readings:**
-
-```bash
-# Test memory detection
-bash -c '
-  if [[ "$OSTYPE" == "darwin"* ]]; then
-    vm_stat | grep "Pages free"
-  else
-    free -m
-  fi
-'
-
-# Verify MEMORY_LIMIT is set
-echo $MEMORY_LIMIT
 ```
 
 **StatusLine Shows Wrong Wave:**
@@ -1047,8 +957,7 @@ Context from Phase 1:
       "started_at": "2025-01-11T14:30:23Z",
       "agent": "tech-lead-architect"
     }
-  ],
-  "max_concurrent": 4
+  ]
 }
 ```
 
@@ -1174,138 +1083,13 @@ activation_keywords: ["keyword1", "keyword2"]
 
 ### Environment Variables
 
-The delegation system supports 6 environment variables for controlling behavior, resource limits, and debugging:
+The delegation system supports 3 environment variables for controlling behavior and debugging:
 
 | Variable | Purpose | Default | Values | Effect |
 |----------|---------|---------|--------|--------|
-| **MEMORY_LIMIT** | Max memory (MB) for parallel execution | 8192 | Integer (MB) | Limits concurrent subagent spawning |
-| **MEMORY_AGGRESSIVE** | Aggressive memory management | 0 | 0 (off), 1 (on) | Auto-kill subagents on pressure >95% |
-| **MAX_PARALLEL_TASKS** | Max concurrent subagents | 4 | Integer (1-16) | Limits wave execution parallelism |
 | **DEBUG_DELEGATION_HOOK** | Enable debug logging | 0 | 0 (off), 1 (on) | Logs to `/tmp/delegation_hook_debug.log` |
 | **DELEGATION_HOOK_DISABLE** | Emergency bypass | 0 | 0 (on), 1 (off) | Disables delegation enforcement |
 | **CLAUDE_PROJECT_DIR** | Override project directory | `$PWD` | Path | State file location override |
-
-#### MEMORY_LIMIT
-
-**Purpose:** Controls maximum memory (in MB) allowed for parallel workflow execution.
-
-**How it works:**
-- StatusLine monitors system memory via `vm_stat` (macOS) or `/proc/meminfo` (Linux)
-- Before spawning Wave subagents, checks: `available_memory > MEMORY_LIMIT`
-- If insufficient memory, delays subagent spawning until memory available
-- Prevents system thrashing from excessive parallelism
-
-**Usage:**
-```bash
-# Conservative (4GB limit)
-export MEMORY_LIMIT=4096
-claude --append-system-prompt "$(cat ~/.claude/system-prompts/WORKFLOW_ORCHESTRATOR.md)" \
-  "Analyze codebase AND design API AND write docs"
-
-# Aggressive (16GB limit)
-export MEMORY_LIMIT=16384
-```
-
-**When to adjust:**
-- **Lower (2048-4096):** Laptop/limited RAM, prevent swapping
-- **Default (8192):** Standard workstation (16GB RAM)
-- **Higher (16384+):** Server/high-RAM workstation (32GB+ RAM)
-
-**Example:**
-```bash
-# Check current memory
-if [[ "$OSTYPE" == "darwin"* ]]; then
-  vm_stat | grep "Pages free"
-else
-  free -m
-fi
-
-# Set conservative limit
-export MEMORY_LIMIT=4096
-
-# StatusLine will show warnings if memory approaches limit
-```
-
-#### MEMORY_AGGRESSIVE
-
-**Purpose:** Enables aggressive memory management - automatically terminates lowest-priority subagents when memory pressure exceeds 95%.
-
-**How it works:**
-- SubagentStop hook monitors memory every 5 seconds
-- If memory usage >95% of MEMORY_LIMIT:
-  - Identifies lowest-priority active subagent (by wave, then start time)
-  - Sends SIGTERM to subagent process
-  - Logs termination to `/tmp/claude_session_log.txt`
-  - Marks subagent as "killed" in `active_delegations.json`
-- Allows high-priority phases to complete
-
-**Usage:**
-```bash
-# Enable aggressive memory management
-export MEMORY_AGGRESSIVE=1
-export MEMORY_LIMIT=4096
-
-# Run workflow - low-priority subagents killed if memory critical
-claude --append-system-prompt "$(cat ~/.claude/system-prompts/WORKFLOW_ORCHESTRATOR.md)" \
-  "Large parallel workflow with 8 phases"
-```
-
-**Priority Calculation:**
-- Wave 0 (implementation) > Wave 1 (verification)
-- Earlier start time > later start time
-- Read-only agents < write agents (read-only killed first)
-
-**When to use:**
-- **Enable (1):** Server environments, CI/CD pipelines, time-critical workflows
-- **Disable (0):** Development, debugging, workflows where all phases critical
-
-**Warning:** Killed subagents may leave incomplete work. Use with caution.
-
-#### MAX_PARALLEL_TASKS
-
-**Purpose:** Maximum number of concurrent subagents allowed in parallel execution waves.
-
-**How it works:**
-- Delegation orchestrator uses this value when scheduling waves
-- Wave subagents spawn only if `active_count < MAX_PARALLEL_TASKS`
-- Excess subagents queued until slot available
-- StatusLine displays `Active: N/MAX_PARALLEL_TASKS`
-
-**Usage:**
-```bash
-# Conservative parallelism (2 concurrent)
-export MAX_PARALLEL_TASKS=2
-
-# Moderate parallelism (4 concurrent, default)
-export MAX_PARALLEL_TASKS=4
-
-# Aggressive parallelism (8 concurrent)
-export MAX_PARALLEL_TASKS=8
-```
-
-**When to adjust:**
-- **Lower (1-2):** Limited CPU cores (dual-core), memory-intensive phases
-- **Default (4):** Standard quad-core CPU
-- **Higher (8-16):** Multi-core server (8+ cores), I/O-bound phases (API calls, file operations)
-
-**Example:**
-```bash
-# Check CPU cores
-sysctl -n hw.ncpu  # macOS
-nproc              # Linux
-
-# Set parallelism to match cores
-export MAX_PARALLEL_TASKS=$(sysctl -n hw.ncpu)
-
-# Run parallel workflow
-claude --append-system-prompt "$(cat ~/.claude/system-prompts/WORKFLOW_ORCHESTRATOR.md)" \
-  "Analyze auth AND design API AND write docs AND setup CI"
-```
-
-**Performance Impact:**
-- Too low: Underutilizes CPU, slower execution
-- Too high: CPU thrashing, context switching overhead
-- Optimal: Match to CPU cores, account for I/O vs CPU-bound work
 
 #### DEBUG_DELEGATION_HOOK
 
@@ -1442,21 +1226,15 @@ cd /Users/user/project-b
 
 #### Environment Variable Configuration Examples
 
-**Development Environment (conservative):**
+**Development Environment:**
 ```bash
-export MEMORY_LIMIT=4096              # 4GB limit
-export MEMORY_AGGRESSIVE=0            # No auto-kill
-export MAX_PARALLEL_TASKS=2           # 2 concurrent subagents
 export DEBUG_DELEGATION_HOOK=1        # Enable debug logging
 export DELEGATION_HOOK_DISABLE=0      # Enforcement enabled
 export CLAUDE_PROJECT_DIR=$PWD        # Use current directory
 ```
 
-**Production Environment (aggressive):**
+**Production Environment:**
 ```bash
-export MEMORY_LIMIT=16384             # 16GB limit
-export MEMORY_AGGRESSIVE=1            # Auto-kill on pressure
-export MAX_PARALLEL_TASKS=8           # 8 concurrent subagents
 export DEBUG_DELEGATION_HOOK=0        # No debug logging (performance)
 export DELEGATION_HOOK_DISABLE=0      # Enforcement enabled
 export CLAUDE_PROJECT_DIR=/var/lib/claude  # Fixed state location
@@ -1464,9 +1242,6 @@ export CLAUDE_PROJECT_DIR=/var/lib/claude  # Fixed state location
 
 **CI/CD Environment:**
 ```bash
-export MEMORY_LIMIT=8192              # 8GB limit
-export MEMORY_AGGRESSIVE=1            # Auto-kill (time-critical)
-export MAX_PARALLEL_TASKS=4           # 4 concurrent (CI runners often 4-core)
 export DEBUG_DELEGATION_HOOK=0        # No debug logging
 export DELEGATION_HOOK_DISABLE=0      # Enforcement enabled
 export CLAUDE_PROJECT_DIR=$CI_PROJECT_DIR/.claude  # CI workspace
@@ -1474,9 +1249,6 @@ export CLAUDE_PROJECT_DIR=$CI_PROJECT_DIR/.claude  # CI workspace
 
 **Troubleshooting Environment:**
 ```bash
-export MEMORY_LIMIT=8192              # Standard limit
-export MEMORY_AGGRESSIVE=0            # No auto-kill (preserve errors)
-export MAX_PARALLEL_TASKS=1           # Sequential only (isolate issues)
 export DEBUG_DELEGATION_HOOK=1        # Full debug logging
 export DELEGATION_HOOK_DISABLE=0      # Test with enforcement
 export CLAUDE_PROJECT_DIR=$PWD        # Current directory

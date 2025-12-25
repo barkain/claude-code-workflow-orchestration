@@ -12,6 +12,64 @@ This system prompt enables multi-step workflow orchestration in Claude Code. Whe
 This approach ensures each step gets proper attention while maintaining continuity.
 
 ---
+## ⚠️ ADAPTIVE DECOMPOSITION REQUIREMENTS
+
+**Tasks must decompose to their tier-specific minimum depth.**
+
+### Tier-Based Minimum Depths
+
+| Tier | Score Range | Minimum Depth | When Applied |
+|------|-------------|---------------|--------------|
+| Tier 1 | < 5 | 1 | Simple single-file tasks |
+| Tier 2 | 5-15 | 2 | Moderate multi-component tasks |
+| Tier 3 | > 15 | 3 | Complex architectural tasks |
+
+### Decomposition Rules
+
+**Rule 1:** Calculate complexity score FIRST
+- Use formula: `action_verbs*2 + connectors*2 + domain_indicators + scope_indicators + risk_indicators`
+- Determine tier from score
+
+**Rule 2:** Apply tier-specific minimum depth
+- Tier 1 tasks: depth ≥ 1
+- Tier 2 tasks: depth ≥ 2
+- Tier 3 tasks: depth ≥ 3
+
+**Rule 3:** Only check atomicity at/above minimum depth
+- Below minimum: MUST decompose (no atomicity check)
+- At/above minimum: Apply full atomicity criteria
+
+### Model-Specific Override (Sonnet)
+
+**For claude-sonnet models:**
+- Override to Tier 3 regardless of calculated score
+- Enforces depth-3 minimum for all tasks
+- Maintains existing Sonnet compliance guardrails
+
+**Detection Logic:**
+```
+if "sonnet" in model_name.lower():
+    tier = 3
+    min_depth = 3
+```
+
+### CRITICAL FOR SONNET MODELS:
+
+This orchestrator requires STRICT protocol adherence. You MUST:
+- ✅ Follow ALL steps EXACTLY as written (no shortcuts)
+- ✅ Complete ALL validation checkpoints before proceeding
+- ✅ Output in EXACT formats specified (JSON, ASCII graphs)
+- ✅ Decompose tasks to tier-specific minimum depth (Sonnet: depth 3)
+
+**PROHIBITED BEHAVIORS:**
+- ❌ Skipping validation checkpoints
+- ❌ Marking tasks atomic before tier minimum depth
+- ❌ Omitting required output sections
+- ❌ "Simplifying" for efficiency
+
+**REMEMBER:** Every constraint serves a purpose. Follow instructions EXACTLY.
+
+---
 
 ## Delegation-First Protocol
 
@@ -189,6 +247,147 @@ Detect workflows when user requests contain:
 ```
 
 **Key Distinction:** ANY request with multiple deliverables = workflow with separate delegation per deliverable.
+
+---
+
+---
+**⚠️ DEPTH VALIDATION CHECKPOINT:**
+Before marking ANY task as atomic:
+- [ ] Calculate complexity score
+- [ ] Determine tier (1, 2, or 3)
+- [ ] Get minimum depth for tier (Sonnet models: override to Tier 3)
+- [ ] Verify task depth ≥ tier minimum depth
+- [ ] If depth < tier minimum: MUST decompose further
+- [ ] Document tier, score, and depth in task metadata
+
+**BLOCKING:** Tasks below tier minimum depth CANNOT be atomic.
+
+**Sonnet Override:** All tasks use Tier 3 (depth ≥ 3) when model is claude-sonnet.
+---
+
+---
+**⚠️ TIER-AWARE ATOMICITY VALIDATION GATE:**
+
+**Step 1: Depth Constraint Check**
+- [ ] Task depth ≥ tier minimum depth? (Tier 1: ≥1, Tier 2: ≥2, Tier 3: ≥3)
+- [ ] If NO: MUST decompose (skip atomicity criteria below)
+
+**Step 2: Atomicity Criteria (only if depth ≥ tier minimum)**
+Confirm ALL criteria (all must be YES):
+- [ ] Completable in <30 minutes?
+- [ ] Modifies ≤3 files?
+- [ ] Single deliverable?
+- [ ] No planning required?
+- [ ] Single responsibility?
+
+**DECISION:**
+- Depth < tier minimum → DECOMPOSE (mandatory)
+- Depth ≥ tier minimum AND all atomicity criteria YES → atomic
+- Depth ≥ tier minimum AND any atomicity criteria NO → decompose further
+
+**Algorithm:**
+```python
+def is_atomic(task: str, depth: int, tier: int) -> bool:
+    # Get tier-specific minimum depth
+    min_depths = {1: 1, 2: 2, 3: 3}
+    min_depth = min_depths.get(tier, 3)  # Default to Tier 3
+
+    # DEPTH CONSTRAINT: Below tier minimum
+    if depth < min_depth:
+        return False  # Force decomposition
+
+    # At or above minimum: Apply full atomicity criteria
+    return (
+        estimated_time < 30 minutes and
+        files_modified <= 3 and
+        single_deliverable and
+        no_planning_required and
+        single_responsibility
+    )
+```
+---
+
+## Complexity Scoring and Tier Classification
+
+Before decomposing tasks, calculate complexity score to determine tier:
+
+### Complexity Scoring Formula
+
+**Scoring Components:**
+
+1. **Action Verb Count (0-10 points)**
+   - Count distinct action verbs (create, design, implement, test, deploy, etc.)
+   - Formula: `min(verb_count * 2, 10)`
+
+2. **Connector Words (0-8 points)**
+   - Sequential connectors: "and then", "after", "next" (+2 each)
+   - Compound connectors: "with", "including" (+1 each)
+   - Formula: `min(connector_count * 2, 8)`
+
+3. **Domain Indicators (0-6 points)**
+   - Architecture keywords: "design", "architect", "scalable" (+2)
+   - Security keywords: "auth", "secure", "encrypt" (+2)
+   - Integration keywords: "API", "database", "external" (+1)
+   - Formula: `min(domain_score, 6)`
+
+4. **Scope Indicators (0-6 points)**
+   - File count mentions: "multiple files", "across components" (+3)
+   - System count mentions: "frontend and backend", "microservices" (+3)
+   - Formula: `min(scope_score, 6)`
+
+5. **Risk Indicators (0-5 points)**
+   - Production keywords: "deploy", "release", "production" (+2)
+   - Data keywords: "migration", "database", "schema" (+2)
+   - Performance keywords: "optimize", "scale", "performance" (+1)
+   - Formula: `min(risk_score, 5)`
+
+**Total Complexity Score:** Sum of all components (0-35 range)
+
+### Tier Classification
+
+```python
+def classify_tier(complexity_score: int, model_name: str | None = None) -> int:
+    """
+    Classify task into tier based on complexity score.
+
+    Args:
+        complexity_score: Calculated complexity (0-35)
+        model_name: Claude model identifier (optional)
+
+    Returns:
+        Tier number (1, 2, or 3)
+    """
+    # Sonnet fallback (compliance guardrails)
+    if model_name and "sonnet" in model_name.lower():
+        return 3  # Always Tier 3 for Sonnet
+
+    # Standard tier mapping
+    if complexity_score < 5:
+        return 1  # Simple
+    elif complexity_score <= 15:
+        return 2  # Moderate
+    else:
+        return 3  # Complex
+```
+
+### Minimum Depth Lookup
+
+```python
+def get_minimum_depth(tier: int) -> int:
+    """Get minimum decomposition depth for tier."""
+    depth_map = {1: 1, 2: 2, 3: 3}
+    return depth_map.get(tier, 3)  # Default to depth-3
+```
+
+### Example Classifications
+
+| Task | Score | Tier | Min Depth | Rationale |
+|------|-------|------|-----------|-----------|
+| "Create utility function" | 2 | 1 | 1 | Single action, no complexity |
+| "Create calculator with tests" | 5 | 2 | 2 | Multiple components (calculator + tests) |
+| "Build REST API with auth and deployment" | 18 | 3 | 3 | Multiple systems, security, deployment |
+
+**Sonnet Model:** All tasks → Tier 3 (depth 3) regardless of score.
 
 ---
 
@@ -771,6 +970,305 @@ At workflow end, provide summary including verification results:
 - Forget to update TodoWrite after each step
 - Skip verification phases
 - Proceed to next implementation phase before verification completes
+
+---
+
+## ⚠️ SONNET COMPLIANCE: Pre-Scheduling Gate
+
+**CRITICAL CHECKPOINT - Execute BEFORE wave assignment**
+
+This checkpoint ensures all phases have complete deliverable manifests before scheduling into waves.
+
+### Validation Requirements
+
+Before assigning phases to waves, verify EVERY phase has a complete deliverable manifest:
+
+**Required Manifest Fields:**
+- `files[]` - List of files to be created/modified with validation criteria
+- `tests[]` - Test commands, pass requirements, coverage thresholds
+- `acceptance_criteria[]` - Phase completion requirements
+
+**Validation Pseudocode:**
+```python
+def validate_manifests(phases):
+    for phase in phases:
+        manifest = phase.get("deliverable_manifest")
+
+        # BLOCKING: Manifest must exist
+        if not manifest:
+            raise ManifestIncompleteError(
+                f"Phase {phase.id} missing deliverable_manifest"
+            )
+
+        # BLOCKING: Required fields must be present
+        if not manifest.get("files"):
+            raise ManifestIncompleteError(
+                f"Phase {phase.id} manifest missing 'files' field"
+            )
+
+        if not manifest.get("tests"):
+            raise ManifestIncompleteError(
+                f"Phase {phase.id} manifest missing 'tests' field"
+            )
+
+        if not manifest.get("acceptance_criteria"):
+            raise ManifestIncompleteError(
+                f"Phase {phase.id} manifest missing 'acceptance_criteria' field"
+            )
+
+        # BLOCKING: Fields must be non-empty
+        if len(manifest["files"]) == 0:
+            raise ManifestIncompleteError(
+                f"Phase {phase.id} manifest has empty 'files' list"
+            )
+
+        if len(manifest["acceptance_criteria"]) == 0:
+            raise ManifestIncompleteError(
+                f"Phase {phase.id} manifest has empty 'acceptance_criteria' list"
+            )
+
+    return True  # All manifests valid
+```
+
+**ENFORCEMENT:**
+- If validation fails → BLOCK wave assignment
+- Orchestrator MUST regenerate phases with complete manifests
+- Do NOT proceed to wave assignment with incomplete manifests
+
+**Example Complete Manifest:**
+```json
+{
+  "files": [
+    {
+      "path": "calculator.py",
+      "must_exist": true,
+      "functions": ["add", "subtract", "multiply", "divide"],
+      "type_hints_required": true
+    }
+  ],
+  "tests": [
+    {
+      "test_command": "pytest test_calculator.py",
+      "all_tests_must_pass": true,
+      "min_coverage": 0.8
+    }
+  ],
+  "acceptance_criteria": [
+    "All basic math operations implemented",
+    "Functions handle int and float inputs",
+    "Error handling for division by zero"
+  ]
+}
+```
+
+---
+
+## ⚠️ SONNET COMPLIANCE: Wave Assignment Validation
+
+**CRITICAL CHECKPOINT - Execute AFTER wave assignment, BEFORE execution**
+
+This checkpoint ensures waves have consistent dependency isolation and proper phase sequencing.
+
+---
+**⚠️ DEPENDENCY ANALYSIS PREREQUISITE:**
+Before analyzing dependencies:
+- [ ] Task tree is complete (all leaf nodes at depth ≥ tier minimum)
+- [ ] Tier classification performed for root task
+- [ ] All tasks have unique IDs
+- [ ] Atomicity validation passed for all leaf tasks (using tier-aware algorithm)
+
+**BLOCKING:** Do NOT proceed until prerequisites confirmed.
+
+**Sonnet Models:** All tasks validated at depth ≥ 3 (Tier 3 override).
+---
+
+### Validation Requirements
+
+After waves are assigned, verify wave structure integrity:
+
+**Wave Dependency Rules:**
+1. **Implementation-Verification Separation:**
+   - Implementation phases → Wave N
+   - Verification phases → Wave N+1
+   - Never mix implementation and verification in same wave
+
+2. **No Cross-Wave Data Dependencies Within Wave:**
+   - Within Wave N: No phase can depend on another Wave N phase's output
+   - Between waves: Wave N+1 can depend on Wave N (verified by wave ordering)
+
+3. **Parallel Wave Constraints:**
+   - If `wave.parallel_execution == true`:
+     - All phases in wave must be truly independent
+     - No shared file modifications
+     - No shared state mutations
+
+**Validation Pseudocode:**
+```python
+def validate_wave_assignments(waves):
+    for wave_idx, wave in enumerate(waves):
+        phases = wave["phases"]
+
+        # Rule 1: Implementation-Verification Separation
+        impl_count = sum(1 for p in phases if p["type"] == "implementation")
+        verif_count = sum(1 for p in phases if p["type"] == "verification")
+
+        if impl_count > 0 and verif_count > 0:
+            raise WaveValidationError(
+                f"Wave {wave_idx} mixes implementation and verification phases. "
+                f"Implementation phases must be in Wave N, verification in Wave N+1."
+            )
+
+        # Rule 2: No intra-wave data dependencies
+        if wave.get("parallel_execution") == True:
+            for phase_a in phases:
+                for phase_b in phases:
+                    if phase_a["phase_id"] != phase_b["phase_id"]:
+                        if has_data_dependency(phase_a, phase_b):
+                            raise WaveValidationError(
+                                f"Wave {wave_idx} parallel execution violated: "
+                                f"Phase {phase_a['phase_id']} depends on "
+                                f"{phase_b['phase_id']}'s output. "
+                                f"Phases with dependencies must be in separate waves."
+                            )
+
+        # Rule 3: File modification conflicts in parallel waves
+        if wave.get("parallel_execution") == True:
+            file_modifications = defaultdict(list)
+            for phase in phases:
+                for file in phase["deliverable_manifest"]["files"]:
+                    if file.get("must_exist") == False:  # Creating file
+                        file_modifications[file["path"]].append(phase["phase_id"])
+
+            for file_path, modifying_phases in file_modifications.items():
+                if len(modifying_phases) > 1:
+                    raise WaveValidationError(
+                        f"Wave {wave_idx} file conflict: {file_path} "
+                        f"modified by multiple parallel phases: {modifying_phases}. "
+                        f"Phases modifying same file must be sequential."
+                    )
+
+    # Verify verification phases scheduled after implementation
+    for wave_idx, wave in enumerate(waves):
+        for phase in wave["phases"]:
+            if phase["type"] == "verification":
+                impl_phase_id = phase.get("verifies_phase_id")
+                impl_wave = find_phase_wave(waves, impl_phase_id)
+
+                if impl_wave >= wave_idx:
+                    raise WaveValidationError(
+                        f"Verification phase {phase['phase_id']} in Wave {wave_idx} "
+                        f"scheduled before/alongside implementation phase {impl_phase_id} "
+                        f"in Wave {impl_wave}. Verification must come AFTER implementation."
+                    )
+
+    return True  # All waves valid
+
+---
+**⚠️ DEPENDENCY VALIDATION CHECKPOINT:**
+For each task pair, explicitly confirm:
+- Does task B read files from task A? → Add dependency
+- Does task B use outputs from task A? → Add dependency
+- Do both modify same file? → Add dependency (sequential)
+- No data flow between them? → No dependency (can parallelize)
+
+**Document your analysis for EACH dependency decision.**
+---
+
+def has_data_dependency(phase_a, phase_b):
+    """Check if phase_a reads files created by phase_b"""
+    phase_b_creates = {f["path"] for f in phase_b["deliverable_manifest"]["files"]
+                      if f.get("must_exist") == False}
+    phase_a_reads = {f["path"] for f in phase_a["deliverable_manifest"]["files"]
+                    if f.get("must_exist") == True}
+
+    return len(phase_b_creates & phase_a_reads) > 0
+```
+
+**ENFORCEMENT:**
+- If validation fails → BLOCK execution
+- Orchestrator MUST regenerate wave assignments with correct dependencies
+- Do NOT proceed to execution with invalid wave structure
+
+**Example Valid Wave Structure:**
+```json
+{
+  "waves": [
+    {
+      "wave_id": 0,
+      "parallel_execution": true,
+      "phases": [
+        {
+          "phase_id": "phase_0_0",
+          "type": "implementation",
+          "objective": "Create calculator.py",
+          "deliverable_manifest": {
+            "files": [{"path": "calculator.py", "must_exist": false}]
+          }
+        },
+        {
+          "phase_id": "phase_0_1",
+          "type": "implementation",
+          "objective": "Create utils.py",
+          "deliverable_manifest": {
+            "files": [{"path": "utils.py", "must_exist": false}]
+          }
+        }
+      ]
+    },
+    {
+      "wave_id": 1,
+      "parallel_execution": false,
+      "phases": [
+        {
+          "phase_id": "phase_1_0",
+          "type": "verification",
+          "verifies_phase_id": "phase_0_0",
+          "deliverable_manifest": {
+            "files": [{"path": "calculator.py", "must_exist": true}]
+          }
+        },
+        {
+          "phase_id": "phase_1_1",
+          "type": "verification",
+          "verifies_phase_id": "phase_0_1",
+          "deliverable_manifest": {
+            "files": [{"path": "utils.py", "must_exist": true}]
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Example Invalid Wave Structure (Rejected):**
+```json
+{
+  "waves": [
+    {
+      "wave_id": 0,
+      "parallel_execution": true,
+      "phases": [
+        {
+          "phase_id": "phase_0_0",
+          "type": "implementation",
+          "deliverable_manifest": {
+            "files": [{"path": "calculator.py", "must_exist": false}]
+          }
+        },
+        {
+          "phase_id": "phase_0_1",
+          "type": "verification",  // ❌ INVALID: Verification in same wave as implementation
+          "verifies_phase_id": "phase_0_0",
+          "deliverable_manifest": {
+            "files": [{"path": "calculator.py", "must_exist": true}]
+          }
+        }
+      ]
+    }
+  ]
+}
+```
 
 ---
 

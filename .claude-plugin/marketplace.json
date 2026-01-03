@@ -1,0 +1,21 @@
+{
+  "name": "barkain-plugins",
+  "owner": {
+    "name": "Nadav Barkai"
+  },
+  "plugins": [
+    {
+      "name": "workflow-orchestrator",
+      "source": "./",
+      "description": "Delegation system with workflow orchestration, specialized agents, and parallel execution for Claude Code",
+      "version": "1.0.0",
+      "author": {
+        "name": "Nadav Barkai"
+      },
+      "repository": "https://github.com/barkain/claude-code-workflow-orchestration",
+      "license": "MIT",
+      "keywords": ["delegation", "workflow", "orchestration", "agents"],
+      "category": "productivity"
+    }
+  ]
+}

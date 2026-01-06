@@ -114,7 +114,7 @@ claude
 ```
 and then prompt claude with:
 ```text
-> create simple calculator cli app
+> create a simple calculator cli app
 ```
 
 **What happens:**

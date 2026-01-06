@@ -44,6 +44,12 @@ if [[ "${DELEGATION_HOOK_DISABLE:-0}" == "1" ]]; then
   exit 0
 fi
 
+# Check for in-session delegation disable flag (do not clear this flag - it persists)
+if [[ -f "${STATE_DIR}/delegation_disabled" ]]; then
+    [[ "${DEBUG_DELEGATION_HOOK:-0}" == "1" ]] && echo "[DEBUG] Delegation disabled via flag file, skipping session clearing" >> /tmp/delegation_hook_debug.log
+    exit 0
+fi
+
 # ============================================================================
 # Memory Management Functions
 # ============================================================================

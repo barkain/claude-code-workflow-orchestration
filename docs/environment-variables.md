@@ -411,6 +411,45 @@ ls -la ${CLAUDE_PROJECT_DIR:-.}/.claude/state/
 
 ---
 
+## In-Session Delegation Bypass
+
+The delegation system provides an interactive in-session mechanism for toggling delegation enforcement without requiring environment variables.
+
+### The /bypass Command
+
+**Usage:**
+```bash
+/bypass
+```
+
+Toggles delegation enforcement on/off from within a Claude Code session. Uses an interactive prompt to let you choose between:
+- **Disable delegation (bypass hooks)** - Creates flag file, allows all tools
+- **Enable delegation (enforce hooks)** - Removes flag file, normal enforcement
+
+**Behavior:**
+- Idempotent: Reports "no change needed" if already in requested state
+- Persists across messages until explicitly toggled again
+
+### Flag File Mechanism
+
+**File Location:** `.claude/state/delegation_disabled`
+
+| State | Flag File | Behavior |
+|-------|-----------|----------|
+| Enforcement enabled | Does not exist | Normal delegation enforcement |
+| Enforcement disabled | Exists | All tools allowed, bypasses hooks |
+
+### Comparison with DELEGATION_HOOK_DISABLE
+
+| Aspect | DELEGATION_HOOK_DISABLE | /bypass |
+|--------|------------------------|---------|
+| Type | Environment variable | Flag file |
+| Set from | Outside session (bash) | Inside session (interactive) |
+| Persistence | Session lifetime | Until explicitly toggled |
+| Use case | CI/CD, scripting | Debugging, troubleshooting |
+
+---
+
 ## Related Documentation
 
 - [Hook Debugging Guide](./hook-debugging.md) - Debug logging analysis

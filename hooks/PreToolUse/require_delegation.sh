@@ -17,8 +17,16 @@ if [[ "${DELEGATION_HOOK_DISABLE:-0}" == "1" ]]; then
   exit 0
 fi
 
-# --- Cleanup old delegated sessions (older than 1 hour) ---
+# --- State directory for flag files ---
 STATE_DIR="${CLAUDE_PROJECT_DIR:-$PWD}/.claude/state"
+
+# Check for in-session delegation disable flag
+if [[ -f "${STATE_DIR}/delegation_disabled" ]]; then
+    [[ "${DEBUG_DELEGATION_HOOK:-0}" == "1" ]] && echo "[DEBUG] Delegation disabled via flag file, allowing all tools" >> /tmp/delegation_hook_debug.log
+    exit 0
+fi
+
+# --- Cleanup old delegated sessions (older than 1 hour) ---
 DELEGATED_SESSIONS_FILE="$STATE_DIR/delegated_sessions.txt"
 if [[ -f "$DELEGATED_SESSIONS_FILE" ]]; then
   # Clean up if file is older than 1 hour

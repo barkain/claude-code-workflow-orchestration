@@ -1033,6 +1033,7 @@ Tasks at depth < 3 MUST be decomposed further, regardless of whether they appear
   - By Feature: Feature A + Feature B + Feature C
 - Use domain knowledge to decompose into logical sub-tasks
 - Create 2-5 child tasks per parent (optimal branching factor)
+- **CRITICAL - Child Task Ordering:** Always sort child tasks lexicographically by their task ID to ensure deterministic ordering (e.g., root.1.1 before root.1.2)
 - Ensure each child is simpler than parent
 - Identify natural phase boundaries
 - Consider parallelization opportunities (independent file operations)
@@ -1294,6 +1295,7 @@ Using the dependency graph, assign tasks to waves:
 - Identify tasks whose dependencies are ALL in waves ≤ N
 - Assign these tasks to Wave N+1
 - Tasks in same wave can execute in parallel
+- **CRITICAL - Wave Internal Ordering:** Sort tasks within each wave lexicographically by task ID (e.g., root.1.1.1 before root.1.1.2, root.2.1.1 before root.2.2.1)
 
 **Step 3: Repeat until all tasks assigned**
 
@@ -1302,6 +1304,10 @@ Using the dependency graph, assign tasks to waves:
 - If wave has >4 tasks, split into multiple waves
 
 ### Example Wave Assignment
+
+**CRITICAL - Dependency Graph Ordering:**
+- Sort all object keys lexicographically by task ID (root.1.1.1 before root.2.1.1)
+- Sort all dependency arrays lexicographically (["root.1.1.1", "root.2.1.1"] not ["root.2.1.1", "root.1.1.1"])
 
 **Input dependency graph (atomic tasks only, depth 3):**
 ```json
@@ -3099,6 +3105,17 @@ When invoked:
 - Verification phases use task-completion-verifier agent and include functionality, edge cases, and error handling checks
 - NEVER attempt to use Read, Bash, or Write tools - these are blocked for orchestrator
 - **REMEMBER: Atomic tasks must have <30 min duration, ≤3 files, single deliverable, no planning needed, single responsibility, self-contained, expressible in single prompt**
+
+---
+
+## Dependency Graph Consistency Verification
+
+To verify deterministic output, run the same task through the orchestrator multiple times. The dependency graph should be IDENTICAL in:
+- Task IDs and ordering in task tree
+- Wave assignments and ordering within waves
+- Dependency arrays (sorted lexicographically)
+
+If graphs differ between runs, check that all CRITICAL ordering rules above are being followed.
 
 ---
 

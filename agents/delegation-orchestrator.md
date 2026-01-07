@@ -613,10 +613,31 @@ Always use Parallel (Wave-based) unless explicit sequential keywords detected.
 | 3 | Integration | Main app assembly, routing, middleware | general-purpose |
 | 4 | Testing | Unit tests, integration tests, verification | general-purpose + task-completion-verifier |
 
+**CRITICAL - Decomposition Depth Rules:**
+Decompose to sub-phases ONLY when the task explicitly requires it:
+
+1. **Standard decomposition (1 phase per logical unit):**
+   - "Create todo app" → 5 phases (Foundation, Models, Logic, Integration, Tests)
+   - Each phase = 1 task ID (root.1, root.2, root.3, root.4, root.5)
+
+2. **Sub-phase decomposition (only when task specifies multiple items):**
+   - "Create User model AND Todo model" → 2 sub-phases under Models phase
+   - "Add auth endpoints AND CRUD endpoints" → 2 sub-phases under Logic phase
+   - Sub-phases ONLY when task uses explicit list/enumeration
+
+3. **DO NOT create sub-phases based on:**
+   - Your own interpretation of what "should" be separate
+   - Implementation details (e.g., splitting "models" into "user model" + "todo model" unless task says so)
+   - File-level granularity (don't create phase per file unless task lists files)
+
+**Decomposition trigger keywords:**
+- "and" (lowercase) between items → sub-phases for those items
+- Numbered list in task → sub-phases matching the list
+- Comma-separated items → sub-phases for each item
+- No explicit list → single phase, no sub-phases
+
 **DO NOT:**
-- Create more than 5 waves for standard creation tasks
 - Create sub-sub-phases (e.g., root.1.1.1, root.1.1.2) - keep it flat
-- Use more than 10-15 total phases
 - Assign specialized agents (tech-lead-architect, devops-experience-architect) to implementation phases
 
 ---

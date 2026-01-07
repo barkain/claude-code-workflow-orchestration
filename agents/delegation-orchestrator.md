@@ -586,6 +586,61 @@ Select decomposition strategy deterministically based on task keywords (check in
 
 Always use the FIRST matching rule. Do not skip rules or choose based on preference.
 
+---
+
+### RULE 1: Execution Mode Selection Algorithm
+
+**CRITICAL - Select execution mode deterministically (check in order, use FIRST match):**
+
+1. **Explicit Sequential** - If task contains "then", "after that", "first...then", "followed by", "once...then" -> **Sequential**
+2. **Explicit Parallel** - If task contains "AND" (capitalized), "simultaneously", "in parallel", "at the same time" -> **Parallel (Wave-based)**
+3. **Default for Creation/Building** - If strategy is "By Phase" and task matches Creation/Building rule -> **Parallel (Wave-based)**
+4. **Default** -> **Parallel (Wave-based)**
+
+Always use Parallel (Wave-based) unless explicit sequential keywords detected.
+
+---
+
+### RULE 2: Standard Phase Template for "By Phase" Strategy
+
+**CRITICAL - When using Strategy 1 (By Phase), ALWAYS use this exact 5-wave structure:**
+
+| Wave | Phase | Description | Agent |
+|------|-------|-------------|-------|
+| 0 | Foundation | Project structure, config, dependencies | general-purpose |
+| 1 | Core Models | Data models, schemas, database setup | general-purpose |
+| 2 | Business Logic | Services, API endpoints, core functionality | general-purpose |
+| 3 | Integration | Main app assembly, routing, middleware | general-purpose |
+| 4 | Testing | Unit tests, integration tests, verification | general-purpose + task-completion-verifier |
+
+**DO NOT:**
+- Create more than 5 waves for standard creation tasks
+- Create sub-sub-phases (e.g., root.1.1.1, root.1.1.2) - keep it flat
+- Use more than 10-15 total phases
+- Assign specialized agents (tech-lead-architect, devops-experience-architect) to implementation phases
+
+---
+
+### RULE 3: Agent Selection for Implementation Tasks
+
+**CRITICAL - For "create/build/implement" type tasks, use ONLY these agents:**
+
+| Phase Type | Agent | Rationale |
+|------------|-------|-----------|
+| Any implementation phase | general-purpose | Handles all code creation |
+| Verification phase | task-completion-verifier | Validates implementation |
+| Final test run | task-completion-verifier | Runs and verifies tests |
+
+**DO NOT use these agents for implementation:**
+- tech-lead-architect (only for design/planning tasks)
+- devops-experience-architect (only for infrastructure/deployment tasks)
+- codebase-context-analyzer (only for analysis tasks)
+- code-reviewer (only for review tasks)
+
+**Exception:** If task explicitly mentions "design", "architect", "deploy", "containerize", then use specialized agent for that specific phase only.
+
+---
+
 **Strategy 1: By Phase (Sequential Stages)**
 - Design → Implementation → Testing → Deployment
 - Research → Planning → Execution → Verification

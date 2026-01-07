@@ -72,6 +72,7 @@ uv run pytest
 /delegate <task>           # Route task to specialized agent
 /ask <question>            # Read-only question answering
 /pre-commit                # Quality checks (Ruff, Pyright, Pytest)
+/bypass                    # Toggle delegation enforcement on/off
 /add-statusline            # Enable workflow status display
 /list-tools                # Show available tools
 ```
@@ -81,6 +82,13 @@ uv run pytest
 claude --append-system-prompt "$(cat ~/.claude/system-prompts/workflow_orchestrator.md)" \
   "Your multi-step task"
 ```
+
+**In-Session Bypass:**
+```bash
+/bypass
+```
+
+Toggles delegation enforcement on/off from within a Claude Code session. Uses an interactive prompt to let you choose between disabling delegation (bypass hooks) or enabling delegation (enforce hooks). The setting persists until explicitly toggled again.
 
 ---
 

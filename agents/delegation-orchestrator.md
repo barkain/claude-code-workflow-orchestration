@@ -588,94 +588,172 @@ Always use the FIRST matching rule. Do not skip rules or choose based on prefere
 
 ---
 
-### RULE 1: Execution Mode Selection Algorithm
+### RULE 1: Deliverable-Based Dynamic Planning
 
-**CRITICAL - For "By Phase" strategy (create/build app tasks), ALWAYS use SEQUENTIAL execution.**
+**PRINCIPLE: Task structure is derived from DELIVERABLES, not arbitrary templates.**
 
-The rigid 10-wave template in RULE 2 defines a strictly sequential structure. No parallel execution is allowed for "By Phase" tasks.
+The number of phases and waves is determined dynamically based on what the task actually requires. Different tasks produce different structures because they have different deliverables.
 
-For other strategies (By Component, By File/Resource, By Operation, By Feature), execution mode can vary based on task requirements, but the default is SEQUENTIAL to ensure consistency.
+**Key Insight:** The same task will always produce the same structure (deterministic), but DIFFERENT tasks can have DIFFERENT structures based on their requirements.
 
 ---
 
-### RULE 2: Standard Phase Template for "By Phase" Strategy
+### RULE 2: Deliverable Extraction Algorithm
 
-**CRITICAL - RIGID Phase Template (NO INTERPRETATION ALLOWED):**
+**Step 1: Extract Deliverables from Task Description**
 
-For ANY "create/build app" task, use EXACTLY this structure - NO EXCEPTIONS:
+A "deliverable" is a distinct, tangible output that can be:
+- Created independently (has its own implementation)
+- Verified independently (can be tested/validated)
+- Identified by nouns in the task description
 
-| Wave | Phase ID | Name | Contents | Agent |
-|------|----------|------|----------|-------|
-| 0 | root.1 | Foundation | Project structure + config + dependencies (ALL in ONE phase) | general-purpose |
-| 1 | root.1_verify | Foundation Verify | Verify foundation | task-completion-verifier |
-| 2 | root.2 | Data Layer | ALL models + database + schemas (ONE phase, not split) | general-purpose |
-| 3 | root.2_verify | Data Verify | Verify data layer | task-completion-verifier |
-| 4 | root.3 | Business Logic | ALL services + endpoints + auth (ONE phase, not split) | general-purpose |
-| 5 | root.3_verify | Logic Verify | Verify business logic | task-completion-verifier |
-| 6 | root.4 | Integration | Main app + routing + assembly | general-purpose |
-| 7 | root.4_verify | Integration Verify | Verify integration | task-completion-verifier |
-| 8 | root.5 | Testing | ALL tests (ONE phase) | general-purpose |
-| 9 | root.5_verify | Final Verify | Run tests + final verification | task-completion-verifier |
+**Deliverable Detection Rules:**
 
-**MANDATORY: EXACTLY 10 waves. EXACTLY 10 phases. ZERO EXCEPTIONS.**
+| Pattern | Deliverables | Example |
+|---------|--------------|---------|
+| "create X" | 1 deliverable: X | "create calculator" → [calculator] |
+| "create X with Y" | 2 deliverables: X, Y | "create app with tests" → [app, tests] |
+| "X and Y" (nouns) | 2 deliverables: X, Y | "user auth and todo CRUD" → [auth, todo_crud] |
+| "X, Y, Z" (list) | N deliverables | "add, subtract, multiply" → [add, subtract, multiply] |
+| "including Y" | +1 deliverable: Y | "build API including docs" → [API, docs] |
 
-**STRICTLY PROHIBITED - DO NOT DO ANY OF THESE:**
-- Split Foundation into multiple phases (project structure + config + deps = ONE phase)
-- Split Data Layer (User model + Todo model + schemas = ONE phase)
-- Split Business Logic (auth + CRUD + services = ONE phase)
-- Create parallel items within a wave (NO parallel execution)
-- Add extra waves or phases beyond the 10 specified
-- Remove any waves or phases from the 10 specified
-- Use different phase IDs than specified (root.1, root.2, etc.)
-- Assign different agents than specified
-- Deviate from this structure for ANY reason whatsoever
+**Step 2: Analyze Dependencies Between Deliverables**
 
-**The phase CONTENT can vary based on task requirements, but the STRUCTURE (10 waves, 10 phases, same IDs, same agents) must be IDENTICAL every single time.**
+For each pair of deliverables (A, B), determine if dependency exists:
 
-**Standard ASCII Graph (use EXACTLY this format):**
+| Condition | Dependency | Example |
+|-----------|------------|---------|
+| B requires output from A | A → B (sequential) | tests require code to exist |
+| B references/imports A | A → B (sequential) | API imports models |
+| A and B are independent | No dependency (parallel) | add() and subtract() functions |
+
+**Step 3: Generate Phases from Deliverables**
+
+Each deliverable generates:
+- **1 Implementation Phase:** Create/implement the deliverable
+- **1 Verification Phase:** Verify the deliverable works correctly
+
+**Phase Generation Rules:**
 ```
-DEPENDENCY GRAPH:
+For each deliverable D:
+  - Create phase: impl_{D} with agent based on deliverable type
+  - Create phase: verify_{D} with agent = task-completion-verifier
+  - verify_{D} depends on impl_{D}
+```
 
-Wave 0: [root.1] Foundation ─────────────────┐
-                                             ↓
-Wave 1: [root.1_verify] Verify Foundation ───┤
-                                             ↓
-Wave 2: [root.2] Data Layer ─────────────────┤
-                                             ↓
-Wave 3: [root.2_verify] Verify Data ─────────┤
-                                             ↓
-Wave 4: [root.3] Business Logic ─────────────┤
-                                             ↓
-Wave 5: [root.3_verify] Verify Logic ────────┤
-                                             ↓
-Wave 6: [root.4] Integration ────────────────┤
-                                             ↓
-Wave 7: [root.4_verify] Verify Integration ──┤
-                                             ↓
-Wave 8: [root.5] Testing ────────────────────┤
-                                             ↓
-Wave 9: [root.5_verify] Final Verification ──┘
+**Step 4: Build Wave Schedule from Dependencies**
+
+```
+Wave assignment algorithm:
+1. Wave 0: All phases with no dependencies
+2. Wave N+1: All phases whose dependencies are ALL in waves <= N
+3. Phases in same wave can execute in parallel if parallel_execution=true
 ```
 
 ---
 
-### RULE 3: Agent Selection for Implementation Tasks
+### RULE 3: Deliverable-to-Agent Mapping
 
-**CRITICAL - For "create/build/implement" type tasks, use ONLY these agents:**
+**Agent selection is based on deliverable TYPE, not arbitrary rules.**
 
-| Phase Type | Agent | Rationale |
-|------------|-------|-----------|
-| Any implementation phase | general-purpose | Handles all code creation |
-| Verification phase | task-completion-verifier | Validates implementation |
-| Final test run | task-completion-verifier | Runs and verifies tests |
+| Deliverable Type | Agent | Detection Keywords |
+|------------------|-------|--------------------|
+| Code/Module | general-purpose | create, implement, build, code, write, add |
+| Test Suite | general-purpose | test, tests, testing, coverage |
+| Documentation | documentation-expert | docs, documentation, README, guide |
+| API Design | tech-lead-architect | design, architect, API spec |
+| Infrastructure | devops-experience-architect | deploy, docker, CI/CD, pipeline |
+| Analysis/Review | codebase-context-analyzer | analyze, review, explore, understand |
+| Verification | task-completion-verifier | verify, validate, check |
+| Refactoring | code-cleanup-optimizer | refactor, cleanup, optimize |
 
-**DO NOT use these agents for implementation:**
-- tech-lead-architect (only for design/planning tasks)
-- devops-experience-architect (only for infrastructure/deployment tasks)
-- codebase-context-analyzer (only for analysis tasks)
-- code-reviewer (only for review tasks)
+**Default:** If no keywords match, use `general-purpose`.
 
-**Exception:** If task explicitly mentions "design", "architect", "deploy", "containerize", then use specialized agent for that specific phase only.
+---
+
+### RULE 4: Concrete Examples of Dynamic Planning
+
+**Example 1: Simple Task - "Create calculator"**
+
+**Deliverable Extraction:**
+- Deliverables: [calculator]
+- Dependencies: None
+
+**Generated Phases:**
+| Wave | Phase ID | Description | Agent |
+|------|----------|-------------|-------|
+| 0 | root.1 | Implement calculator module | general-purpose |
+| 1 | root.1_verify | Verify calculator works | task-completion-verifier |
+
+**Total: 2 waves, 2 phases** (not 10!)
+
+---
+
+**Example 2: Medium Task - "Create calculator with tests"**
+
+**Deliverable Extraction:**
+- Deliverables: [calculator, tests]
+- Dependencies: tests → calculator (tests need calculator to exist)
+
+**Generated Phases:**
+| Wave | Phase ID | Description | Agent |
+|------|----------|-------------|-------|
+| 0 | root.1 | Implement calculator module | general-purpose |
+| 1 | root.1_verify | Verify calculator works | task-completion-verifier |
+| 2 | root.2 | Implement test suite | general-purpose |
+| 3 | root.2_verify | Run tests and verify pass | task-completion-verifier |
+
+**Total: 4 waves, 4 phases** (derived from 2 deliverables)
+
+---
+
+**Example 3: Complex Task - "Create todo app with user auth"**
+
+**Deliverable Extraction:**
+- Deliverables: [project_setup, user_model, auth_system, todo_model, todo_crud, integration]
+- Dependencies:
+  - user_model → project_setup
+  - todo_model → project_setup
+  - auth_system → user_model
+  - todo_crud → todo_model
+  - integration → auth_system, todo_crud
+
+**Generated Phases (with parallelization):**
+| Wave | Phase ID | Description | Agent | Parallel |
+|------|----------|-------------|-------|----------|
+| 0 | root.1 | Create project structure | general-purpose | - |
+| 1 | root.1_verify | Verify project setup | task-completion-verifier | - |
+| 2 | root.2.1 | Implement User model | general-purpose | YES |
+| 2 | root.2.2 | Implement Todo model | general-purpose | YES |
+| 3 | root.2.1_verify | Verify User model | task-completion-verifier | YES |
+| 3 | root.2.2_verify | Verify Todo model | task-completion-verifier | YES |
+| 4 | root.3.1 | Implement auth system | general-purpose | YES |
+| 4 | root.3.2 | Implement todo CRUD | general-purpose | YES |
+| 5 | root.3.1_verify | Verify auth system | task-completion-verifier | YES |
+| 5 | root.3.2_verify | Verify todo CRUD | task-completion-verifier | YES |
+| 6 | root.4 | Implement integration/main app | general-purpose | - |
+| 7 | root.4_verify | Final verification | task-completion-verifier | - |
+
+**Total: 8 waves, 12 phases** (derived from 6 deliverables with parallelization)
+
+---
+
+### RULE 5: Determinism Guarantee
+
+**The same task description MUST always produce the same structure.**
+
+This is achieved because:
+1. Deliverable extraction uses deterministic keyword matching
+2. Dependency analysis follows fixed rules (not interpretation)
+3. Wave assignment uses topological sort (deterministic)
+4. Agent selection uses fixed keyword-to-agent mapping
+
+**Validation:** If you decompose the same task twice, you MUST get identical:
+- Number of phases
+- Phase IDs
+- Dependencies
+- Wave assignments
+- Agent assignments
 
 ---
 
@@ -704,84 +782,99 @@ Wave 9: [root.5_verify] Final Verification ──┘
 - CRUD operations: Create, Read, Update, Delete
 - Example: "Implement calculator" → Add function, Subtract function, Multiply function, Divide function
 
-### Canonical Example Using Rigid 10-Wave Template
+### Canonical Example Using Deliverable-Based Planning
 
-This example shows the EXACT structure for a calculator task using the rigid 10-wave template:
+This example shows how deliverable-based planning produces DIFFERENT structures for DIFFERENT tasks:
 
-**User Request:** "Create a calculator with basic arithmetic operations and tests"
+**Example A: "Create a calculator"**
 
-**Correct Decomposition (RIGID - NO DEVIATIONS):**
+**Deliverable Analysis:**
+- Deliverables: [calculator] (1 deliverable)
+- Dependencies: None
+
+**Generated Structure (2 phases):**
 ```
-Wave 0: [root.1] Foundation
-        - Create project structure (calculator.py file)
-        - Set up configuration (pyproject.toml if needed)
-        - Initialize dependencies
+Wave 0: [root.1] Implement calculator module
+        - Create calculator.py with arithmetic operations
+        - Agent: general-purpose
 
-Wave 1: [root.1_verify] Verify Foundation
-        - Verify files exist and structure is correct
-
-Wave 2: [root.2] Data Layer
-        - Define data types/schemas if any (e.g., input validation schemas)
-        - This wave may be minimal for simple tasks
-
-Wave 3: [root.2_verify] Verify Data Layer
-        - Verify data layer implementation
-
-Wave 4: [root.3] Business Logic
-        - Implement ALL functions: add(), subtract(), multiply(), divide()
-        - Implement ALL error handling: type validation, division-by-zero
-        - EVERYTHING in ONE phase, not split
-
-Wave 5: [root.3_verify] Verify Business Logic
-        - Verify all functions work correctly
-
-Wave 6: [root.4] Integration
-        - Main entry point if applicable
-        - Module assembly
-
-Wave 7: [root.4_verify] Verify Integration
-        - Verify integration is complete
-
-Wave 8: [root.5] Testing
-        - Create ALL tests: test_add, test_subtract, test_multiply, test_divide
-        - ALL tests in ONE phase, not split
-
-Wave 9: [root.5_verify] Final Verification
-        - Run all tests
-        - Final verification pass
+Wave 1: [root.1_verify] Verify calculator
+        - Test all functions work correctly
+        - Agent: task-completion-verifier
 ```
 
-**Key Rules:**
-- EXACTLY 10 waves, EXACTLY 10 phases
-- Phase IDs: root.1, root.1_verify, root.2, root.2_verify, root.3, root.3_verify, root.4, root.4_verify, root.5, root.5_verify
-- NO nested phases (no root.1.1, root.1.1.1, etc.)
-- NO splitting (all functions in ONE Business Logic phase, all tests in ONE Testing phase)
-- NO parallel execution (strictly sequential waves)
+---
 
-**DO NOT create depth-3 decompositions. The rigid template is FLAT.**
+**Example B: "Create a calculator with tests"**
 
-### Integration with Rigid 10-Wave Template
+**Deliverable Analysis:**
+- Deliverables: [calculator, tests] (2 deliverables)
+- Dependencies: tests → calculator
 
-**Workflow (SIMPLIFIED - No Recursive Decomposition):**
+**Generated Structure (4 phases):**
 ```
-User Task → Multi-step Detection → Apply Rigid 10-Wave Template → Agent Assignment → Sequential Execution
+Wave 0: [root.1] Implement calculator module
+        - Create calculator.py with arithmetic operations
+        - Agent: general-purpose
+
+Wave 1: [root.1_verify] Verify calculator
+        - Test functions manually
+        - Agent: task-completion-verifier
+
+Wave 2: [root.2] Implement test suite
+        - Create test_calculator.py
+        - Agent: general-purpose
+
+Wave 3: [root.2_verify] Run tests
+        - Execute pytest and verify pass
+        - Agent: task-completion-verifier
 ```
 
-**The rigid 10-wave template REPLACES recursive decomposition. All tasks use the same flat structure.**
+---
+
+**Example C: "Create a calculator with add and subtract functions"**
+
+**Deliverable Analysis:**
+- Deliverables: [add_function, subtract_function] (2 deliverables, explicitly listed)
+- Dependencies: None (independent functions)
+
+**Generated Structure (4 phases with parallelization):**
+```
+Wave 0: [root.1] Implement add() function          [PARALLEL]
+        [root.2] Implement subtract() function     [PARALLEL]
+        - Agent: general-purpose (both)
+
+Wave 1: [root.1_verify] Verify add() function      [PARALLEL]
+        [root.2_verify] Verify subtract() function [PARALLEL]
+        - Agent: task-completion-verifier (both)
+```
+
+---
+
+**Key Principle:**
+- Structure is derived FROM the task, not imposed ON the task
+- Same task → Same structure (deterministic)
+- Different tasks → Different structures (appropriate to requirements)
+
+### Integration with Deliverable-Based Planning
+
+**Workflow:**
+```
+User Task → Extract Deliverables → Analyze Dependencies → Generate Phases → Assign Agents → Build Wave Schedule
+```
+
+**Each step is deterministic and based on task content, not arbitrary templates.**
 
 ### Validation Checklist
 
 Before outputting final execution plan, verify:
 
-- [ ] **MANDATORY:** Exactly 10 waves (0-9)
-- [ ] **MANDATORY:** Exactly 10 phases with these IDs: root.1, root.1_verify, root.2, root.2_verify, root.3, root.3_verify, root.4, root.4_verify, root.5, root.5_verify
-- [ ] **MANDATORY:** Implementation phases (root.1-5) use general-purpose agent
-- [ ] **MANDATORY:** Verification phases (root.X_verify) use task-completion-verifier agent
-- [ ] **MANDATORY:** No nested phase IDs (no root.1.1, root.1.1.1, etc.)
-- [ ] **MANDATORY:** No parallel execution within waves
-- [ ] **MANDATORY:** Strictly sequential execution (Wave 0 → Wave 1 → ... → Wave 9)
-
-**NO depth-3 enforcement. NO recursive decomposition. The rigid template is FLAT.**
+- [ ] **REQUIRED:** Each deliverable has exactly 1 implementation + 1 verification phase
+- [ ] **REQUIRED:** Dependencies between deliverables are reflected in phase dependencies
+- [ ] **REQUIRED:** Independent deliverables are scheduled in parallel where possible
+- [ ] **REQUIRED:** Agent assignments match deliverable types (per RULE 3)
+- [ ] **REQUIRED:** Same task produces same structure on repeated decomposition
+- [ ] **RECOMMENDED:** Minimize wave count while respecting dependencies
 
 ---
 

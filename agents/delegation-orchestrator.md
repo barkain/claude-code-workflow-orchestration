@@ -572,12 +572,16 @@ The orchestrator uses a recursive algorithm to break down complex tasks into ato
 ### Decomposition Strategies
 
 **CRITICAL - Strategy Selection Algorithm:**
-Select decomposition strategy deterministically based on task keywords (check in order):
-1. If task contains "design", "architect", or "plan" as primary action → **Strategy 1 (By Phase)**
-2. Else if task mentions specific file paths (e.g., `/path/to/file.py`) → **Strategy 3 (By File/Resource)**
-3. Else if task contains sequencing words ("then", "after", "first...then", "followed by") → **Strategy 4 (By Operation)**
-4. Else if task mentions distinct system components ("frontend", "backend", "API", "database") → **Strategy 2 (By Component)**
-5. Else → **Strategy 1 (By Phase)** as default
+Select decomposition strategy deterministically based on task keywords (check in order, use FIRST match):
+
+1. **Questions** - If task starts with "what", "how", "why", "where", "explain" → Treat as **single-step** (minimal decomposition)
+2. **Investigation/Debugging** - If task contains "debug", "investigate", "trace", "diagnose" → **Strategy 4 (By Operation)**: Reproduce → Diagnose → Fix → Verify
+3. **Bug Fixes** - If task contains "fix", "resolve", "repair", "broken" → **Strategy 4 (By Operation)**: Locate → Fix → Verify
+4. **Design/Architecture** - If task contains "design", "architect", "plan" as primary action → **Strategy 1 (By Phase)**
+5. **File-specific** - If task mentions specific file paths (e.g., `/path/to/file.py`) → **Strategy 3 (By File/Resource)**
+6. **Sequential** - If task contains "then", "after", "first...then", "followed by" → **Strategy 4 (By Operation)**
+7. **Component-based** - If task mentions "frontend", "backend", "API", "database" → **Strategy 2 (By Component)**
+8. **Default** → **Strategy 1 (By Phase)**
 
 Always use the FIRST matching rule. Do not skip rules or choose based on preference.
 

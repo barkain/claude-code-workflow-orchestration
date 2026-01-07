@@ -600,9 +600,9 @@ For other strategies (By Component, By File/Resource, By Operation, By Feature),
 
 ### RULE 2: Standard Phase Template for "By Phase" Strategy
 
-**CRITICAL - RIGID Phase Template (NO INTERPRETATION):**
+**CRITICAL - RIGID Phase Template (NO INTERPRETATION ALLOWED):**
 
-For ANY "create/build app" task, use EXACTLY this structure:
+For ANY "create/build app" task, use EXACTLY this structure - NO EXCEPTIONS:
 
 | Wave | Phase ID | Name | Contents | Agent |
 |------|----------|------|----------|-------|
@@ -617,17 +617,45 @@ For ANY "create/build app" task, use EXACTLY this structure:
 | 8 | root.5 | Testing | ALL tests (ONE phase) | general-purpose |
 | 9 | root.5_verify | Final Verify | Run tests + final verification | task-completion-verifier |
 
-**EXACTLY 10 waves. EXACTLY 10 phases. NO EXCEPTIONS.**
+**MANDATORY: EXACTLY 10 waves. EXACTLY 10 phases. ZERO EXCEPTIONS.**
 
-**DO NOT:**
-- Split Foundation into multiple phases (project structure + config = ONE phase)
-- Split Data Layer into User model + Todo model (= ONE phase with both)
-- Split Business Logic into auth + CRUD (= ONE phase with all)
-- Create parallel items within a wave (EVERYTHING is sequential)
-- Add extra verification phases
-- Deviate from this exact structure for ANY reason
+**STRICTLY PROHIBITED - DO NOT DO ANY OF THESE:**
+- Split Foundation into multiple phases (project structure + config + deps = ONE phase)
+- Split Data Layer (User model + Todo model + schemas = ONE phase)
+- Split Business Logic (auth + CRUD + services = ONE phase)
+- Create parallel items within a wave (NO parallel execution)
+- Add extra waves or phases beyond the 10 specified
+- Remove any waves or phases from the 10 specified
+- Use different phase IDs than specified (root.1, root.2, etc.)
+- Assign different agents than specified
+- Deviate from this structure for ANY reason whatsoever
 
-**The phase CONTENT can vary based on task requirements, but the STRUCTURE must be identical every time.**
+**The phase CONTENT can vary based on task requirements, but the STRUCTURE (10 waves, 10 phases, same IDs, same agents) must be IDENTICAL every single time.**
+
+**Standard ASCII Graph (use EXACTLY this format):**
+```
+DEPENDENCY GRAPH:
+
+Wave 0: [root.1] Foundation ─────────────────┐
+                                             ↓
+Wave 1: [root.1_verify] Verify Foundation ───┤
+                                             ↓
+Wave 2: [root.2] Data Layer ─────────────────┤
+                                             ↓
+Wave 3: [root.2_verify] Verify Data ─────────┤
+                                             ↓
+Wave 4: [root.3] Business Logic ─────────────┤
+                                             ↓
+Wave 5: [root.3_verify] Verify Logic ────────┤
+                                             ↓
+Wave 6: [root.4] Integration ────────────────┤
+                                             ↓
+Wave 7: [root.4_verify] Verify Integration ──┤
+                                             ↓
+Wave 8: [root.5] Testing ────────────────────┤
+                                             ↓
+Wave 9: [root.5_verify] Final Verification ──┘
+```
 
 ---
 

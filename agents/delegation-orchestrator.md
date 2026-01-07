@@ -571,6 +571,16 @@ The orchestrator uses a recursive algorithm to break down complex tasks into ato
 
 ### Decomposition Strategies
 
+**CRITICAL - Strategy Selection Algorithm:**
+Select decomposition strategy deterministically based on task keywords (check in order):
+1. If task contains "design", "architect", or "plan" as primary action → **Strategy 1 (By Phase)**
+2. Else if task mentions specific file paths (e.g., `/path/to/file.py`) → **Strategy 3 (By File/Resource)**
+3. Else if task contains sequencing words ("then", "after", "first...then", "followed by") → **Strategy 4 (By Operation)**
+4. Else if task mentions distinct system components ("frontend", "backend", "API", "database") → **Strategy 2 (By Component)**
+5. Else → **Strategy 1 (By Phase)** as default
+
+Always use the FIRST matching rule. Do not skip rules or choose based on preference.
+
 **Strategy 1: By Phase (Sequential Stages)**
 - Design → Implementation → Testing → Deployment
 - Research → Planning → Execution → Verification

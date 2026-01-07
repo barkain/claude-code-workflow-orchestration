@@ -580,8 +580,9 @@ Select decomposition strategy deterministically based on task keywords (check in
 4. **Design/Architecture** - If task contains "design", "architect", "plan" as primary action → **Strategy 1 (By Phase)**
 5. **File-specific** - If task mentions specific file paths (e.g., `/path/to/file.py`) → **Strategy 3 (By File/Resource)**
 6. **Sequential** - If task contains "then", "after", "first...then", "followed by" → **Strategy 4 (By Operation)**
-7. **Component-based** - If task mentions "frontend", "backend", "API", "database" → **Strategy 2 (By Component)**
-8. **Default** → **Strategy 1 (By Phase)**
+7. **Creation/Building** - If task contains "create", "build", "implement", "develop", "make" as primary action (not "create file X") → **Strategy 1 (By Phase)**
+8. **Component-based** - If task mentions "frontend", "backend", "API", "database" → **Strategy 2 (By Component)**
+9. **Default** → **Strategy 1 (By Phase)**
 
 Always use the FIRST matching rule. Do not skip rules or choose based on preference.
 

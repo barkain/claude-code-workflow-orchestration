@@ -590,106 +590,72 @@ Always use the FIRST matching rule. Do not skip rules or choose based on prefere
 
 ### RULE 1: Execution Mode Selection Algorithm
 
-**CRITICAL - Select execution mode deterministically (check in order, use FIRST match):**
+**CRITICAL - For "By Phase" strategy (create/build app tasks), ALWAYS use SEQUENTIAL execution.**
 
-1. **Explicit Sequential** - If task contains "then", "after that", "first...then", "followed by", "once...then" -> **Sequential**
-2. **Explicit Parallel** - If task contains "AND" (capitalized), "simultaneously", "in parallel", "at the same time" -> **Parallel (Wave-based)**
-3. **Default for Creation/Building** - If strategy is "By Phase" and task matches Creation/Building rule -> **Parallel (Wave-based)**
-4. **Default** -> **Parallel (Wave-based)**
+The rigid 10-wave template in RULE 2 defines a strictly sequential structure. No parallel execution is allowed for "By Phase" tasks.
 
-Always use Parallel (Wave-based) unless explicit sequential keywords detected.
+For other strategies (By Component, By File/Resource, By Operation, By Feature), execution mode can vary based on task requirements, but the default is SEQUENTIAL to ensure consistency.
 
 ---
 
 ### RULE 2: Standard Phase Template for "By Phase" Strategy
 
-**CRITICAL - When using Strategy 1 (By Phase), ALWAYS use this exact 5-wave structure:**
+**CRITICAL - RIGID Phase Template (NO INTERPRETATION ALLOWED):**
 
-| Wave | Phase | Description | Agent |
-|------|-------|-------------|-------|
-| 0 | Foundation | Project structure, config, dependencies | general-purpose |
-| 1 | Core Models | Data models, schemas, database setup | general-purpose |
-| 2 | Business Logic | Services, API endpoints, core functionality | general-purpose |
-| 3 | Integration | Main app assembly, routing, middleware | general-purpose |
-| 4 | Testing | Unit tests, integration tests, verification | general-purpose + task-completion-verifier |
+For ANY "create/build app" task, use EXACTLY this structure - NO EXCEPTIONS:
 
-**CRITICAL - Decomposition Depth Rules:**
-Decompose to sub-phases ONLY when the task explicitly requires it:
+| Wave | Phase ID | Name | Contents | Agent |
+|------|----------|------|----------|-------|
+| 0 | root.1 | Foundation | Project structure + config + dependencies (ALL in ONE phase) | general-purpose |
+| 1 | root.1_verify | Foundation Verify | Verify foundation | task-completion-verifier |
+| 2 | root.2 | Data Layer | ALL models + database + schemas (ONE phase, not split) | general-purpose |
+| 3 | root.2_verify | Data Verify | Verify data layer | task-completion-verifier |
+| 4 | root.3 | Business Logic | ALL services + endpoints + auth (ONE phase, not split) | general-purpose |
+| 5 | root.3_verify | Logic Verify | Verify business logic | task-completion-verifier |
+| 6 | root.4 | Integration | Main app + routing + assembly | general-purpose |
+| 7 | root.4_verify | Integration Verify | Verify integration | task-completion-verifier |
+| 8 | root.5 | Testing | ALL tests (ONE phase) | general-purpose |
+| 9 | root.5_verify | Final Verify | Run tests + final verification | task-completion-verifier |
 
-1. **Standard decomposition (1 phase per logical unit):**
-   - "Create todo app" → 5 phases (Foundation, Models, Logic, Integration, Tests)
-   - Each phase = 1 task ID (root.1, root.2, root.3, root.4, root.5)
+**MANDATORY: EXACTLY 10 waves. EXACTLY 10 phases. ZERO EXCEPTIONS.**
 
-2. **Sub-phase decomposition (only when task specifies multiple items):**
-   - "Create User model AND Todo model" → 2 sub-phases under Models phase
-   - "Add auth endpoints AND CRUD endpoints" → 2 sub-phases under Logic phase
-   - Sub-phases ONLY when task uses explicit list/enumeration
+**STRICTLY PROHIBITED - DO NOT DO ANY OF THESE:**
+- Split Foundation into multiple phases (project structure + config + deps = ONE phase)
+- Split Data Layer (User model + Todo model + schemas = ONE phase)
+- Split Business Logic (auth + CRUD + services = ONE phase)
+- Create parallel items within a wave (NO parallel execution)
+- Add extra waves or phases beyond the 10 specified
+- Remove any waves or phases from the 10 specified
+- Use different phase IDs than specified (root.1, root.2, etc.)
+- Assign different agents than specified
+- Deviate from this structure for ANY reason whatsoever
 
-3. **DO NOT create sub-phases based on:**
-   - Your own interpretation of what "should" be separate
-   - Implementation details (e.g., splitting "models" into "user model" + "todo model" unless task says so)
-   - File-level granularity (don't create phase per file unless task lists files)
+**The phase CONTENT can vary based on task requirements, but the STRUCTURE (10 waves, 10 phases, same IDs, same agents) must be IDENTICAL every single time.**
 
-**Decomposition trigger keywords:**
-- "and" (lowercase) between items → sub-phases for those items
-- Numbered list in task → sub-phases matching the list
-- Comma-separated items → sub-phases for each item
-- No explicit list → single phase, no sub-phases
+**Standard ASCII Graph (use EXACTLY this format):**
+```
+DEPENDENCY GRAPH:
 
-**DO NOT:**
-- Create sub-sub-phases (e.g., root.1.1.1, root.1.1.2) - keep it flat
-- Assign specialized agents (tech-lead-architect, devops-experience-architect) to implementation phases
-
-**CRITICAL - Standard Graph Structure:**
-For "By Phase" strategy, use this exact dependency pattern:
-
-1. **Linear chain dependency (default):**
-   Each wave depends ONLY on the previous wave. No cross-wave or skip-wave dependencies.
-   ```
-   Wave 0 → Wave 1 → Wave 2 → Wave 3 → Wave 4
-   ```
-
-2. **Parallel items within a wave:**
-   - Items in same wave have NO dependencies between them
-   - ALL items in Wave N depend on ALL items in Wave N-1
-   - ALL items in Wave N+1 depend on ALL items in Wave N
-
-3. **Standard ASCII visualization format:**
-   ALWAYS use this exact format for the dependency graph:
-   ```
-   DEPENDENCY GRAPH:
-
-   Wave 0: Foundation
-   └── [root.1] Project setup ──────────────────────┐
-                                                    ↓
-   Wave 1: Core Models
-   └── [root.2] Models & schemas ───────────────────┤
-                                                    ↓
-   Wave 2: Business Logic
-   └── [root.3] Services & endpoints ───────────────┤
-                                                    ↓
-   Wave 3: Integration
-   └── [root.4] App assembly ───────────────────────┤
-                                                    ↓
-   Wave 4: Testing
-   └── [root.5] Tests & verification ───────────────┘
-   ```
-
-4. **With parallel items in a wave:**
-   ```
-   Wave 1: Core Models (PARALLEL)
-   ├── [root.2.1] User model ───────┐
-   └── [root.2.2] Todo model ───────┤
-                                    ↓
-   Wave 2: Business Logic
-   └── [root.3] Services ───────────┤
-   ```
-
-5. **DO NOT:**
-   - Create complex branching graphs
-   - Add cross-wave dependencies (Wave 0 → Wave 3 directly)
-   - Use different ASCII styles between runs
-   - Add decorative elements that vary
+Wave 0: [root.1] Foundation ─────────────────┐
+                                             ↓
+Wave 1: [root.1_verify] Verify Foundation ───┤
+                                             ↓
+Wave 2: [root.2] Data Layer ─────────────────┤
+                                             ↓
+Wave 3: [root.2_verify] Verify Data ─────────┤
+                                             ↓
+Wave 4: [root.3] Business Logic ─────────────┤
+                                             ↓
+Wave 5: [root.3_verify] Verify Logic ────────┤
+                                             ↓
+Wave 6: [root.4] Integration ────────────────┤
+                                             ↓
+Wave 7: [root.4_verify] Verify Integration ──┤
+                                             ↓
+Wave 8: [root.5] Testing ────────────────────┤
+                                             ↓
+Wave 9: [root.5_verify] Final Verification ──┘
+```
 
 ---
 
@@ -738,114 +704,84 @@ For "By Phase" strategy, use this exact dependency pattern:
 - CRUD operations: Create, Read, Update, Delete
 - Example: "Implement calculator" → Add function, Subtract function, Multiply function, Divide function
 
-### Canonical Depth-3 Decomposition Example
+### Canonical Example Using Rigid 10-Wave Template
 
-This example shows proper depth-3 decomposition for a calculator task:
+This example shows the EXACT structure for a calculator task using the rigid 10-wave template:
 
 **User Request:** "Create a calculator with basic arithmetic operations and tests"
 
-**Correct Decomposition:**
+**Correct Decomposition (RIGID - NO DEVIATIONS):**
 ```
-root (depth 0): Create calculator with tests
-├── root.1 (depth 1): Implement calculator module
-│   ├── root.1.1 (depth 2): Implement arithmetic operations
-│   │   ├── root.1.1.1 (depth 3): Implement add(a, b) function ← ATOMIC
-│   │   ├── root.1.1.2 (depth 3): Implement subtract(a, b) function ← ATOMIC
-│   │   ├── root.1.1.3 (depth 3): Implement multiply(a, b) function ← ATOMIC
-│   │   └── root.1.1.4 (depth 3): Implement divide(a, b) function ← ATOMIC
-│   └── root.1.2 (depth 2): Implement error handling
-│       ├── root.1.2.1 (depth 3): Add input type validation ← ATOMIC
-│       └── root.1.2.2 (depth 3): Add division-by-zero guard ← ATOMIC
-└── root.2 (depth 1): Create test suite
-    └── root.2.1 (depth 2): Write unit tests
-        ├── root.2.1.1 (depth 3): Write tests for add() ← ATOMIC
-        ├── root.2.1.2 (depth 3): Write tests for subtract() ← ATOMIC
-        ├── root.2.1.3 (depth 3): Write tests for multiply() ← ATOMIC
-        └── root.2.1.4 (depth 3): Write tests for divide() ← ATOMIC
-```
+Wave 0: [root.1] Foundation
+        - Create project structure (calculator.py file)
+        - Set up configuration (pyproject.toml if needed)
+        - Initialize dependencies
 
-**Key Rules Demonstrated:**
-- **Depth 0 (root):** User's complete request - NEVER atomic
-- **Depth 1 (root.X):** Major components - NEVER atomic
-- **Depth 2 (root.X.Y):** Sub-components - NEVER atomic
-- **Depth 3 (root.X.Y.Z):** Single operations - ALWAYS atomic
+Wave 1: [root.1_verify] Verify Foundation
+        - Verify files exist and structure is correct
 
-**What Makes a Task Atomic:**
-- ✅ Single function implementation
-- ✅ Single file read/write
-- ✅ Single test case
-- ✅ <15 minutes to complete
-- ✅ One deliverable
+Wave 2: [root.2] Data Layer
+        - Define data types/schemas if any (e.g., input validation schemas)
+        - This wave may be minimal for simple tasks
 
-**NOT Atomic (requires further decomposition):**
-- ❌ "Create calculator.py with arithmetic operations" (multiple functions)
-- ❌ "Write tests for calculator" (multiple test cases)
-- ❌ "Implement error handling" (multiple validations)
+Wave 3: [root.2_verify] Verify Data Layer
+        - Verify data layer implementation
 
-### Recursion Termination Conditions
+Wave 4: [root.3] Business Logic
+        - Implement ALL functions: add(), subtract(), multiply(), divide()
+        - Implement ALL error handling: type validation, division-by-zero
+        - EVERYTHING in ONE phase, not split
 
-**Maximum Depth Limit:**
-- Default: 3 levels of decomposition
-- At depth 3, if task still appears non-atomic but cannot be decomposed further, mark as atomic
-- Prevents infinite recursion while ensuring practical task granularity
+Wave 5: [root.3_verify] Verify Business Logic
+        - Verify all functions work correctly
 
-**Natural Termination:**
-- Task meets all atomicity criteria
-- Task is indivisible (e.g., "Create single file X.py")
-- Further decomposition would create tasks smaller than practical unit
+Wave 6: [root.4] Integration
+        - Main entry point if applicable
+        - Module assembly
 
-**Error Conditions:**
-- Circular dependencies detected during decomposition
-- Cannot identify logical sub-tasks (report to user for clarification)
-- Task description too vague to decompose (ask user for more details)
+Wave 7: [root.4_verify] Verify Integration
+        - Verify integration is complete
 
-### Integration with Existing Workflow
+Wave 8: [root.5] Testing
+        - Create ALL tests: test_add, test_subtract, test_multiply, test_divide
+        - ALL tests in ONE phase, not split
 
-**Before Recursive Decomposition (Current Behavior):**
-```
-User Task → Multi-step Detection → Phase Identification → Agent Assignment → Execution Plan
+Wave 9: [root.5_verify] Final Verification
+        - Run all tests
+        - Final verification pass
 ```
 
-**After Recursive Decomposition (New Behavior):**
+**Key Rules:**
+- EXACTLY 10 waves, EXACTLY 10 phases
+- Phase IDs: root.1, root.1_verify, root.2, root.2_verify, root.3, root.3_verify, root.4, root.4_verify, root.5, root.5_verify
+- NO nested phases (no root.1.1, root.1.1.1, etc.)
+- NO splitting (all functions in ONE Business Logic phase, all tests in ONE Testing phase)
+- NO parallel execution (strictly sequential waves)
+
+**DO NOT create depth-3 decompositions. The rigid template is FLAT.**
+
+### Integration with Rigid 10-Wave Template
+
+**Workflow (SIMPLIFIED - No Recursive Decomposition):**
 ```
-User Task → Multi-step Detection → Phase Identification
-          ↓
-       Atomicity Check (depth 0, 1, 2 → always non-atomic)
-          ↓
-       Recursive Decomposition (depth 3 → apply atomicity criteria)
-          ↓
-       Build Complete Task Tree (all leaf nodes atomic)
-          ↓
-       Dependency Analysis → Wave Scheduling → Agent Assignment → Execution Plan
+User Task → Multi-step Detection → Apply Rigid 10-Wave Template → Agent Assignment → Sequential Execution
 ```
 
-**Key Changes:**
-1. After initial phase identification, apply atomicity check to each phase
-2. Non-atomic phases are recursively decomposed into sub-tasks
-3. Process continues until all leaf nodes are atomic (depth ≥ 3)
-4. Only atomic tasks are included in final execution plan
-5. Dependency analysis operates on atomic tasks only
+**The rigid 10-wave template REPLACES recursive decomposition. All tasks use the same flat structure.**
 
 ### Validation Checklist
 
 Before outputting final execution plan, verify:
 
-- [ ] **🚫 BLOCKING:** All leaf nodes have depth >= 3 (enforced by PostToolUse hook)
-- [ ] **🚫 BLOCKING:** No tasks at depth 0, 1, 2 marked as is_atomic: true (will fail validation)
-- [ ] All leaf nodes meet atomicity criteria (<30 min, ≤3 files, single deliverable)
-- [ ] All leaf nodes have agent assignments
-- [ ] Task tree has no orphaned nodes (all have valid parent references)
-- [ ] Dependency graph has no cycles
-- [ ] All atomic tasks are included in wave scheduling
-- [ ] Total task count matches leaf node count in task tree
+- [ ] **MANDATORY:** Exactly 10 waves (0-9)
+- [ ] **MANDATORY:** Exactly 10 phases with these IDs: root.1, root.1_verify, root.2, root.2_verify, root.3, root.3_verify, root.4, root.4_verify, root.5, root.5_verify
+- [ ] **MANDATORY:** Implementation phases (root.1-5) use general-purpose agent
+- [ ] **MANDATORY:** Verification phases (root.X_verify) use task-completion-verifier agent
+- [ ] **MANDATORY:** No nested phase IDs (no root.1.1, root.1.1.1, etc.)
+- [ ] **MANDATORY:** No parallel execution within waves
+- [ ] **MANDATORY:** Strictly sequential execution (Wave 0 → Wave 1 → ... → Wave 9)
 
-**⚠️ CRITICAL PRE-OUTPUT VALIDATION:**
-
-> Before outputting the execution plan JSON, you MUST verify that ALL tasks marked with `is_atomic: true` have `depth >= 3`.
->
-> **Why this matters:** The `validate_task_graph_depth.sh` hook will BLOCK the Task tool invocation if this constraint is violated. This is not optional - it is a hard runtime enforcement.
->
-> **Action required:** Review EVERY phase in your execution plan. If any atomic task has depth < 3, you MUST decompose it further before outputting the JSON.
+**NO depth-3 enforcement. NO recursive decomposition. The rigid template is FLAT.**
 
 ---
 

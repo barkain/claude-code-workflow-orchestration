@@ -640,6 +640,57 @@ Decompose to sub-phases ONLY when the task explicitly requires it:
 - Create sub-sub-phases (e.g., root.1.1.1, root.1.1.2) - keep it flat
 - Assign specialized agents (tech-lead-architect, devops-experience-architect) to implementation phases
 
+**CRITICAL - Standard Graph Structure:**
+For "By Phase" strategy, use this exact dependency pattern:
+
+1. **Linear chain dependency (default):**
+   Each wave depends ONLY on the previous wave. No cross-wave or skip-wave dependencies.
+   ```
+   Wave 0 → Wave 1 → Wave 2 → Wave 3 → Wave 4
+   ```
+
+2. **Parallel items within a wave:**
+   - Items in same wave have NO dependencies between them
+   - ALL items in Wave N depend on ALL items in Wave N-1
+   - ALL items in Wave N+1 depend on ALL items in Wave N
+
+3. **Standard ASCII visualization format:**
+   ALWAYS use this exact format for the dependency graph:
+   ```
+   DEPENDENCY GRAPH:
+
+   Wave 0: Foundation
+   └── [root.1] Project setup ──────────────────────┐
+                                                    ↓
+   Wave 1: Core Models
+   └── [root.2] Models & schemas ───────────────────┤
+                                                    ↓
+   Wave 2: Business Logic
+   └── [root.3] Services & endpoints ───────────────┤
+                                                    ↓
+   Wave 3: Integration
+   └── [root.4] App assembly ───────────────────────┤
+                                                    ↓
+   Wave 4: Testing
+   └── [root.5] Tests & verification ───────────────┘
+   ```
+
+4. **With parallel items in a wave:**
+   ```
+   Wave 1: Core Models (PARALLEL)
+   ├── [root.2.1] User model ───────┐
+   └── [root.2.2] Todo model ───────┤
+                                    ↓
+   Wave 2: Business Logic
+   └── [root.3] Services ───────────┤
+   ```
+
+5. **DO NOT:**
+   - Create complex branching graphs
+   - Add cross-wave dependencies (Wave 0 → Wave 3 directly)
+   - Use different ASCII styles between runs
+   - Add decorative elements that vary
+
 ---
 
 ### RULE 3: Agent Selection for Implementation Tasks

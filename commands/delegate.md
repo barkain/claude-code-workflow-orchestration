@@ -697,38 +697,29 @@ After Phase 1 completes:
    - Issues encountered
    - Specific artifacts to reference
 
-2. **Go back to orchestrator** for Phase 2 guidance:
-   - Spawn the delegation-orchestrator agent directly
-   - Provide user task + context from Phase 1
-   - Request Phase 2 recommendation
+2. **Execute Phase 2 directly** using the delegation prompt from the orchestrator's initial recommendation:
+   - The orchestrator already provided ALL phase prompts in Stage 1
+   - Do NOT re-invoke the orchestrator - use the Phase 2 prompt already received
+   - Inject captured context from Phase 1 into the Phase 2 delegation prompt
 
-   **Example: Re-invoking Orchestrator for Phase 2**
+   **Context Injection Pattern:**
 
-   After Phase 1 completes, invoke the orchestrator again by spawning the delegation-orchestrator agent directly with the following prompt structure:
+   Take the Phase 2 delegation prompt from the orchestrator's recommendation and prepend Phase 1 context:
 
    ```
-   **ORIGINAL USER TASK:** $ARGUMENTS
+   **CONTEXT FROM PREVIOUS PHASE:**
 
-   **COMPLETED PHASES:**
-
-   Phase 1: [Phase name, e.g., 'Research & Analysis']
-   Agent Used: [Agent name, e.g., 'tech-lead-architect']
-   Results:
+   Phase 1 Results:
    - Created file: /absolute/path/to/file.ext
-   - Key decisions: [List decisions made, e.g., 'Selected FastAPI framework', 'Chose PostgreSQL database']
-   - Implementation approach: [Describe approach used, e.g., 'Layered architecture with service pattern']
-   - Configurations determined: [List any configs, e.g., 'Python 3.12+, async/await patterns']
-   - Issues encountered: [Note any blockers/resolutions, e.g., 'None' or 'Resolved dependency conflict']
+   - Key decisions: [List decisions made]
+   - Implementation approach: [Describe approach used]
+   - Configurations determined: [List any configs]
+   - Issues encountered: [Note any blockers/resolutions]
 
-   **REQUEST:**
+   ---
 
-   Please provide Phase 2 recommendation based on the completed Phase 1 context above. Use the Phase 2 template from your multi-step breakdown and fill in the specific context from Phase 1 results.
+   [Original Phase 2 delegation prompt from orchestrator]
    ```
-
-   This prompt includes:
-   - The original user task for reference
-   - Complete context from Phase 1 (files created, decisions, approach)
-   - Clear request for Phase 2 guidance with Phase 1 context
 
    **Key Points:**
    - Always use **absolute file paths** when referencing files created in previous phases
@@ -736,9 +727,7 @@ After Phase 1 completes:
    - Note any **blockers or issues** encountered and how they were resolved
    - Include **configuration details** that affect subsequent phases
 
-3. **Parse Phase 2 recommendation** and execute
-
-4. **Repeat** for all remaining phases
+3. **Repeat** for all remaining phases using their respective prompts from the initial orchestrator recommendation
 
 ### Step 4: Report Results
 
@@ -874,7 +863,7 @@ Context from Phase 1 (Research):
 - Created research notes: /tmp/research_notes.md
 ```
 
-This context gets included in the next orchestrator call to inform Phase 2 planning.
+This context gets prepended to the Phase 2 delegation prompt (already provided by the orchestrator in Stage 1).
 
 ---
 
@@ -1239,12 +1228,12 @@ Next Steps:
 Execute the delegation process now using Steps 1-4 above.
 
 **Important Reminders:**
-- You will spawn agents twice in the process:
-  1. First spawn the delegation-orchestrator agent directly (get recommendation)
-  2. Then spawn the specialized agent directly (execute delegation)
-- For multi-step: Spawn the orchestrator agent again for each subsequent phase
-- Parse the delegation prompt from orchestrator's structured output
-- Use the extracted prompt verbatim when spawning the specialized agent
+- **Single orchestrator call:** The orchestrator is spawned ONCE and returns ALL phase prompts
+- **No re-invocation:** Do NOT spawn the orchestrator again for subsequent phases
+- For single-step: Orchestrator (1 call) -> Specialized agent (1 call) = 2 total spawns
+- For multi-step: Orchestrator (1 call) -> Phase 1 agent -> Phase 2 agent -> ... = N+1 total spawns
+- Parse ALL delegation prompts from orchestrator's structured output in Stage 1
+- Use each phase's prompt verbatim, adding context from previous phases
 - The main agent will automatically interpret your instructions and spawn the correct subagents using Claude's built-in subagent system
 
 ---

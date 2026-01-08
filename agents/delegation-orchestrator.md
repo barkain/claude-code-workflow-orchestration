@@ -2077,7 +2077,78 @@ Both visualizations serve different purposes:
 
 **CRITICAL: EVERY task entry in the graph MUST include a human-readable task description between the task ID and the agent name. Format: `task_id  Task description here  [agent-name]`. Graphs with only task IDs (e.g., `root.1.1.1 [agent]`) are INVALID.**
 
-### ASCII Graph Format
+---
+
+## MANDATORY ASCII GRAPH FORMAT
+
+Use EXACTLY this format for ALL dependency graphs. NO variations allowed.
+
+**Characters to use:**
+- Vertical line: `│` (Unicode BOX DRAWINGS LIGHT VERTICAL)
+- Horizontal line: `───`
+- Branch right: `├──`
+- Corner: `└──`
+- Parallel separator: `  ` (2 spaces between parallel items)
+
+**Wave format:**
+```
+Wave N: [phase_id] ([phase_name])
+```
+
+**Sequential connection:**
+```
+Wave 0: root.1 (Foundation)
+│
+Wave 1: root.1_verify (Verify Foundation)
+```
+
+**Parallel phases in same wave:**
+```
+Wave 2: root.2.1 (Auth)  root.2.2 (Database)
+│
+Wave 3: root.2_verify (Verify Layer 2)
+```
+
+**Branching (one phase leads to multiple):**
+```
+Wave 1: root.1 (Foundation)
+├── Wave 2: root.2.1 (Branch A)
+└── Wave 2: root.2.2 (Branch B)
+```
+
+**EXAMPLE - Complete graph:**
+```
+DEPENDENCY GRAPH:
+
+Wave 0: root.1 (Foundation)
+│
+Wave 1: root.1_verify (Verify Foundation)
+│
+Wave 2: root.2.1 (Data Models)  root.2.2 (Auth Setup)
+│
+Wave 3: root.2_verify (Verify Data Layer)
+│
+Wave 4: root.3 (Business Logic)
+│
+Wave 5: root.3_verify (Verify Logic)
+│
+Wave 6: root.4 (Integration)
+│
+Wave 7: root.4_verify (Final Verification)
+```
+
+**RULES:**
+1. ALWAYS use `│` for vertical connections (not `|`)
+2. ALWAYS use 2 spaces between parallel phases
+3. NEVER use arrow characters (`▼`, `→`, `↓`)
+4. NEVER use box-drawing horizontal branches (`─┬─`)
+5. Keep phase names SHORT (max 20 chars)
+6. One blank line between wave groups ONLY if showing branches
+7. Wave numbers are sequential (0, 1, 2, 3...)
+
+---
+
+### ASCII Graph Format (Detailed Template)
 
 Generate terminal-friendly dependency graph showing:
 - Wave assignments with descriptive titles and purpose explanations

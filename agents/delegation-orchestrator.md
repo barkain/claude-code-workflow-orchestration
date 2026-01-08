@@ -1779,114 +1779,6 @@ Include workflow initialization in your orchestration output:
 
 ---
 
-## ⚠️ MANDATORY: Hierarchical Task Tree Visualization
-
-**THIS IS REQUIRED FOR ALL WORKFLOWS - SHOWS COMPLETE DECOMPOSITION**
-
-**CRITICAL REQUIREMENTS:**
-- ✅ Tree MUST show ALL depth levels (0, 1, 2, 3)
-- ✅ Non-atomic parent nodes MUST be displayed with their descriptions
-- ✅ Atomic leaf nodes MUST be marked with `← ATOMIC` indicator
-- ✅ Tree MUST use proper indentation and connectors
-- ❌ DO NOT skip intermediate depth levels
-
-### Hierarchical Tree Format
-
-Generate a complete task tree showing the full decomposition hierarchy:
-
-**Template Format:**
-```
-HIERARCHICAL TASK TREE
-═══════════════════════════════════════════════════════════════════════════════════
-
-root (depth 0): [Original user task description]
-├── root.1 (depth 1): [Major phase description]
-│   ├── root.1.1 (depth 2): [Component group description]
-│   │   ├── root.1.1.1 (depth 3): [Task] ← ATOMIC [agent-name]
-│   │   ├── root.1.1.2 (depth 3): [Task] ← ATOMIC [agent-name]
-│   │   └── root.1.1.3 (depth 3): [Task] ← ATOMIC [agent-name]
-│   └── root.1.2 (depth 2): [Component group description]
-│       ├── root.1.2.1 (depth 3): [Task] ← ATOMIC [agent-name]
-│       └── root.1.2.2 (depth 3): [Task] ← ATOMIC [agent-name]
-└── root.2 (depth 1): [Major phase description]
-    └── root.2.1 (depth 2): [Component group description]
-        ├── root.2.1.1 (depth 3): [Task] ← ATOMIC [agent-name]
-        └── root.2.1.2 (depth 3): [Task] ← ATOMIC [agent-name]
-
-═══════════════════════════════════════════════════════════════════════════════════
-Total: N tasks | Depth levels: 4 (0→3) | Atomic tasks: X at depth 3
-═══════════════════════════════════════════════════════════════════════════════════
-```
-
-### Complete Example (Calculator CLI)
-
-```
-HIERARCHICAL TASK TREE
-═══════════════════════════════════════════════════════════════════════════════════
-
-root (depth 0): Create calculator CLI with tests and 90% coverage
-├── root.1 (depth 1): Calculator module implementation
-│   └── root.1.1 (depth 2): Arithmetic operations
-│       ├── root.1.1.1 (depth 3): Implement add(a, b) function ← ATOMIC [general-purpose]
-│       ├── root.1.1.2 (depth 3): Implement subtract(a, b) function ← ATOMIC [general-purpose]
-│       ├── root.1.1.3 (depth 3): Implement multiply(a, b) function ← ATOMIC [general-purpose]
-│       └── root.1.1.4 (depth 3): Implement divide(a, b) function ← ATOMIC [general-purpose]
-├── root.2 (depth 1): CLI interface implementation
-│   └── root.2.1 (depth 2): CLI components
-│       ├── root.2.1.1 (depth 3): Implement argument parser ← ATOMIC [general-purpose]
-│       ├── root.2.1.2 (depth 3): Implement operation routing ← ATOMIC [general-purpose]
-│       └── root.2.1.3 (depth 3): Implement error handling ← ATOMIC [general-purpose]
-├── root.3 (depth 1): Test suite implementation
-│   └── root.3.1 (depth 2): Unit tests
-│       ├── root.3.1.1 (depth 3): Implement test_add() ← ATOMIC [general-purpose]
-│       ├── root.3.1.2 (depth 3): Implement test_subtract() ← ATOMIC [general-purpose]
-│       ├── root.3.1.3 (depth 3): Implement test_multiply() ← ATOMIC [general-purpose]
-│       ├── root.3.1.4 (depth 3): Implement test_divide() ← ATOMIC [general-purpose]
-│       └── root.3.1.5 (depth 3): Implement CLI integration tests ← ATOMIC [general-purpose]
-└── root.4 (depth 1): Verification phase
-    └── root.4.1 (depth 2): Test execution
-        └── root.4.1.1 (depth 3): Run pytest with coverage ← ATOMIC [task-completion-verifier]
-
-═══════════════════════════════════════════════════════════════════════════════════
-Total: 13 tasks | Depth levels: 4 (0→3) | Atomic tasks: 13 at depth 3
-═══════════════════════════════════════════════════════════════════════════════════
-```
-
-### Tree Node Format Rules
-
-**Non-atomic nodes (depth 0, 1, 2):**
-```
-node_id (depth N): Description of grouping/phase
-```
-
-**Atomic nodes (depth 3):**
-```
-node_id (depth 3): Specific task description ← ATOMIC [agent-name]
-```
-
-### Tree Connectors
-
-| Connector | Usage |
-|-----------|-------|
-| `├──` | Non-last child at current level |
-| `└──` | Last child at current level |
-| `│   ` | Vertical continuation (4 chars total) |
-| `    ` | Blank indent after last child (4 spaces) |
-
-### Output Order
-
-When generating workflow output, ALWAYS include BOTH visualizations in this order:
-
-1. **HIERARCHICAL TASK TREE** - Shows complete decomposition structure
-2. **DEPENDENCY GRAPH & EXECUTION PLAN** - Shows wave-based execution with parallelization
-3. **EXECUTION PLAN JSON** - Machine-readable format
-
-Both visualizations serve different purposes:
-- **Tree:** Understand HOW the task was decomposed (parent-child relationships)
-- **Dependency Graph:** Understand WHEN tasks execute (waves, parallelization, dependencies)
-
----
-
 ## ⚠️ MANDATORY: ASCII Dependency Graph Visualization
 
 **THIS IS REQUIRED FOR ALL WORKFLOWS - NO EXCEPTIONS**
@@ -2643,42 +2535,7 @@ First, create the complete hierarchical task tree with all atomic tasks, depende
 
 ---
 
-### STEP 2: Generate Hierarchical Task Tree
-
-Using the task tree from Step 1, create a terminal-friendly ASCII visualization showing the complete hierarchical structure.
-
-**Output Requirements:**
-```text
-HIERARCHICAL TASK TREE
-═══════════════════════════════════════════════════════════════════════
-
-root (depth 0): [Original user task]
-├── root.1 (depth 1): [Major phase]
-│   └── root.1.1 (depth 2): [Component group]
-│       ├── root.1.1.1 (depth 3): [Task description] ← ATOMIC [agent-name]
-│       └── root.1.1.2 (depth 3): [Task description] ← ATOMIC [agent-name]
-└── root.2 (depth 1): [Major phase]
-    └── root.2.1 (depth 2): [Component group]
-        └── root.2.1.1 (depth 3): [Task description] ← ATOMIC [agent-name]
-
-═══════════════════════════════════════════════════════════════════════
-Summary: X atomic tasks (depth 3) │ Y total nodes │ Max depth: 3
-═══════════════════════════════════════════════════════════════════════
-```
-
-**Validation Checklist:**
-- [ ] Tree shows ALL depth levels (0, 1, 2, 3)
-- [ ] Non-atomic parent nodes show descriptions only
-- [ ] Atomic leaf nodes marked with `← ATOMIC [agent-name]`
-- [ ] Only depth-3 nodes have `← ATOMIC` marker
-- [ ] Proper indentation and connectors (├── └── │)
-- [ ] Summary footer includes: atomic count, total nodes, max depth
-
-**DO NOT PROCEED to Step 3 until this tree is complete and validated.**
-
----
-
-### STEP 3: Generate Dependency Graph & Execution Plan
+### STEP 2: Generate Dependency Graph & Execution Plan
 
 Using the task tree from Step 1, create the wave-based execution visualization:
 
@@ -2707,13 +2564,13 @@ Parallelization: X tasks can run concurrently
 - [ ] Agent assignments match Step 1
 - [ ] Graph uses proper ASCII connectors (┌─ ├─ └─)
 
-**DO NOT PROCEED to Step 4 until this graph is complete and validated.**
+**DO NOT PROCEED to Step 3 until this graph is complete and validated.**
 
 ---
 
-### STEP 4: Cross-Validation
+### STEP 3: Cross-Validation
 
-Verify consistency between Steps 1, 2, and 3:
+Verify consistency between Steps 1 and 2:
 
 **Validation Steps:**
 1. Count atomic tasks in task tree JSON → **Count A**
@@ -2733,29 +2590,28 @@ Verify consistency between Steps 1, 2, and 3:
 ✓ All dependencies consistent
 ✓ Wave assignments validated
 
-VALIDATION PASSED - Proceed to Step 5
+VALIDATION PASSED - Proceed to Step 4
 ```
 
-**If validation fails:** Return to Step 1, Step 2, or Step 3 to fix inconsistencies.
+**If validation fails:** Return to Step 1 or Step 2 to fix inconsistencies.
 
-**DO NOT PROCEED to Step 5 until validation passes.**
+**DO NOT PROCEED to Step 4 until validation passes.**
 
 ---
 
-### STEP 5: Write Recommendation
+### STEP 4: Write Recommendation
 
-Only after Steps 1-4 are complete and validated, write the final recommendation using the "## Output Format" template below.
+Only after Steps 1-3 are complete and validated, write the final recommendation using the "## Output Format" template below.
 
 **Requirements:**
 - Include complete task tree JSON from Step 1
-- Include hierarchical task tree from Step 2
-- Include dependency graph & execution plan from Step 3
-- Include validation results from Step 4
+- Include dependency graph & execution plan from Step 2
+- Include validation results from Step 3
 - Follow exact template structure from "## Output Format"
 
 ---
 
-**ENFORCEMENT RULE:** If you attempt to write the recommendation (Step 5) without completing Steps 1-4, you MUST stop and restart from Step 1.
+**ENFORCEMENT RULE:** If you attempt to write the recommendation (Step 4) without completing Steps 1-3, you MUST stop and restart from Step 1.
 
 ---
 
@@ -2763,16 +2619,15 @@ Only after Steps 1-4 are complete and validated, write the final recommendation 
 
 **CRITICAL REQUIREMENT FOR MULTI-STEP WORKFLOWS:**
 
-Before generating your recommendation output, you MUST first create BOTH required visualizations showing the complete workflow structure. This is non-negotiable and non-optional for multi-step workflows.
+Before generating your recommendation output, you MUST first create the required visualization showing the complete workflow structure. This is non-negotiable and non-optional for multi-step workflows.
 
 **Pre-Generation Checklist:**
 1. Generate task tree JSON (Step 1)
-2. Generate hierarchical task tree visualization (Step 2)
-3. Generate dependency graph & execution plan (Step 3)
-4. Cross-validate all outputs (Step 4)
-5. THEN write the complete recommendation (Step 5)
+2. Generate dependency graph & execution plan (Step 2)
+3. Cross-validate all outputs (Step 3)
+4. THEN write the complete recommendation (Step 4)
 
-Failure to include BOTH visualizations renders the output incomplete and unusable.
+Failure to include the dependency graph visualization renders the output incomplete and unusable.
 
 ---
 

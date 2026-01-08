@@ -68,6 +68,50 @@ Wave 2: [Title] (PARALLEL)
 - NO summary footer lines
 - NO double-line borders (`═══════`)
 - NO creative visualizations
+- NO grouping multiple waves under a single header (e.g., "Wave 3-9: Models (Sequential)")
+- NO "(Sequential)" suffix that groups multiple waves
+- NO "remaining waves" or "continue pattern" placeholders
+- NO summarization regardless of workflow complexity or wave count
+
+**OUTPUT LENGTH REQUIREMENTS:**
+
+- There is NO limit on output length for the dependency graph
+- Show ALL waves individually even if there are 50+ waves
+- NEVER summarize or group waves to "save space" or "reduce output"
+- NEVER use range notation (Wave 3-9) regardless of how many waves exist
+- Each wave MUST have its subtasks listed with tree connectors
+- If a wave appears without visible subtask lines, the output is WRONG
+- Workflows with 20+ waves are NORMAL - show every single one
+
+**PRE-OUTPUT VALIDATION CHECKLIST:**
+
+Before outputting the dependency graph, you MUST verify:
+- [ ] Every wave from Wave 0 to Wave N is shown as a SEPARATE header
+- [ ] Every wave header is followed by at least one subtask line (starting with ├─ or └─)
+- [ ] No wave ranges like "Wave 3-9" or "Waves 10-16" exist anywhere
+- [ ] No "(Sequential)" grouping suffix that implies multiple waves
+- [ ] No placeholders like "[Continue for remaining waves...]"
+- [ ] The word "remaining" does not appear in the graph
+
+**FAILURE MODES TO AVOID:**
+
+These are WRONG outputs that violate the format:
+```
+WRONG: Wave 3-9: Models & Authentication (Sequential)
+WRONG: Waves 10-16: Todo CRUD Operations
+WRONG: Wave 19-20: Test Execution & Final Verification
+WRONG: [Continue for waves 5-12...]
+```
+
+These are CORRECT outputs:
+```
+CORRECT: Wave 3: User Model
+         └─ root.1.2.1    Create User model    [general-purpose]
+         │
+         ▼
+         Wave 4: Todo Model
+         └─ root.1.2.2    Create Todo model    [general-purpose]
+```
 
 See "MANDATORY: Dependency Graph Output" section below for full example.
 
@@ -1862,11 +1906,21 @@ Wave 2: [Title] (PARALLEL)
 - NO column layouts with multiple `|` pipes
 - NO bracketed phase IDs like `[root.1.1.1]`
 - NO compressed phases like `[root.1.3.2,3,4]`
-- NO wave compression like `Wave 3-15:`
+- NO wave compression like `Wave 3-15:` or `Waves 10-16:`
+- NO grouping multiple waves (e.g., "Wave 3-9: Models (Sequential)")
+- NO "(Sequential)" suffix that groups multiple waves together
 - NO creative visualizations
 - NO arrow notation `→ agent-name`
 - NO summary footer lines
 - NO double-line borders (`═══════`)
+- NO "remaining waves" or "continue pattern" text
+- NO summarization of waves regardless of count
+
+### OUTPUT COMPLETENESS RULE
+
+**EVERY wave from 0 to N MUST be shown individually with its subtasks.**
+
+If you have 20 waves, show all 20. If you have 50 waves, show all 50. There is NO output length limit. NEVER group or compress waves.
 
 ### EXAMPLE OUTPUT
 
@@ -2498,7 +2552,7 @@ Wave 1: Verification
 └─ root.1.1_verify    Verify modules    [task-completion-verifier]
 ```
 
-**CRITICAL: NO horizontal lines, NO summary footers, NO creative formatting.**
+**CRITICAL: NO horizontal lines, NO summary footers, NO creative formatting, NO wave compression.**
 
 **Validation Checklist:**
 - [ ] Graph shows ALL atomic tasks from Step 1
@@ -2506,6 +2560,10 @@ Wave 1: Verification
 - [ ] Dependencies are correctly represented
 - [ ] Agent assignments match Step 1
 - [ ] Graph uses proper ASCII connectors (├─ └─)
+- [ ] EVERY wave from 0 to N is shown as a SEPARATE header (no ranges like "Wave 3-9")
+- [ ] EVERY wave has at least one subtask line visible (├─ or └─)
+- [ ] No "(Sequential)" grouping suffix that implies multiple waves
+- [ ] No placeholders like "[Continue for remaining waves...]"
 
 **DO NOT PROCEED to Step 3 until this graph is complete and validated.**
 
@@ -2780,7 +2838,14 @@ Context from previous phases:
 
 ### Wave 2, Wave 3, ... (continue for ALL waves)
 
-**CRITICAL: You MUST show EVERY wave individually. NEVER use placeholders like "[Continue for all waves...]" or "Wave 3-15:". Each wave from Wave 0 to Wave N must be shown with all its phases listed explicitly.**
+**CRITICAL: You MUST show EVERY wave individually:**
+- NEVER use placeholders like "[Continue for all waves...]"
+- NEVER use wave ranges like "Wave 3-15:" or "Waves 10-16:"
+- NEVER group waves with "(Sequential)" suffix like "Wave 3-9: Models (Sequential)"
+- Each wave from Wave 0 to Wave N must be shown as a SEPARATE header
+- Each wave MUST have at least one subtask line with ├─ or └─ connector
+- If workflow has 20+ waves, show ALL 20+ waves individually
+- There is NO output length limit - show every wave completely
 
 ---
 
@@ -2872,6 +2937,7 @@ After executing this plan, verify:
 18. **Single Deliverable Rule:** If a task produces multiple distinct deliverables (e.g., "Create file.py with tests"), decompose into separate atomic tasks (Create file.py + Write tests)
 19. **File Scope Limit:** Tasks modifying >3 files must be decomposed; ideal atomic tasks operate on 1-2 files maximum
 20. **No Planning in Atomic Tasks:** If a task requires architectural decisions or planning, it's not atomic - decompose into design phase + implementation phases
+21. **NO Wave Compression:** NEVER compress, group, or summarize waves in dependency graph output; show EVERY wave from 0 to N individually with all subtasks visible, regardless of total wave count; there is NO output length limit
 
 ### Multi-Step Workflows
 

@@ -2916,6 +2916,40 @@ This execution plan is a **BINDING CONTRACT** between the orchestrator and the m
 - **Total Waves**: [Number]
 - **Execution Mode**: [Sequential/Parallel]
 
+### DEPENDENCY GRAPH (MANDATORY - USE EXACT FORMAT)
+
+**CRITICAL: You MUST include this section with the EXACT format shown below. NEVER compress waves. NEVER omit the graph. ALWAYS show every wave with tree characters.**
+
+```
+Wave 0: [Wave Name]
+└─ root.1.1.1    [Description max 40 chars]           [agent-name]
+│
+▼
+Wave 1: [Wave Name] (PARALLEL if applicable)
+├─ root.1.2.1    [Description]                        [agent-name]
+└─ root.1.2.2    [Description]                        [agent-name]
+│
+▼
+Wave 2: [Wave Name]
+└─ root.1_verify    [Verify description]              [task-completion-verifier]
+```
+
+**FORMAT RULES (MANDATORY):**
+1. Each wave header: `Wave N: [Wave Name]` (add `(PARALLEL)` if parallel_execution=true)
+2. First/middle phases in wave: `├─ phase.id    Description    [agent-name]`
+3. Last/only phase in wave: `└─ phase.id    Description    [agent-name]`
+4. Wave separator: `│` on its own line, then `▼` on next line
+5. Agent in brackets: `[agent-name]` right-aligned
+6. Continue for ALL waves - no compression, no summaries
+
+**PROHIBITED:**
+- ❌ Wave compression: `Wave 5-11: Auth → API → Tests`
+- ❌ Missing tree characters: `Wave 2: root.2.1 (Models)` without `├─`/`└─`
+- ❌ Omitting waves or phases
+- ❌ Missing `[agent-name]` brackets
+
+---
+
 ### Task Graph JSON Output
 
 **⚠️ GENERATION STATUS (You MUST complete these):**

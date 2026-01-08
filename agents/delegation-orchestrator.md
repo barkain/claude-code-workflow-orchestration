@@ -2030,6 +2030,23 @@ Summary: 6 tasks │ 3 waves │ Max parallel: 3 │ Critical path: root.1.1.1 �
 
 ### Generation Guidelines
 
+**CRITICAL OUTPUT RULES - NEVER VIOLATE:**
+1. **NEVER compress waves** - Each wave MUST be shown individually (e.g., "Wave 5-11: ..." is FORBIDDEN)
+2. **Show ALL waves** - Every wave from 0 to N must appear in the graph, even if workflow has 20+ waves
+3. **Consistent connectors** - Use `├─` for all tasks except last in wave, `└─` for last task only
+4. **Wave separator** - Use `│` then `▼` between every pair of waves, never omit
+
+**Compact Format (for workflows with many waves):**
+```
+Wave N: [Descriptive Title] (parallel)
+├─ task.id    Task description                     [agent-name]
+└─ task.id    Task description                     [agent-name]
+│
+▼
+Wave N+1: [Descriptive Title]
+└─ task.id    Task description                     [agent-name]
+```
+
 **Wave Headers:**
 1. **Title:** Use descriptive name (e.g., "Foundation & Architecture Design", "Core Implementation", "Integration & Testing")
 2. **Description:** 2-line explanation of wave purpose, context, and dependencies
@@ -2042,9 +2059,8 @@ Summary: 6 tasks │ 3 waves │ Max parallel: 3 │ Critical path: root.1.1.1 �
 4. **Spacing:** Leave blank line between task entries for readability
 
 **Tree Connectors:**
-- First task in wave: `┌─` (top corner)
-- Middle tasks: `├─` (T-junction)
-- Last task in wave: `└─` (bottom corner)
+- First/middle tasks in wave: `├─` (T-junction)
+- Last/only task in wave: `└─` (bottom corner)
 - Continuation: `│` (vertical line)
 
 **Wave Flow:**
@@ -2060,7 +2076,7 @@ Summary: 6 tasks │ 3 waves │ Max parallel: 3 │ Critical path: root.1.1.1 �
 
 ### Box Drawing Characters Reference
 
-- **Tree connectors:** `┌─` (top), `├─` (middle), `└─` (bottom), `│` (vertical)
+- **Tree connectors:** `├─` (first/middle tasks), `└─` (last/only task), `│` (vertical)
 - **Wave separator:** `━` (horizontal bold line)
 - **Section separator:** `═` (double horizontal line)
 - **Flow arrows:** `│` (down), `▼` (downward arrow)

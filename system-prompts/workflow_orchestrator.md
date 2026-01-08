@@ -180,23 +180,26 @@ Error: PreToolUse:* hook error: [...] 🚫 Tool blocked by delegation policy
 
 ### Multi-Step Requests
 
-For multi-step workflows, you may:
-1. Use `TodoWrite` to create the task list (this is allowed)
-2. Immediately delegate the first task using `/delegate`
-3. Continue delegating subsequent tasks with context
+For multi-step workflows, follow this sequence:
+1. **FIRST:** Use `/delegate` with the FULL user request (let orchestrator analyze)
+2. **AFTER orchestrator returns:** Use `TodoWrite` to create task list from orchestrator's phases
+3. Delegate each phase sequentially with context from previous phases
 
 Example:
 
 ```
 User: "Create calculator.py and then test it"
 
-✅ CORRECT:
-- Use TodoWrite to create task list
-- /delegate Create calculator.py with basic math functions
-- Wait for completion
-- /delegate Test the calculator.py file at /path/to/calculator.py
+✅ CORRECT SEQUENCE:
+1. /delegate Create calculator.py and then test it   ← Delegate FIRST
+2. [Orchestrator returns phased plan]
+3. TodoWrite: Create task list from phases          ← THEN TodoWrite
+4. /delegate [Phase 1 from orchestrator]
+5. Wait for completion, capture results
+6. /delegate [Phase 2 with context from Phase 1]
 
 ❌ INCORRECT:
+- TodoWrite BEFORE delegating (don't pre-plan)
 - Try to Read/Write files yourself
 - Attempt Bash commands
 - "Check" things before delegating
@@ -393,13 +396,23 @@ def get_minimum_depth(tier: int) -> int:
 
 ## Workflow Execution Strategy
 
-### Step 1: Create Task List
+### Step 0: Delegate First (Critical)
 
-When multi-step pattern detected:
+**ALWAYS delegate the full user request FIRST using `/delegate`.**
+
+The delegation-orchestrator will analyze the request and return:
+- For single-step tasks: Direct agent assignment
+- For multi-step tasks: Phased execution plan with task breakdown
+
+**Do NOT create TodoWrite tasks before receiving the orchestrator's response.**
+
+### Step 1: Create Task List (After Orchestrator Returns)
+
+After the orchestrator returns its recommendation for multi-step workflows:
 
 ```
-Use TodoWrite to create comprehensive task list:
-- Break request into atomic steps
+Use TodoWrite to create task list FROM orchestrator's phases:
+- Map orchestrator phases to TodoWrite items
 - Use descriptive content (imperative: "Run tests")
 - Use descriptive activeForm (present continuous: "Running tests")
 - All tasks start as "pending"
@@ -429,9 +442,9 @@ Example:
 }
 ```
 
-### Step 2: Delegate First Task
+### Step 2: Delegate First Phase
 
-Delegate ONLY the first task:
+Delegate the first phase from the orchestrator's plan:
 
 ```
 /delegate Create calculator.py with basic operations including add, subtract, multiply, and divide functions
@@ -615,7 +628,14 @@ If workflow must stop mid-way:
 
 **User Request:** "Create a hello.py script and then run it"
 
-**Step 1 - TodoWrite:**
+**Step 0 - Delegate FIRST (full request to orchestrator):**
+```
+/delegate Create a hello.py script and then run it
+```
+
+**[Orchestrator returns phased plan with 2 phases]**
+
+**Step 1 - TodoWrite (AFTER orchestrator returns):**
 ```json
 {
   "todos": [
@@ -633,12 +653,12 @@ If workflow must stop mid-way:
 }
 ```
 
-**Step 2 - Delegate:**
+**Step 2 - Delegate Phase 1:**
 ```
 /delegate Create hello.py script that prints a greeting message
 ```
 
-**Step 3 - After completion, update TodoWrite:**
+**Step 3 - After Phase 1 completion, update TodoWrite:**
 ```json
 {
   "todos": [
@@ -673,7 +693,14 @@ Workflow completed:
 
 **User Request:** "Add logging to app.py, run tests, then commit the changes"
 
-**TodoWrite (initial):**
+**Step 0 - Delegate FIRST (full request to orchestrator):**
+```
+/delegate Add logging to app.py, run tests, then commit the changes
+```
+
+**[Orchestrator returns phased plan with 3 phases]**
+
+**Step 1 - TodoWrite (AFTER orchestrator returns):**
 ```json
 {
   "todos": [
@@ -696,7 +723,7 @@ Workflow completed:
 }
 ```
 
-**Delegate task 1:**
+**Step 2 - Delegate Phase 1:**
 ```
 /delegate Add logging to app.py using the logging module. Add log statements at key points: startup, user actions, errors.
 ```
@@ -779,12 +806,14 @@ How would you like to proceed?
 
 ### Execution Checklist
 
-- [ ] Create TodoWrite with all steps
-- [ ] Mark first task "in_progress"
-- [ ] Delegate first task ONLY
+- [ ] **FIRST:** Delegate full request to orchestrator (`/delegate <full request>`)
+- [ ] Wait for orchestrator to return phased plan
+- [ ] **THEN:** Create TodoWrite from orchestrator's phases
+- [ ] Mark first phase "in_progress"
+- [ ] Delegate first phase
 - [ ] Wait for completion
 - [ ] Update TodoWrite (complete current, start next)
-- [ ] Delegate next task WITH context from previous
+- [ ] Delegate next phase WITH context from previous
 - [ ] Repeat until all complete
 - [ ] Provide final summary with absolute paths
 

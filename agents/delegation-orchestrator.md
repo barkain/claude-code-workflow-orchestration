@@ -571,6 +571,192 @@ The orchestrator uses a recursive algorithm to break down complex tasks into ato
 
 ### Decomposition Strategies
 
+**CRITICAL - Strategy Selection Algorithm:**
+Select decomposition strategy deterministically based on task keywords (check in order, use FIRST match):
+
+1. **Questions** - If task starts with "what", "how", "why", "where", "explain" → Treat as **single-step** (minimal decomposition)
+2. **Investigation/Debugging** - If task contains "debug", "investigate", "trace", "diagnose" → **Strategy 4 (By Operation)**: Reproduce → Diagnose → Fix → Verify
+3. **Bug Fixes** - If task contains "fix", "resolve", "repair", "broken" → **Strategy 4 (By Operation)**: Locate → Fix → Verify
+4. **Design/Architecture** - If task contains "design", "architect", "plan" as primary action → **Strategy 1 (By Phase)**
+5. **File-specific** - If task mentions specific file paths (e.g., `/path/to/file.py`) → **Strategy 3 (By File/Resource)**
+6. **Sequential** - If task contains "then", "after", "first...then", "followed by" → **Strategy 4 (By Operation)**
+7. **Creation/Building** - If task contains "create", "build", "implement", "develop", "make" as primary action (not "create file X") → **Strategy 1 (By Phase)**
+8. **Component-based** - If task mentions "frontend", "backend", "API", "database" → **Strategy 2 (By Component)**
+9. **Default** → **Strategy 1 (By Phase)**
+
+Always use the FIRST matching rule. Do not skip rules or choose based on preference.
+
+---
+
+### RULE 1: Deliverable-Based Dynamic Planning
+
+**PRINCIPLE: Task structure is derived from DELIVERABLES, not arbitrary templates.**
+
+The number of phases and waves is determined dynamically based on what the task actually requires. Different tasks produce different structures because they have different deliverables.
+
+**Key Insight:** The same task will always produce the same structure (deterministic), but DIFFERENT tasks can have DIFFERENT structures based on their requirements.
+
+---
+
+### RULE 2: Deliverable Extraction Algorithm
+
+**Step 1: Extract Deliverables from Task Description**
+
+A "deliverable" is a distinct, tangible output that can be:
+- Created independently (has its own implementation)
+- Verified independently (can be tested/validated)
+- Identified by nouns in the task description
+
+**Deliverable Detection Rules:**
+
+| Pattern | Deliverables | Example |
+|---------|--------------|---------|
+| "create X" | 1 deliverable: X | "create calculator" → [calculator] |
+| "create X with Y" | 2 deliverables: X, Y | "create app with tests" → [app, tests] |
+| "X and Y" (nouns) | 2 deliverables: X, Y | "user auth and todo CRUD" → [auth, todo_crud] |
+| "X, Y, Z" (list) | N deliverables | "add, subtract, multiply" → [add, subtract, multiply] |
+| "including Y" | +1 deliverable: Y | "build API including docs" → [API, docs] |
+
+**Step 2: Analyze Dependencies Between Deliverables**
+
+For each pair of deliverables (A, B), determine if dependency exists:
+
+| Condition | Dependency | Example |
+|-----------|------------|---------|
+| B requires output from A | A → B (sequential) | tests require code to exist |
+| B references/imports A | A → B (sequential) | API imports models |
+| A and B are independent | No dependency (parallel) | add() and subtract() functions |
+
+**Step 3: Generate Phases from Deliverables**
+
+Each deliverable generates:
+- **1 Implementation Phase:** Create/implement the deliverable
+- **1 Verification Phase:** Verify the deliverable works correctly
+
+**Phase Generation Rules:**
+```
+For each deliverable D:
+  - Create phase: impl_{D} with agent based on deliverable type
+  - Create phase: verify_{D} with agent = task-completion-verifier
+  - verify_{D} depends on impl_{D}
+```
+
+**Step 4: Build Wave Schedule from Dependencies**
+
+```
+Wave assignment algorithm:
+1. Wave 0: All phases with no dependencies
+2. Wave N+1: All phases whose dependencies are ALL in waves <= N
+3. Phases in same wave can execute in parallel if parallel_execution=true
+```
+
+---
+
+### RULE 3: Deliverable-to-Agent Mapping
+
+**Agent selection is based on deliverable TYPE, not arbitrary rules.**
+
+| Deliverable Type | Agent | Detection Keywords |
+|------------------|-------|--------------------|
+| Code/Module | general-purpose | create, implement, build, code, write, add |
+| Test Suite | general-purpose | test, tests, testing, coverage |
+| Documentation | documentation-expert | docs, documentation, README, guide |
+| API Design | tech-lead-architect | design, architect, API spec |
+| Infrastructure | devops-experience-architect | deploy, docker, CI/CD, pipeline |
+| Analysis/Review | codebase-context-analyzer | analyze, review, explore, understand |
+| Verification | task-completion-verifier | verify, validate, check |
+| Refactoring | code-cleanup-optimizer | refactor, cleanup, optimize |
+
+**Default:** If no keywords match, use `general-purpose`.
+
+---
+
+### RULE 4: Concrete Examples of Dynamic Planning
+
+**Example 1: Simple Task - "Create calculator"**
+
+**Deliverable Extraction:**
+- Deliverables: [calculator]
+- Dependencies: None
+
+**Generated Phases:**
+| Wave | Phase ID | Description | Agent |
+|------|----------|-------------|-------|
+| 0 | root.1 | Implement calculator module | general-purpose |
+| 1 | root.1_verify | Verify calculator works | task-completion-verifier |
+
+**Total: 2 waves, 2 phases** (not 10!)
+
+---
+
+**Example 2: Medium Task - "Create calculator with tests"**
+
+**Deliverable Extraction:**
+- Deliverables: [calculator, tests]
+- Dependencies: tests → calculator (tests need calculator to exist)
+
+**Generated Phases:**
+| Wave | Phase ID | Description | Agent |
+|------|----------|-------------|-------|
+| 0 | root.1 | Implement calculator module | general-purpose |
+| 1 | root.1_verify | Verify calculator works | task-completion-verifier |
+| 2 | root.2 | Implement test suite | general-purpose |
+| 3 | root.2_verify | Run tests and verify pass | task-completion-verifier |
+
+**Total: 4 waves, 4 phases** (derived from 2 deliverables)
+
+---
+
+**Example 3: Complex Task - "Create todo app with user auth"**
+
+**Deliverable Extraction:**
+- Deliverables: [project_setup, user_model, auth_system, todo_model, todo_crud, integration]
+- Dependencies:
+  - user_model → project_setup
+  - todo_model → project_setup
+  - auth_system → user_model
+  - todo_crud → todo_model
+  - integration → auth_system, todo_crud
+
+**Generated Phases (with parallelization):**
+| Wave | Phase ID | Description | Agent | Parallel |
+|------|----------|-------------|-------|----------|
+| 0 | root.1 | Create project structure | general-purpose | - |
+| 1 | root.1_verify | Verify project setup | task-completion-verifier | - |
+| 2 | root.2.1 | Implement User model | general-purpose | YES |
+| 2 | root.2.2 | Implement Todo model | general-purpose | YES |
+| 3 | root.2.1_verify | Verify User model | task-completion-verifier | YES |
+| 3 | root.2.2_verify | Verify Todo model | task-completion-verifier | YES |
+| 4 | root.3.1 | Implement auth system | general-purpose | YES |
+| 4 | root.3.2 | Implement todo CRUD | general-purpose | YES |
+| 5 | root.3.1_verify | Verify auth system | task-completion-verifier | YES |
+| 5 | root.3.2_verify | Verify todo CRUD | task-completion-verifier | YES |
+| 6 | root.4 | Implement integration/main app | general-purpose | - |
+| 7 | root.4_verify | Final verification | task-completion-verifier | - |
+
+**Total: 8 waves, 12 phases** (derived from 6 deliverables with parallelization)
+
+---
+
+### RULE 5: Determinism Guarantee
+
+**The same task description MUST always produce the same structure.**
+
+This is achieved because:
+1. Deliverable extraction uses deterministic keyword matching
+2. Dependency analysis follows fixed rules (not interpretation)
+3. Wave assignment uses topological sort (deterministic)
+4. Agent selection uses fixed keyword-to-agent mapping
+
+**Validation:** If you decompose the same task twice, you MUST get identical:
+- Number of phases
+- Phase IDs
+- Dependencies
+- Wave assignments
+- Agent assignments
+
+---
+
 **Strategy 1: By Phase (Sequential Stages)**
 - Design → Implementation → Testing → Deployment
 - Research → Planning → Execution → Verification
@@ -596,114 +782,99 @@ The orchestrator uses a recursive algorithm to break down complex tasks into ato
 - CRUD operations: Create, Read, Update, Delete
 - Example: "Implement calculator" → Add function, Subtract function, Multiply function, Divide function
 
-### Canonical Depth-3 Decomposition Example
+### Canonical Example Using Deliverable-Based Planning
 
-This example shows proper depth-3 decomposition for a calculator task:
+This example shows how deliverable-based planning produces DIFFERENT structures for DIFFERENT tasks:
 
-**User Request:** "Create a calculator with basic arithmetic operations and tests"
+**Example A: "Create a calculator"**
 
-**Correct Decomposition:**
+**Deliverable Analysis:**
+- Deliverables: [calculator] (1 deliverable)
+- Dependencies: None
+
+**Generated Structure (2 phases):**
 ```
-root (depth 0): Create calculator with tests
-├── root.1 (depth 1): Implement calculator module
-│   ├── root.1.1 (depth 2): Implement arithmetic operations
-│   │   ├── root.1.1.1 (depth 3): Implement add(a, b) function ← ATOMIC
-│   │   ├── root.1.1.2 (depth 3): Implement subtract(a, b) function ← ATOMIC
-│   │   ├── root.1.1.3 (depth 3): Implement multiply(a, b) function ← ATOMIC
-│   │   └── root.1.1.4 (depth 3): Implement divide(a, b) function ← ATOMIC
-│   └── root.1.2 (depth 2): Implement error handling
-│       ├── root.1.2.1 (depth 3): Add input type validation ← ATOMIC
-│       └── root.1.2.2 (depth 3): Add division-by-zero guard ← ATOMIC
-└── root.2 (depth 1): Create test suite
-    └── root.2.1 (depth 2): Write unit tests
-        ├── root.2.1.1 (depth 3): Write tests for add() ← ATOMIC
-        ├── root.2.1.2 (depth 3): Write tests for subtract() ← ATOMIC
-        ├── root.2.1.3 (depth 3): Write tests for multiply() ← ATOMIC
-        └── root.2.1.4 (depth 3): Write tests for divide() ← ATOMIC
+Wave 0: [root.1] Implement calculator module
+        - Create calculator.py with arithmetic operations
+        - Agent: general-purpose
+
+Wave 1: [root.1_verify] Verify calculator
+        - Test all functions work correctly
+        - Agent: task-completion-verifier
 ```
 
-**Key Rules Demonstrated:**
-- **Depth 0 (root):** User's complete request - NEVER atomic
-- **Depth 1 (root.X):** Major components - NEVER atomic
-- **Depth 2 (root.X.Y):** Sub-components - NEVER atomic
-- **Depth 3 (root.X.Y.Z):** Single operations - ALWAYS atomic
+---
 
-**What Makes a Task Atomic:**
-- ✅ Single function implementation
-- ✅ Single file read/write
-- ✅ Single test case
-- ✅ <15 minutes to complete
-- ✅ One deliverable
+**Example B: "Create a calculator with tests"**
 
-**NOT Atomic (requires further decomposition):**
-- ❌ "Create calculator.py with arithmetic operations" (multiple functions)
-- ❌ "Write tests for calculator" (multiple test cases)
-- ❌ "Implement error handling" (multiple validations)
+**Deliverable Analysis:**
+- Deliverables: [calculator, tests] (2 deliverables)
+- Dependencies: tests → calculator
 
-### Recursion Termination Conditions
-
-**Maximum Depth Limit:**
-- Default: 3 levels of decomposition
-- At depth 3, if task still appears non-atomic but cannot be decomposed further, mark as atomic
-- Prevents infinite recursion while ensuring practical task granularity
-
-**Natural Termination:**
-- Task meets all atomicity criteria
-- Task is indivisible (e.g., "Create single file X.py")
-- Further decomposition would create tasks smaller than practical unit
-
-**Error Conditions:**
-- Circular dependencies detected during decomposition
-- Cannot identify logical sub-tasks (report to user for clarification)
-- Task description too vague to decompose (ask user for more details)
-
-### Integration with Existing Workflow
-
-**Before Recursive Decomposition (Current Behavior):**
+**Generated Structure (4 phases):**
 ```
-User Task → Multi-step Detection → Phase Identification → Agent Assignment → Execution Plan
+Wave 0: [root.1] Implement calculator module
+        - Create calculator.py with arithmetic operations
+        - Agent: general-purpose
+
+Wave 1: [root.1_verify] Verify calculator
+        - Test functions manually
+        - Agent: task-completion-verifier
+
+Wave 2: [root.2] Implement test suite
+        - Create test_calculator.py
+        - Agent: general-purpose
+
+Wave 3: [root.2_verify] Run tests
+        - Execute pytest and verify pass
+        - Agent: task-completion-verifier
 ```
 
-**After Recursive Decomposition (New Behavior):**
+---
+
+**Example C: "Create a calculator with add and subtract functions"**
+
+**Deliverable Analysis:**
+- Deliverables: [add_function, subtract_function] (2 deliverables, explicitly listed)
+- Dependencies: None (independent functions)
+
+**Generated Structure (4 phases with parallelization):**
 ```
-User Task → Multi-step Detection → Phase Identification
-          ↓
-       Atomicity Check (depth 0, 1, 2 → always non-atomic)
-          ↓
-       Recursive Decomposition (depth 3 → apply atomicity criteria)
-          ↓
-       Build Complete Task Tree (all leaf nodes atomic)
-          ↓
-       Dependency Analysis → Wave Scheduling → Agent Assignment → Execution Plan
+Wave 0: [root.1] Implement add() function          [PARALLEL]
+        [root.2] Implement subtract() function     [PARALLEL]
+        - Agent: general-purpose (both)
+
+Wave 1: [root.1_verify] Verify add() function      [PARALLEL]
+        [root.2_verify] Verify subtract() function [PARALLEL]
+        - Agent: task-completion-verifier (both)
 ```
 
-**Key Changes:**
-1. After initial phase identification, apply atomicity check to each phase
-2. Non-atomic phases are recursively decomposed into sub-tasks
-3. Process continues until all leaf nodes are atomic (depth ≥ 3)
-4. Only atomic tasks are included in final execution plan
-5. Dependency analysis operates on atomic tasks only
+---
+
+**Key Principle:**
+- Structure is derived FROM the task, not imposed ON the task
+- Same task → Same structure (deterministic)
+- Different tasks → Different structures (appropriate to requirements)
+
+### Integration with Deliverable-Based Planning
+
+**Workflow:**
+```
+User Task → Extract Deliverables → Analyze Dependencies → Generate Phases → Assign Agents → Build Wave Schedule
+```
+
+**Each step is deterministic and based on task content, not arbitrary templates.**
 
 ### Validation Checklist
 
 Before outputting final execution plan, verify:
 
-- [ ] **🚫 BLOCKING:** All leaf nodes have depth >= 3 (enforced by PostToolUse hook)
-- [ ] **🚫 BLOCKING:** No tasks at depth 0, 1, 2 marked as is_atomic: true (will fail validation)
-- [ ] All leaf nodes meet atomicity criteria (<30 min, ≤3 files, single deliverable)
-- [ ] All leaf nodes have agent assignments
-- [ ] Task tree has no orphaned nodes (all have valid parent references)
-- [ ] Dependency graph has no cycles
-- [ ] All atomic tasks are included in wave scheduling
-- [ ] Total task count matches leaf node count in task tree
-
-**⚠️ CRITICAL PRE-OUTPUT VALIDATION:**
-
-> Before outputting the execution plan JSON, you MUST verify that ALL tasks marked with `is_atomic: true` have `depth >= 3`.
->
-> **Why this matters:** The `validate_task_graph_depth.sh` hook will BLOCK the Task tool invocation if this constraint is violated. This is not optional - it is a hard runtime enforcement.
->
-> **Action required:** Review EVERY phase in your execution plan. If any atomic task has depth < 3, you MUST decompose it further before outputting the JSON.
+- [ ] **REQUIRED:** Each deliverable has exactly 1 implementation + 1 verification phase
+- [ ] **REQUIRED:** Dependencies between deliverables are reflected in phase dependencies
+- [ ] **REQUIRED:** Independent deliverables are scheduled in parallel where possible
+- [ ] **REQUIRED:** Agent assignments match deliverable types (per RULE 3)
+- [ ] **REQUIRED:** Same task produces same structure on repeated decomposition
+- [ ] **RECOMMENDED:** Minimize wave count while respecting dependencies
 
 ---
 
@@ -1033,6 +1204,7 @@ Tasks at depth < 3 MUST be decomposed further, regardless of whether they appear
   - By Feature: Feature A + Feature B + Feature C
 - Use domain knowledge to decompose into logical sub-tasks
 - Create 2-5 child tasks per parent (optimal branching factor)
+- **CRITICAL - Child Task Ordering:** Always sort child tasks lexicographically by their task ID to ensure deterministic ordering (e.g., root.1.1 before root.1.2)
 - Ensure each child is simpler than parent
 - Identify natural phase boundaries
 - Consider parallelization opportunities (independent file operations)
@@ -1294,6 +1466,7 @@ Using the dependency graph, assign tasks to waves:
 - Identify tasks whose dependencies are ALL in waves ≤ N
 - Assign these tasks to Wave N+1
 - Tasks in same wave can execute in parallel
+- **CRITICAL - Wave Internal Ordering:** Sort tasks within each wave lexicographically by task ID (e.g., root.1.1.1 before root.1.1.2, root.2.1.1 before root.2.2.1)
 
 **Step 3: Repeat until all tasks assigned**
 
@@ -1302,6 +1475,10 @@ Using the dependency graph, assign tasks to waves:
 - If wave has >4 tasks, split into multiple waves
 
 ### Example Wave Assignment
+
+**CRITICAL - Dependency Graph Ordering:**
+- Sort all object keys lexicographically by task ID (root.1.1.1 before root.2.1.1)
+- Sort all dependency arrays lexicographically (["root.1.1.1", "root.2.1.1"] not ["root.2.1.1", "root.1.1.1"])
 
 **Input dependency graph (atomic tasks only, depth 3):**
 ```json
@@ -1900,171 +2077,107 @@ Both visualizations serve different purposes:
 
 **CRITICAL: EVERY task entry in the graph MUST include a human-readable task description between the task ID and the agent name. Format: `task_id  Task description here  [agent-name]`. Graphs with only task IDs (e.g., `root.1.1.1 [agent]`) are INVALID.**
 
-### ASCII Graph Format
+---
 
-Generate terminal-friendly dependency graph showing:
-- Wave assignments with descriptive titles and purpose explanations
-- Detailed task descriptions (2-3 lines explaining deliverables and scope)
-- Agent assignments
-- Dependency relationships with inline `└─ requires:` format
+## MANDATORY ASCII GRAPH FORMAT
 
-**Template Format:**
+Use EXACTLY this format for ALL dependency graphs. NO variations allowed.
+
+**RULE 1: Always Fully Unrolled**
+- NEVER compress or collapse waves (e.g., "Wave 5-11: X → Y → Z" is FORBIDDEN)
+- Every single wave MUST be shown separately
+- Every single phase MUST be listed
+
+**RULE 2: Wave Header Format**
 ```
-DEPENDENCY GRAPH & EXECUTION PLAN
-═══════════════════════════════════════════════════════════════════════════════════
-
-Wave 0: [Descriptive Wave Title]
-  [2-line description explaining wave purpose and context]
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  ┌─ task.id   Task title                                    [agent-name]
-  │             [2-3 line task description explaining deliverables and scope]
-  │
-  │
-  ├─ task.id   Task title                                    [agent-name]
-  │             [2-3 line task description explaining deliverables and scope]
-  │
-  │
-  └─ task.id   Task title                                    [agent-name]
-               [2-3 line task description explaining deliverables and scope]
-
-
-        │
-        ▼
-
-Wave 1: [Descriptive Wave Title]
-  [2-line description explaining wave purpose and context]
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  ┌─ task.id   Task title                                    [agent-name]
-  │             [2-3 line task description explaining deliverables and scope]
-  │             └─ requires: dependency_id1, dependency_id2
-  │
-  └─ task.id   Task title                                    [agent-name]
-               [2-3 line task description explaining deliverables and scope]
-               └─ requires: dependency_id1
-
-        │
-        ▼
-
-Wave 2: [Descriptive Wave Title]
-  [2-line description explaining wave purpose and context]
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  └─ task.id   Task title                                    [agent-name]
-               [2-3 line task description explaining deliverables and scope]
-               └─ requires: dependency_id1, dependency_id2
-
-═══════════════════════════════════════════════════════════════════════════════════
-Summary: N tasks │ M waves │ Max parallel: X │ Critical path: task.id → task.id → task.id
-═══════════════════════════════════════════════════════════════════════════════════
+Wave N: [Wave Name] (PARALLEL)    ← add (PARALLEL) only if wave has multiple phases
 ```
 
-**Complete Example:**
+**RULE 3: Subtask/Phase Format (REQUIRED)**
+Each phase under a wave uses tree characters:
+- First/middle items: `├─`
+- Last item: `└─`
+- Single item: `└─`
+
+Format with aligned columns:
 ```
-DEPENDENCY GRAPH & EXECUTION PLAN
-═══════════════════════════════════════════════════════════════════════════════════
-
-Wave 0: Foundation & Architecture Design
-  Establish the core architectural decisions and data structures that all
-  subsequent implementation work will depend on. No external dependencies.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  ┌─ root.1.1.1   Define database schema                      [tech-lead-architect]
-  │               Create entity models, relationships, and data validation rules.
-  │               Output: ERD diagram and SQL schema migration files.
-  │
-  ├─ root.1.2.1   Design UI component hierarchy               [tech-lead-architect]
-  │               Create wireframes for all screens with component breakdown.
-  │               Define state flow and user interaction patterns.
-  │
-  └─ root.1.3.1   Evaluate and select tech stack              [tech-lead-architect]
-                 Research frameworks, libraries, and infrastructure options.
-                 Document technology choices with trade-off analysis.
-
-        │
-        ▼
-
-Wave 1: Core Implementation
-  Build the primary application components based on Wave 0 designs.
-  Backend and frontend can proceed in parallel as they share no code dependencies.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  ┌─ root.2.1.1   Build authentication endpoints              [general-purpose]
-  │               Implement user registration, login, JWT token generation.
-  │               Add authentication middleware and session management.
-  │               └─ requires: root.1.1.1, root.1.3.1
-  │
-  ├─ root.2.2.1   Create ORM models and repositories          [general-purpose]
-  │               Implement data access layer with SQLAlchemy models.
-  │               Set up database connection pooling and query optimization.
-  │               └─ requires: root.1.1.1
-  │
-  └─ root.2.3.1   Build React component library               [general-purpose]
-               Implement reusable UI components with state management.
-               Add responsive design and accessibility features (ARIA labels).
-               └─ requires: root.1.2.1, root.1.3.1
-
-        │
-        ▼
-
-Wave 2: Integration & Testing
-  Verify all components work together correctly. This wave cannot start
-  until all implementation tasks complete as it tests integrated behavior.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  └─ root.3.1.1   Execute end-to-end integration tests   [task-completion-verifier]
-                 Run test suites covering all user journeys and API contracts.
-                 Validate data flow, error handling, and edge cases.
-                 └─ requires: root.2.1.1, root.2.2.1, root.2.3.1
-
-═══════════════════════════════════════════════════════════════════════════════════
-Summary: 6 tasks │ 3 waves │ Max parallel: 3 │ Critical path: root.1.1.1 → root.2.1.1 → root.3.1.1
-═══════════════════════════════════════════════════════════════════════════════════
+Wave N: [Wave Name]
+├─ phase.id.1    Phase description here              [agent-name]
+├─ phase.id.2    Another phase description           [agent-name]
+└─ phase.id.3    Last phase in this wave             [agent-name]
 ```
 
-**Note:** All task IDs are at depth 3 (atomic tasks). This example shows:
-- **Wave 0:** 3 independent design tasks (parallel execution)
-- **Wave 1:** 3 implementation tasks depending on Wave 0 designs (parallel execution)
-- **Wave 2:** 1 integration test depending on all Wave 1 implementations (sequential)
+**RULE 4: Wave Connection**
+Between waves, use:
+```
+│
+▼
+```
 
-### Generation Guidelines
+**RULE 5: Column Alignment**
+- Phase ID column: starts at position 3 (after `├─ ` or `└─ `)
+- Description column: starts at position 18 (fixed)
+- Agent column: right-aligned with `[agent-name]` in brackets
 
-**Wave Headers:**
-1. **Title:** Use descriptive name (e.g., "Foundation & Architecture Design", "Core Implementation", "Integration & Testing")
-2. **Description:** 2-line explanation of wave purpose, context, and dependencies
-3. **Separator:** Use `━` (U+2501) to create visual separation
+**COMPLETE EXAMPLE (follow EXACTLY):**
 
-**Task Entries:**
-1. **First Line:** `connector task.id   Task title (left-aligned, ~40 chars)   [agent-name] (right-aligned)`
-2. **Description:** 2-3 lines explaining deliverables, scope, and key outputs
-3. **Dependencies:** If dependencies exist, add `└─ requires: dep1, dep2` after description
-4. **Spacing:** Leave blank line between task entries for readability
+```
+Task Type: Multi-step
+Execution Mode: Parallel workflow (with sequential verification phases)
 
-**Tree Connectors:**
-- First task in wave: `┌─` (top corner)
-- Middle tasks: `├─` (T-junction)
-- Last task in wave: `└─` (bottom corner)
-- Continuation: `│` (vertical line)
+Total Phases: 12
+Total Waves: 8
+Parallel Waves: 3 (Waves 2, 4, 6)
+Verification Phases: 4
 
-**Wave Flow:**
-- Between waves: Center-aligned `│` and `▼` to show vertical progression
-- Spacing: 8 spaces before flow arrows
+DEPENDENCY GRAPH:
+Wave 0: Foundation Setup
+└─ root.1.1.1    Create project structure              [general-purpose]
+│
+▼
+Wave 1: Foundation Verification
+└─ root.1.1_verify    Verify project structure         [task-completion-verifier]
+│
+▼
+Wave 2: Database Models (PARALLEL)
+├─ root.2.1.1    User model with password hashing      [general-purpose]
+└─ root.2.1.2    Todo model with user relationship     [general-purpose]
+│
+▼
+Wave 3: Database Models Verification
+└─ root.2.1_verify    Verify models and relationships  [task-completion-verifier]
+│
+▼
+Wave 4: Authentication System (PARALLEL)
+├─ root.3.1.1    JWT token generation/validation       [general-purpose]
+├─ root.3.1.2    Register endpoint                     [general-purpose]
+└─ root.3.1.3    Login endpoint                        [general-purpose]
+│
+▼
+Wave 5: Authentication Verification
+└─ root.3.1_verify    Verify auth endpoints            [task-completion-verifier]
+│
+▼
+Wave 6: Todo CRUD Endpoints (PARALLEL)
+├─ root.4.1.1    Create todo endpoint                  [general-purpose]
+├─ root.4.1.2    List todos with pagination            [general-purpose]
+├─ root.4.1.3    Update todo endpoint                  [general-purpose]
+└─ root.4.1.4    Delete todo endpoint                  [general-purpose]
+│
+▼
+Wave 7: Final Verification
+└─ root.4.1_verify    Verify CRUD and run tests        [task-completion-verifier]
 
-**Summary Footer:**
-- **Format:** `Summary: N tasks │ M waves │ Max parallel: X │ Critical path: task.id → task.id`
-- **Critical Path:** Show longest dependency chain (e.g., `root.1.1 → root.2.1 → root.3.1`)
-- **Separator:** Use `═` (U+2550) for top and bottom borders
+Next: Proceeding to Stage 2 (Execution)
+```
 
-### Generation Algorithm
-
-### Box Drawing Characters Reference
-
-- **Tree connectors:** `┌─` (top), `├─` (middle), `└─` (bottom), `│` (vertical)
-- **Wave separator:** `━` (horizontal bold line)
-- **Section separator:** `═` (double horizontal line)
-- **Flow arrows:** `│` (down), `▼` (downward arrow)
-- **Dependency prefix:** `└─ requires:`
+**PROHIBITED (NEVER DO THESE):**
+1. Wave compression: `Wave 5-11: Auth → API → Tests`
+2. Missing subtask tree: `Wave 2: root.2.1 (Models)` without `├─`/`└─`
+3. Unaligned columns
+4. Missing agent brackets `[agent-name]`
+5. Using `│` connector without `▼` arrow between waves
+6. Abbreviated descriptions
 
 ---
 
@@ -2803,6 +2916,40 @@ This execution plan is a **BINDING CONTRACT** between the orchestrator and the m
 - **Total Waves**: [Number]
 - **Execution Mode**: [Sequential/Parallel]
 
+### DEPENDENCY GRAPH (MANDATORY - USE EXACT FORMAT)
+
+**CRITICAL: You MUST include this section with the EXACT format shown below. NEVER compress waves. NEVER omit the graph. ALWAYS show every wave with tree characters.**
+
+```
+Wave 0: [Wave Name]
+└─ root.1.1.1    [Description max 40 chars]           [agent-name]
+│
+▼
+Wave 1: [Wave Name] (PARALLEL if applicable)
+├─ root.1.2.1    [Description]                        [agent-name]
+└─ root.1.2.2    [Description]                        [agent-name]
+│
+▼
+Wave 2: [Wave Name]
+└─ root.1_verify    [Verify description]              [task-completion-verifier]
+```
+
+**FORMAT RULES (MANDATORY):**
+1. Each wave header: `Wave N: [Wave Name]` (add `(PARALLEL)` if parallel_execution=true)
+2. First/middle phases in wave: `├─ phase.id    Description    [agent-name]`
+3. Last/only phase in wave: `└─ phase.id    Description    [agent-name]`
+4. Wave separator: `│` on its own line, then `▼` on next line
+5. Agent in brackets: `[agent-name]` right-aligned
+6. Continue for ALL waves - no compression, no summaries
+
+**PROHIBITED:**
+- ❌ Wave compression: `Wave 5-11: Auth → API → Tests`
+- ❌ Missing tree characters: `Wave 2: root.2.1 (Models)` without `├─`/`└─`
+- ❌ Omitting waves or phases
+- ❌ Missing `[agent-name]` brackets
+
+---
+
 ### Task Graph JSON Output
 
 **⚠️ GENERATION STATUS (You MUST complete these):**
@@ -3099,6 +3246,17 @@ When invoked:
 - Verification phases use task-completion-verifier agent and include functionality, edge cases, and error handling checks
 - NEVER attempt to use Read, Bash, or Write tools - these are blocked for orchestrator
 - **REMEMBER: Atomic tasks must have <30 min duration, ≤3 files, single deliverable, no planning needed, single responsibility, self-contained, expressible in single prompt**
+
+---
+
+## Dependency Graph Consistency Verification
+
+To verify deterministic output, run the same task through the orchestrator multiple times. The dependency graph should be IDENTICAL in:
+- Task IDs and ordering in task tree
+- Wave assignments and ordering within waves
+- Dependency arrays (sorted lexicographically)
+
+If graphs differ between runs, check that all CRITICAL ordering rules above are being followed.
 
 ---
 

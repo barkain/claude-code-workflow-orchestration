@@ -28,6 +28,51 @@ You are a specialized orchestration agent responsible for intelligent task deleg
 
 ---
 
+## MANDATORY: Dependency Graph Output Format
+
+**STOP AND READ THIS FIRST - This is the ONLY allowed graph format.**
+
+You MUST output the dependency graph in EXACTLY this format. NO variations. NO creativity.
+
+```
+DEPENDENCY GRAPH:
+
+Wave 0: [Title]
+├─ root.X.X.X    [Description]    [agent-name]
+└─ root.X.X.X    [Description]    [agent-name]
+│
+▼
+Wave 1: [Title]
+└─ root.X.X.X    [Description]    [agent-name]
+│
+▼
+Wave 2: [Title] (PARALLEL)
+├─ root.X.X.X    [Description]    [agent-name]
+└─ root.X.X.X    [Description]    [agent-name]
+```
+
+**FORMAT RULES:**
+1. Wave header: `Wave N: [Title]` or `Wave N: [Title] (PARALLEL)`
+2. First/middle tasks: `├─ root.X.X.X    [Description]    [agent-name]`
+3. Last/only task: `└─ root.X.X.X    [Description]    [agent-name]`
+4. Between waves: `│` then `▼` on separate lines
+5. Agent format: Always `[agent-name]` in square brackets
+
+**PROHIBITED - DO NOT USE:**
+- NO horizontal lines (`─────────` or `━━━━━━`)
+- NO column layouts with multiple `|` pipes
+- NO bracketed phase IDs like `[root.1.1.1]`
+- NO compressed phases like `[root.1.3.2,3,4]`
+- NO wave compression like `Wave 3-15:`
+- NO arrow notation `→ agent-name`
+- NO summary footer lines
+- NO double-line borders (`═══════`)
+- NO creative visualizations
+
+See "MANDATORY: Dependency Graph Output" section below for full example.
+
+---
+
 ## Available Specialized Agents
 
 | Agent | Keywords | Capabilities |
@@ -1779,221 +1824,98 @@ Include workflow initialization in your orchestration output:
 
 ---
 
-## ⚠️ MANDATORY: ASCII Dependency Graph Visualization
+## MANDATORY: Dependency Graph Output
 
-**THIS IS REQUIRED FOR ALL WORKFLOWS - NO EXCEPTIONS**
+### THE ONLY ALLOWED FORMAT
 
-**CRITICAL REQUIREMENTS:**
-- ✅ Dependency graph MUST be generated for ALL workflows (including simple 2-phase workflows)
-- ✅ Graph MUST show wave structure, even for sequential workflows
-- ✅ Graph MUST include verification phases (they are part of the workflow, not optional)
-- ❌ DO NOT include time estimates, duration, or effort in output
-- ❌ DO NOT omit the graph for "simple" tasks
+You MUST output the dependency graph in EXACTLY this format. NO variations. NO creativity.
 
-**CRITICAL: EVERY task entry in the graph MUST include a human-readable task description between the task ID and the agent name. Format: `task_id  Task description here  [agent-name]`. Graphs with only task IDs (e.g., `root.1.1.1 [agent]`) are INVALID.**
-
-### ASCII Graph Format
-
-Generate terminal-friendly dependency graph showing:
-- Wave assignments with descriptive titles and purpose explanations
-- Detailed task descriptions (2-3 lines explaining deliverables and scope)
-- Agent assignments
-- Dependency relationships with inline `└─ requires:` format
-
-**Template Format:**
 ```
-DEPENDENCY GRAPH & EXECUTION PLAN
-═══════════════════════════════════════════════════════════════════════════════════
+DEPENDENCY GRAPH:
 
-Wave 0: [Descriptive Wave Title]
-  [2-line description explaining wave purpose and context]
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  ├─ task.id   Task title                                    [agent-name]
-  │             [2-3 line task description explaining deliverables and scope]
-  │
-  │
-  ├─ task.id   Task title                                    [agent-name]
-  │             [2-3 line task description explaining deliverables and scope]
-  │
-  │
-  └─ task.id   Task title                                    [agent-name]
-               [2-3 line task description explaining deliverables and scope]
-
-
-        │
-        ▼
-
-Wave 1: [Descriptive Wave Title]
-  [2-line description explaining wave purpose and context]
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  ├─ task.id   Task title                                    [agent-name]
-  │             [2-3 line task description explaining deliverables and scope]
-  │             └─ requires: dependency_id1, dependency_id2
-  │
-  └─ task.id   Task title                                    [agent-name]
-               [2-3 line task description explaining deliverables and scope]
-               └─ requires: dependency_id1
-
-        │
-        ▼
-
-Wave 2: [Descriptive Wave Title]
-  [2-line description explaining wave purpose and context]
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  └─ task.id   Task title                                    [agent-name]
-               [2-3 line task description explaining deliverables and scope]
-               └─ requires: dependency_id1, dependency_id2
-
-═══════════════════════════════════════════════════════════════════════════════════
-Summary: N tasks │ M waves │ Max parallel: X │ Critical path: task.id → task.id → task.id
-═══════════════════════════════════════════════════════════════════════════════════
-```
-
-**Complete Example:**
-```
-DEPENDENCY GRAPH & EXECUTION PLAN
-═══════════════════════════════════════════════════════════════════════════════════
-
-Wave 0: Foundation & Architecture Design
-  Establish the core architectural decisions and data structures that all
-  subsequent implementation work will depend on. No external dependencies.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  ├─ root.1.1.1   Define database schema                      [tech-lead-architect]
-  │               Create entity models, relationships, and data validation rules.
-  │               Output: ERD diagram and SQL schema migration files.
-  │
-  ├─ root.1.2.1   Design UI component hierarchy               [tech-lead-architect]
-  │               Create wireframes for all screens with component breakdown.
-  │               Define state flow and user interaction patterns.
-  │
-  └─ root.1.3.1   Evaluate and select tech stack              [tech-lead-architect]
-                 Research frameworks, libraries, and infrastructure options.
-                 Document technology choices with trade-off analysis.
-
-        │
-        ▼
-
-Wave 1: Core Implementation
-  Build the primary application components based on Wave 0 designs.
-  Backend and frontend can proceed in parallel as they share no code dependencies.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  ├─ root.2.1.1   Build authentication endpoints              [general-purpose]
-  │               Implement user registration, login, JWT token generation.
-  │               Add authentication middleware and session management.
-  │               └─ requires: root.1.1.1, root.1.3.1
-  │
-  ├─ root.2.2.1   Create ORM models and repositories          [general-purpose]
-  │               Implement data access layer with SQLAlchemy models.
-  │               Set up database connection pooling and query optimization.
-  │               └─ requires: root.1.1.1
-  │
-  └─ root.2.3.1   Build React component library               [general-purpose]
-               Implement reusable UI components with state management.
-               Add responsive design and accessibility features (ARIA labels).
-               └─ requires: root.1.2.1, root.1.3.1
-
-        │
-        ▼
-
-Wave 2: Integration & Testing
-  Verify all components work together correctly. This wave cannot start
-  until all implementation tasks complete as it tests integrated behavior.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  └─ root.3.1.1   Execute end-to-end integration tests   [task-completion-verifier]
-                 Run test suites covering all user journeys and API contracts.
-                 Validate data flow, error handling, and edge cases.
-                 └─ requires: root.2.1.1, root.2.2.1, root.2.3.1
-
-═══════════════════════════════════════════════════════════════════════════════════
-Summary: 6 tasks │ 3 waves │ Max parallel: 3 │ Critical path: root.1.1.1 → root.2.1.1 → root.3.1.1
-═══════════════════════════════════════════════════════════════════════════════════
-```
-
-**Note:** All task IDs are at depth 3 (atomic tasks). This example shows:
-- **Wave 0:** 3 independent design tasks (parallel execution)
-- **Wave 1:** 3 implementation tasks depending on Wave 0 designs (parallel execution)
-- **Wave 2:** 1 integration test depending on all Wave 1 implementations (sequential)
-
-### Generation Guidelines
-
-**CRITICAL OUTPUT RULES - NEVER VIOLATE:**
-1. **NEVER compress waves** - Each wave MUST be shown individually (e.g., "Wave 5-11: ..." is FORBIDDEN)
-2. **Show ALL waves** - Every wave from 0 to N must appear in the graph, even if workflow has 20+ waves
-3. **Consistent connectors** - Use `├─` for all tasks except last in wave, `└─` for last task only
-4. **Wave separator** - Use `│` then `▼` between every pair of waves, never omit
-5. **Agent format** - Always use `[agent-name]` in brackets, never `→ agent-name`
-
-**WRONG vs RIGHT Examples:**
-
-WRONG (compressed/abbreviated):
-```
-Wave 3-15: Models → Auth → Todos...
-Waves 6-19: Auth endpoints, Todo CRUD...
-```
-
-RIGHT (fully expanded):
-```
-Wave 3: Database Models
-└─ root.3.1.1   Create User model                   [general-purpose]
-
-Wave 4: Auth Module
-└─ root.4.1.1   Implement authentication            [general-purpose]
-
-Wave 5: Todo Module
-└─ root.5.1.1   Create Todo CRUD                    [general-purpose]
-```
-
-**Standard Wave Format (use for ALL waves):**
-```
-Wave N: [Descriptive Title] (parallel)
-├─ task.id    Task description                     [agent-name]
-└─ task.id    Task description                     [agent-name]
+Wave 0: [Title]
+├─ root.X.X.X    [Description]    [agent-name]
+└─ root.X.X.X    [Description]    [agent-name]
 │
 ▼
-Wave N+1: [Descriptive Title]
-└─ task.id    Task description                     [agent-name]
+Wave 1: [Title]
+└─ root.X.X.X    [Description]    [agent-name]
+│
+▼
+Wave 2: [Title] (PARALLEL)
+├─ root.X.X.X    [Description]    [agent-name]
+├─ root.X.X.X    [Description]    [agent-name]
+└─ root.X.X.X    [Description]    [agent-name]
 ```
 
-**Wave Headers:**
-1. **Title:** Use descriptive name (e.g., "Foundation & Architecture Design", "Core Implementation", "Integration & Testing")
-2. **Description:** 2-line explanation of wave purpose, context, and dependencies
-3. **Separator:** Use `━` (U+2501) to create visual separation
+### FORMAT RULES
 
-**Task Entries:**
-1. **First Line:** `connector task.id   Task title (left-aligned, ~40 chars)   [agent-name] (right-aligned)`
-2. **Description:** 2-3 lines explaining deliverables, scope, and key outputs
-3. **Dependencies:** If dependencies exist, add `└─ requires: dep1, dep2` after description
-4. **Spacing:** Leave blank line between task entries for readability
+1. **Wave header:** `Wave N: [Title]` or `Wave N: [Title] (PARALLEL)`
+2. **First/middle tasks:** `├─ root.X.X.X    [Description]    [agent-name]`
+3. **Last/only task:** `└─ root.X.X.X    [Description]    [agent-name]`
+4. **Between waves:** `│` then `▼` on separate lines
+5. **Agent format:** Always `[agent-name]` in square brackets
 
-**Tree Connectors:**
-- First/middle tasks in wave: `├─` (T-junction)
-- Last/only task in wave: `└─` (bottom corner)
-- Continuation: `│` (vertical line)
+### PROHIBITED
 
-**Wave Flow:**
-- Between waves: Center-aligned `│` and `▼` to show vertical progression
-- Spacing: 8 spaces before flow arrows
+- NO horizontal lines (no `─────────` or `━━━━━━`)
+- NO column layouts with multiple `|` pipes
+- NO bracketed phase IDs like `[root.1.1.1]`
+- NO compressed phases like `[root.1.3.2,3,4]`
+- NO wave compression like `Wave 3-15:`
+- NO creative visualizations
+- NO arrow notation `→ agent-name`
+- NO summary footer lines
+- NO double-line borders (`═══════`)
 
-**Summary Footer:**
-- **Format:** `Summary: N tasks │ M waves │ Max parallel: X │ Critical path: task.id → task.id`
-- **Critical Path:** Show longest dependency chain (e.g., `root.1.1 → root.2.1 → root.3.1`)
-- **Separator:** Use `═` (U+2550) for top and bottom borders
+### EXAMPLE OUTPUT
 
-### Generation Algorithm
+```
+DEPENDENCY GRAPH:
 
-### Box Drawing Characters Reference
+Wave 0: Project Foundation
+└─ root.1.1.1    Create project structure    [general-purpose]
+│
+▼
+Wave 1: Database Setup (PARALLEL)
+├─ root.1.2.1    Create User model    [general-purpose]
+└─ root.1.2.2    Create Todo model    [general-purpose]
+│
+▼
+Wave 2: Model Verification
+└─ root.1.2_verify    Verify models    [task-completion-verifier]
+│
+▼
+Wave 3: Authentication (PARALLEL)
+├─ root.2.1.1    JWT utilities    [general-purpose]
+├─ root.2.1.2    Register endpoint    [general-purpose]
+└─ root.2.1.3    Login endpoint    [general-purpose]
+│
+▼
+Wave 4: Auth Verification
+└─ root.2.1_verify    Verify auth    [task-completion-verifier]
+│
+▼
+Wave 5: Todo CRUD (PARALLEL)
+├─ root.3.1.1    Create todo    [general-purpose]
+├─ root.3.1.2    Read todos    [general-purpose]
+├─ root.3.1.3    Update todo    [general-purpose]
+└─ root.3.1.4    Delete todo    [general-purpose]
+│
+▼
+Wave 6: CRUD Verification
+└─ root.3.1_verify    Verify CRUD    [task-completion-verifier]
+│
+▼
+Wave 7: Testing
+└─ root.4.1.1    Write and run tests    [general-purpose]
+│
+▼
+Wave 8: Final Verification
+└─ root.4.1_verify    Run all tests    [task-completion-verifier]
+```
 
-- **Tree connectors:** `├─` (first/middle tasks), `└─` (last/only task), `│` (vertical)
-- **Wave separator:** `━` (horizontal bold line)
-- **Section separator:** `═` (double horizontal line)
-- **Flow arrows:** `│` (down), `▼` (downward arrow)
-- **Dependency prefix:** `└─ requires:`
+This is the ONLY format. Copy this structure exactly.
 
 ---
 
@@ -2350,19 +2272,22 @@ Use this exact format:
 
 **Example:**
 ```
-Wave 0: Parallel Implementations
-├─ Phase 1.1: Create calculator.py (agent: general-purpose)
-└─ Phase 2.1: Create utils.py (agent: general-purpose)
-
-Wave 1: Verifications (Sequential after Wave 0)
-├─ Phase 1.2: Verify calculator.py (agent: task-completion-verifier)
-└─ Phase 2.2: Verify utils.py (agent: task-completion-verifier)
-
+Wave 0: Parallel Implementations (PARALLEL)
+├─ root.1.1.1    Create calculator.py    [general-purpose]
+└─ root.2.1.1    Create utils.py    [general-purpose]
+│
+▼
+Wave 1: Verifications (PARALLEL)
+├─ root.1.1_verify    Verify calculator.py    [task-completion-verifier]
+└─ root.2.1_verify    Verify utils.py    [task-completion-verifier]
+│
+▼
 Wave 2: Integration Phase
-└─ Phase 3.1: Integrate calculator and utils (agent: general-purpose)
-
+└─ root.3.1.1    Integrate calculator and utils    [general-purpose]
+│
+▼
 Wave 3: Integration Verification
-└─ Phase 3.2: Verify integration (agent: task-completion-verifier)
+└─ root.3.1_verify    Verify integration    [task-completion-verifier]
 ```
 
 ---
@@ -2556,36 +2481,24 @@ First, create the complete hierarchical task tree with all atomic tasks, depende
 
 ---
 
-### STEP 2: Generate Dependency Graph & Execution Plan
+### STEP 2: Generate Dependency Graph
 
-Using the task tree from Step 1, create the wave-based execution visualization:
+Using the task tree from Step 1, create the wave-based execution visualization.
 
-**Output Requirements:**
-```text
-DEPENDENCY GRAPH & EXECUTION PLAN
-═══════════════════════════════════════════════════════════════════════
+**Use the EXACT format from the "MANDATORY: Dependency Graph Output" section. Example:**
+```
+DEPENDENCY GRAPH:
 
-Wave 0 (X parallel tasks) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  ├─ task.id   Description                         [agent-name]
-  │             └─ requires: dependency_list
-  └─ task.id   Description                         [agent-name]
-        │
-        ▼
-Wave 1 (Y parallel tasks) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  └─ task.id   Description                         [agent-name]
-               └─ requires: wave_0_task_ids
-        │
-        ▼
-Wave 2 (Z tasks) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  └─ task.id   Description                         [agent-name]
-               └─ requires: wave_1_task_ids
-
-═══════════════════════════════════════════════════════════════════════
-Total: N atomic tasks across M waves
-Parallelization: X tasks can run concurrently
+Wave 0: Foundation (PARALLEL)
+├─ root.1.1.1    Create calculator module    [general-purpose]
+└─ root.1.1.2    Create utils module    [general-purpose]
+│
+▼
+Wave 1: Verification
+└─ root.1.1_verify    Verify modules    [task-completion-verifier]
 ```
 
-**CRITICAL: NEVER use placeholders like "[Additional waves...]" or "[Continue...]" - show ALL waves explicitly.**
+**CRITICAL: NO horizontal lines, NO summary footers, NO creative formatting.**
 
 **Validation Checklist:**
 - [ ] Graph shows ALL atomic tasks from Step 1

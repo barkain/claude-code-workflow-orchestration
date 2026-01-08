@@ -1809,7 +1809,7 @@ Wave 0: [Descriptive Wave Title]
   [2-line description explaining wave purpose and context]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ┌─ task.id   Task title                                    [agent-name]
+  ├─ task.id   Task title                                    [agent-name]
   │             [2-3 line task description explaining deliverables and scope]
   │
   │
@@ -1828,7 +1828,7 @@ Wave 1: [Descriptive Wave Title]
   [2-line description explaining wave purpose and context]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ┌─ task.id   Task title                                    [agent-name]
+  ├─ task.id   Task title                                    [agent-name]
   │             [2-3 line task description explaining deliverables and scope]
   │             └─ requires: dependency_id1, dependency_id2
   │
@@ -1862,7 +1862,7 @@ Wave 0: Foundation & Architecture Design
   subsequent implementation work will depend on. No external dependencies.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ┌─ root.1.1.1   Define database schema                      [tech-lead-architect]
+  ├─ root.1.1.1   Define database schema                      [tech-lead-architect]
   │               Create entity models, relationships, and data validation rules.
   │               Output: ERD diagram and SQL schema migration files.
   │
@@ -1882,7 +1882,7 @@ Wave 1: Core Implementation
   Backend and frontend can proceed in parallel as they share no code dependencies.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ┌─ root.2.1.1   Build authentication endpoints              [general-purpose]
+  ├─ root.2.1.1   Build authentication endpoints              [general-purpose]
   │               Implement user registration, login, JWT token generation.
   │               Add authentication middleware and session management.
   │               └─ requires: root.1.1.1, root.1.3.1
@@ -2566,7 +2566,7 @@ DEPENDENCY GRAPH & EXECUTION PLAN
 ═══════════════════════════════════════════════════════════════════════
 
 Wave 0 (X parallel tasks) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  ┌─ task.id   Description                         [agent-name]
+  ├─ task.id   Description                         [agent-name]
   │             └─ requires: dependency_list
   └─ task.id   Description                         [agent-name]
         │
@@ -2592,7 +2592,7 @@ Parallelization: X tasks can run concurrently
 - [ ] Wave structure matches wave scheduler output
 - [ ] Dependencies are correctly represented
 - [ ] Agent assignments match Step 1
-- [ ] Graph uses proper ASCII connectors (┌─ ├─ └─)
+- [ ] Graph uses proper ASCII connectors (├─ └─)
 
 **DO NOT PROCEED to Step 3 until this graph is complete and validated.**
 

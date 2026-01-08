@@ -571,6 +571,20 @@ The orchestrator uses a recursive algorithm to break down complex tasks into ato
 
 ### Decomposition Strategies
 
+**CRITICAL - Strategy Selection Algorithm:**
+Select decomposition strategy deterministically based on task keywords (check in order, use FIRST match):
+
+1. **Questions** - If task starts with "what", "how", "why", "where", "explain" → Treat as **single-step** (minimal decomposition)
+2. **Investigation/Debugging** - If task contains "debug", "investigate", "trace", "diagnose" → **Strategy 4 (By Operation)**: Reproduce → Diagnose → Fix → Verify
+3. **Bug Fixes** - If task contains "fix", "resolve", "repair", "broken" → **Strategy 4 (By Operation)**: Locate → Fix → Verify
+4. **Design/Architecture** - If task contains "design", "architect", "plan" as primary action → **Strategy 1 (By Phase)**
+5. **File-specific** - If task mentions specific file paths (e.g., `/path/to/file.py`) → **Strategy 3 (By File/Resource)**
+6. **Sequential** - If task contains "then", "after", "first...then", "followed by" → **Strategy 4 (By Operation)**
+7. **Component-based** - If task mentions "frontend", "backend", "API", "database" → **Strategy 2 (By Component)**
+8. **Default** → **Strategy 1 (By Phase)**
+
+Always use the FIRST matching rule. Do not skip rules or choose based on preference.
+
 **Strategy 1: By Phase (Sequential Stages)**
 - Design → Implementation → Testing → Deployment
 - Research → Planning → Execution → Verification
@@ -1033,6 +1047,7 @@ Tasks at depth < 3 MUST be decomposed further, regardless of whether they appear
   - By Feature: Feature A + Feature B + Feature C
 - Use domain knowledge to decompose into logical sub-tasks
 - Create 2-5 child tasks per parent (optimal branching factor)
+- **CRITICAL - Child Task Ordering:** Always sort child tasks lexicographically by their task ID to ensure deterministic ordering (e.g., root.1.1 before root.1.2)
 - Ensure each child is simpler than parent
 - Identify natural phase boundaries
 - Consider parallelization opportunities (independent file operations)
@@ -1294,6 +1309,7 @@ Using the dependency graph, assign tasks to waves:
 - Identify tasks whose dependencies are ALL in waves ≤ N
 - Assign these tasks to Wave N+1
 - Tasks in same wave can execute in parallel
+- **CRITICAL - Wave Internal Ordering:** Sort tasks within each wave lexicographically by task ID (e.g., root.1.1.1 before root.1.1.2, root.2.1.1 before root.2.2.1)
 
 **Step 3: Repeat until all tasks assigned**
 
@@ -1302,6 +1318,10 @@ Using the dependency graph, assign tasks to waves:
 - If wave has >4 tasks, split into multiple waves
 
 ### Example Wave Assignment
+
+**CRITICAL - Dependency Graph Ordering:**
+- Sort all object keys lexicographically by task ID (root.1.1.1 before root.2.1.1)
+- Sort all dependency arrays lexicographically (["root.1.1.1", "root.2.1.1"] not ["root.2.1.1", "root.1.1.1"])
 
 **Input dependency graph (atomic tasks only, depth 3):**
 ```json
@@ -3099,6 +3119,17 @@ When invoked:
 - Verification phases use task-completion-verifier agent and include functionality, edge cases, and error handling checks
 - NEVER attempt to use Read, Bash, or Write tools - these are blocked for orchestrator
 - **REMEMBER: Atomic tasks must have <30 min duration, ≤3 files, single deliverable, no planning needed, single responsibility, self-contained, expressible in single prompt**
+
+---
+
+## Dependency Graph Consistency Verification
+
+To verify deterministic output, run the same task through the orchestrator multiple times. The dependency graph should be IDENTICAL in:
+- Task IDs and ordering in task tree
+- Wave assignments and ordering within waves
+- Dependency arrays (sorted lexicographically)
+
+If graphs differ between runs, check that all CRITICAL ordering rules above are being followed.
 
 ---
 

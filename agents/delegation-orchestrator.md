@@ -1814,18 +1814,62 @@ The `create_workflow_state()` function automatically generates `.claude/workflow
 
 **Step 3: Initialize TodoWrite**
 
-Use TodoWrite to create UI task list matching phases:
+Use TodoWrite to create UI task list matching phases with encoded metadata.
+
+### TodoWrite Content Format
+
+When calling TodoWrite, encode metadata in the content field:
+
+**Format:** `[W<wave>][<phase_id>][<agent>][PARALLEL]? <description>`
+
+**Encoding rules:**
+- `[W<n>]` - Wave number (required, 0-indexed)
+- `[<phase_id>]` - Full phase ID (required)
+- `[<agent>]` - Agent name (required)
+- `[PARALLEL]` - Add if wave has multiple parallel tasks
+- Description follows the brackets
+
+**Example TodoWrite call:**
+```json
+{
+  "todos": [
+    {
+      "content": "[W0][root.1.1.1][general-purpose] Create project structure",
+      "activeForm": "Creating project structure",
+      "status": "in_progress"
+    },
+    {
+      "content": "[W1][root.1.2.1][general-purpose][PARALLEL] Create User model",
+      "activeForm": "Creating User model",
+      "status": "pending"
+    },
+    {
+      "content": "[W1][root.1.2.2][general-purpose][PARALLEL] Create Todo model",
+      "activeForm": "Creating Todo model",
+      "status": "pending"
+    },
+    {
+      "content": "[W2][root.1.2_verify][task-completion-verifier] Verify models",
+      "activeForm": "Verifying models",
+      "status": "pending"
+    }
+  ]
+}
+```
 
 ```python
-# Build TodoWrite items from phases
-todos = [
-    {
-        "content": phase["title"],
-        "status": "in_progress" if i == 0 else "pending",
-        "activeForm": f"Working on {phase['title']}"
-    }
-    for i, phase in enumerate(workflow["phases"])
-]
+# Build TodoWrite items from phases with encoded metadata
+todos = []
+for wave_num, wave in enumerate(workflow["waves"]):
+    is_parallel = len(wave["phases"]) > 1
+    for i, phase in enumerate(wave["phases"]):
+        parallel_tag = "[PARALLEL]" if is_parallel else ""
+        content = f"[W{wave_num}][{phase['id']}][{phase['agent']}]{parallel_tag} {phase['title']}"
+        todos.append({
+            "content": content,
+            "status": "in_progress" if wave_num == 0 and i == 0 else "pending",
+            "activeForm": f"Working on {phase['title']}"
+        })
 
 # Call TodoWrite tool
 TodoWrite(todos=todos)

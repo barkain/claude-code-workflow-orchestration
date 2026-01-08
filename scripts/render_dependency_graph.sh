@@ -10,7 +10,7 @@
 # {
 #   "todos": [
 #     {
-#       "content": "[W0][root.1.1.1][general-purpose] Create project structure",
+#       "content": "[W0:Foundation & Project Setup][root.1.1.1][general-purpose][PARALLEL] Create project structure",
 #       "activeForm": "Creating project structure",
 #       "status": "in_progress"
 #     },
@@ -19,7 +19,7 @@
 # }
 #
 # Metadata encoding in content:
-# - [W<n>] - Wave number (required)
+# - [W<n>:<title>] - Wave number and title (required)
 # - [<phase_id>] - Phase ID (required)
 # - [<agent>] - Agent name (required)
 # - [PARALLEL] - Optional, indicates parallel wave
@@ -43,62 +43,54 @@ if ! echo "$json" | jq -e '.todos' > /dev/null 2>&1; then
     exit 1
 fi
 
-echo "DEPENDENCY GRAPH:"
+echo "**DEPENDENCY GRAPH:**"
 echo ""
 
-# Use jq to parse and format all data, then process with bash
-# Output format: wave_num|phase_id|agent|is_parallel|description
-parsed=$(echo "$json" | jq -r '
+# Build wave data using jq
+# Content format: [W<n>:<title>][<phase_id>][<agent>][PARALLEL]? <description>
+
+wave_data=$(echo "$json" | jq -r '
   .todos[] |
   .content |
-  # Extract wave number
-  capture("^\\[W(?<wave>[0-9]+)\\]") as $w |
-  # Extract phase_id (second bracket)
-  capture("\\[W[0-9]+\\]\\[(?<phase>[^\\]]+)\\]") as $p |
-  # Extract agent (third bracket)
-  capture("\\[W[0-9]+\\]\\[[^\\]]+\\]\\[(?<agent>[^\\]]+)\\]") as $a |
-  # Check for PARALLEL
-  (if test("\\[PARALLEL\\]") then "1" else "0" end) as $parallel |
-  # Extract description (remove all brackets)
-  (gsub("\\[[^\\]]*\\]"; "") | gsub("^\\s+|\\s+$"; "")) as $desc |
-  "\($w.wave)|\($p.phase)|\($a.agent)|\($parallel)|\($desc)"
-' 2>/dev/null || true)
+  # Extract wave number and title: [W0:Title]
+  capture("^\\[W(?<wave>[0-9]+):(?<title>[^\\]]+)\\]\\[(?<phase_id>[^\\]]+)\\]\\[(?<agent>[^\\]]+)\\](?<parallel>\\[PARALLEL\\])?\\s*(?<description>.*)$") |
+  "\(.wave)|\(.title)|\(.phase_id)|\(.agent)|\(.parallel // "")|\(.description)"
+' 2>/dev/null | sort -t'|' -k1,1n)
 
-if [[ -z "$parsed" ]]; then
-    echo "Error: Could not parse any todos" >&2
+if [[ -z "$wave_data" ]]; then
+    echo "No valid wave data found in TodoWrite JSON" >&2
     exit 1
 fi
 
 # Get max wave number
-max_wave=$(echo "$parsed" | cut -d'|' -f1 | sort -n | tail -1)
+max_wave=$(echo "$wave_data" | cut -d'|' -f1 | sort -n | uniq | tail -1)
 
 # Process each wave
 for ((w=0; w<=max_wave; w++)); do
     # Get all phases for this wave
-    wave_phases=$(echo "$parsed" | grep "^${w}|" || true)
+    wave_phases=$(echo "$wave_data" | grep "^${w}|" || true)
 
     if [[ -z "$wave_phases" ]]; then
         continue
     fi
 
+    # Get wave title from first phase
+    wave_title=$(echo "$wave_phases" | head -1 | cut -d'|' -f2)
+
     # Count phases and check if parallel
     num_phases=$(echo "$wave_phases" | wc -l | tr -d ' ')
-    is_parallel=$(echo "$wave_phases" | head -1 | cut -d'|' -f4)
+    is_parallel=$(echo "$wave_phases" | head -1 | cut -d'|' -f5)
 
     # Wave header
-    if [[ "$is_parallel" == "1" ]]; then
-        echo "Wave $w: (PARALLEL - $num_phases tasks)"
+    if [[ -n "$is_parallel" ]]; then
+        echo "Wave $w: $wave_title (parallel)"
     else
-        if [[ "$num_phases" -gt 1 ]]; then
-            echo "Wave $w: ($num_phases tasks)"
-        else
-            echo "Wave $w: (1 task)"
-        fi
+        echo "Wave $w: $wave_title"
     fi
 
     # Render each phase
     line_num=0
-    while IFS='|' read -r wave_num phase_id agent parallel description; do
+    while IFS='|' read -r wave_num title phase_id agent parallel description; do
         line_num=$((line_num + 1))
 
         # Connector: last uses corner, others use tee
@@ -109,7 +101,7 @@ for ((w=0; w<=max_wave; w++)); do
         fi
 
         # Format with alignment
-        printf "%s %-18s  %-35s  [%s]\n" "$connector" "$phase_id" "$description" "$agent"
+        printf "%s %-16s  %-30s  [%s]\n" "$connector" "$phase_id" "$description" "$agent"
     done <<< "$wave_phases"
 
     # Wave separator (except after last wave)

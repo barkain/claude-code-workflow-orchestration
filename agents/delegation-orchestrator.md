@@ -1820,10 +1820,10 @@ Use TodoWrite to create UI task list matching phases with encoded metadata.
 
 When calling TodoWrite, encode metadata in the content field:
 
-**Format:** `[W<wave>][<phase_id>][<agent>][PARALLEL]? <description>`
+**Format:** `[W<wave>:<title>][<phase_id>][<agent>][PARALLEL]? <description>`
 
 **Encoding rules:**
-- `[W<n>]` - Wave number (required, 0-indexed)
+- `[W<n>:<title>]` - Wave number and wave title (required, 0-indexed)
 - `[<phase_id>]` - Full phase ID (required)
 - `[<agent>]` - Agent name (required)
 - `[PARALLEL]` - Add if wave has multiple parallel tasks
@@ -1834,22 +1834,32 @@ When calling TodoWrite, encode metadata in the content field:
 {
   "todos": [
     {
-      "content": "[W0][root.1.1.1][general-purpose] Create project structure",
+      "content": "[W0:Foundation & Project Setup][root.1.1.1][general-purpose][PARALLEL] Create project structure",
       "activeForm": "Creating project structure",
       "status": "in_progress"
     },
     {
-      "content": "[W1][root.1.2.1][general-purpose][PARALLEL] Create User model",
+      "content": "[W0:Foundation & Project Setup][root.1.1.2][general-purpose][PARALLEL] Create database config",
+      "activeForm": "Creating database config",
+      "status": "pending"
+    },
+    {
+      "content": "[W1:Foundation Verification][root.1.1.1_verify][task-completion-verifier] Verify foundation",
+      "activeForm": "Verifying foundation",
+      "status": "pending"
+    },
+    {
+      "content": "[W2:Core Models][root.2.1.1][general-purpose][PARALLEL] User model",
       "activeForm": "Creating User model",
       "status": "pending"
     },
     {
-      "content": "[W1][root.1.2.2][general-purpose][PARALLEL] Create Todo model",
+      "content": "[W2:Core Models][root.2.1.2][general-purpose][PARALLEL] Todo model",
       "activeForm": "Creating Todo model",
       "status": "pending"
     },
     {
-      "content": "[W2][root.1.2_verify][task-completion-verifier] Verify models",
+      "content": "[W3:Models Verification][root.2.1_verify][task-completion-verifier] Verify models",
       "activeForm": "Verifying models",
       "status": "pending"
     }
@@ -1862,9 +1872,10 @@ When calling TodoWrite, encode metadata in the content field:
 todos = []
 for wave_num, wave in enumerate(workflow["waves"]):
     is_parallel = len(wave["phases"]) > 1
+    wave_title = wave.get("title", f"Wave {wave_num}")
     for i, phase in enumerate(wave["phases"]):
         parallel_tag = "[PARALLEL]" if is_parallel else ""
-        content = f"[W{wave_num}][{phase['id']}][{phase['agent']}]{parallel_tag} {phase['title']}"
+        content = f"[W{wave_num}:{wave_title}][{phase['id']}][{phase['agent']}]{parallel_tag} {phase['title']}"
         todos.append({
             "content": content,
             "status": "in_progress" if wave_num == 0 and i == 0 else "pending",

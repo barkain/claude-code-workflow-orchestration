@@ -1927,8 +1927,29 @@ Summary: 6 tasks │ 3 waves │ Max parallel: 3 │ Critical path: root.1.1.1 �
 2. **Show ALL waves** - Every wave from 0 to N must appear in the graph, even if workflow has 20+ waves
 3. **Consistent connectors** - Use `├─` for all tasks except last in wave, `└─` for last task only
 4. **Wave separator** - Use `│` then `▼` between every pair of waves, never omit
+5. **Agent format** - Always use `[agent-name]` in brackets, never `→ agent-name`
 
-**Compact Format (for workflows with many waves):**
+**WRONG vs RIGHT Examples:**
+
+WRONG (compressed/abbreviated):
+```
+Wave 3-15: Models → Auth → Todos...
+Waves 6-19: Auth endpoints, Todo CRUD...
+```
+
+RIGHT (fully expanded):
+```
+Wave 3: Database Models
+└─ root.3.1.1   Create User model                   [general-purpose]
+
+Wave 4: Auth Module
+└─ root.4.1.1   Implement authentication            [general-purpose]
+
+Wave 5: Todo Module
+└─ root.5.1.1   Create Todo CRUD                    [general-purpose]
+```
+
+**Standard Wave Format (use for ALL waves):**
 ```
 Wave N: [Descriptive Title] (parallel)
 ├─ task.id    Task description                     [agent-name]
@@ -2549,13 +2570,22 @@ Wave 0 (X parallel tasks) ━━━━━━━━━━━━━━━━━━
   │             └─ requires: dependency_list
   └─ task.id   Description                         [agent-name]
         │
+        ▼
+Wave 1 (Y parallel tasks) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  └─ task.id   Description                         [agent-name]
+               └─ requires: wave_0_task_ids
         │
-[Additional waves...]
+        ▼
+Wave 2 (Z tasks) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  └─ task.id   Description                         [agent-name]
+               └─ requires: wave_1_task_ids
 
 ═══════════════════════════════════════════════════════════════════════
 Total: N atomic tasks across M waves
 Parallelization: X tasks can run concurrently
 ```
+
+**CRITICAL: NEVER use placeholders like "[Additional waves...]" or "[Continue...]" - show ALL waves explicitly.**
 
 **Validation Checklist:**
 - [ ] Graph shows ALL atomic tasks from Step 1
@@ -2795,7 +2825,13 @@ Phase ID: phase_0_0
 
 **⚠️ COMPLIANCE REMINDER:** Include "Phase ID: phase_0_0" at the START of your Task tool invocation.
 
-[Repeat for all phases in Wave 0...]
+**Phase 0_1: [Description]** (if wave has multiple phases)
+- **Phase ID:** `phase_0_1`
+- **Agent:** [agent-name]
+- **Dependencies:** (none) or (phase_id1, phase_id2)
+- **Deliverables:** [Expected outputs with file paths]
+
+**CRITICAL: List ALL phases in Wave 0 explicitly. NEVER use "[Repeat for all phases...]".**
 
 ---
 
@@ -2825,11 +2861,13 @@ Context from previous phases:
 
 **⚠️ COMPLIANCE REMINDER:** Include "Phase ID: phase_1_0" at the START of your Task tool invocation.
 
-[Repeat for all phases in Wave 1...]
+**CRITICAL: List ALL phases in Wave 1 explicitly. NEVER use "[Repeat for all phases...]".**
 
 ---
 
-[Continue for all waves...]
+### Wave 2, Wave 3, ... (continue for ALL waves)
+
+**CRITICAL: You MUST show EVERY wave individually. NEVER use placeholders like "[Continue for all waves...]" or "Wave 3-15:". Each wave from Wave 0 to Wave N must be shown with all its phases listed explicitly.**
 
 ---
 

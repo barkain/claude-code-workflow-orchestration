@@ -461,16 +461,20 @@ Selection Rationale: [keyword matches, e.g., "refactor + optimize + improve"]
 
 [For Multi-Step:]
 
-**DEPENDENCY GRAPH (REQUIRED - Extract from Orchestrator Output):**
+**DEPENDENCY GRAPH (RENDERED BY MAIN AGENT):**
+
+After receiving the orchestrator's JSON task tree and TodoWrite entries, render the dependency graph:
+
+1. The orchestrator provides JSON execution plan and TodoWrite entries with encoded metadata
+2. Run the render script to generate deterministic ASCII graph:
+   ```bash
+   ${CLAUDE_PROJECT_DIR}/scripts/render_dependency_graph.sh
+   ```
+3. Display the rendered ASCII graph output
 
 ```
-[Extract and display the complete ASCII dependency graph from the orchestrator's recommendation.
-Look for the "### Dependency Graph" or "DEPENDENCY GRAPH & EXECUTION PLAN" section in the
-orchestrator's output and copy the entire ASCII visualization here, preserving all formatting.]
+[ASCII dependency graph rendered by script - shows wave structure, task IDs, descriptions, and agents]
 ```
-
-**If orchestrator provided ASCII graph:** Display it above in the code fence exactly as generated.
-**If graph is missing:** Use the phase breakdown below as fallback and note the missing graph.
 
 Total Phases: [N]
 Total Waves: [M] (for parallel workflows)
@@ -557,6 +561,35 @@ Extract from orchestrator's output:
    - PreToolUse hook will validate all Task invocations against this plan
 
 **CRITICAL:** If JSON execution plan is present, you MUST initialize state file before executing any phases.
+
+---
+
+### Step 2.6: Render Dependency Graph (Multi-Step Only)
+
+**After receiving the orchestrator's recommendation and initializing state, render the dependency graph:**
+
+1. **Extract TodoWrite Data:**
+   - The orchestrator has populated TodoWrite with encoded task metadata
+   - Format: `[W<wave>:<title>][<phase_id>][<agent>][PARALLEL]? <description>`
+
+2. **Run Render Script:**
+   ```bash
+   # Export TodoWrite as JSON and pipe to render script
+   # Or invoke script with the TodoWrite JSON file
+   ${CLAUDE_PROJECT_DIR}/scripts/render_dependency_graph.sh
+   ```
+
+3. **Display Rendered Graph:**
+   - The script produces deterministic ASCII output
+   - Display the complete graph in the STAGE 1 COMPLETE output
+   - This ensures consistent formatting across all workflows
+
+4. **Why Script-Rendered:**
+   - Deterministic output (same input always produces same graph)
+   - Consistent formatting (box-drawing characters, alignment)
+   - Separates concerns (orchestrator focuses on analysis, script handles visualization)
+
+**NOTE:** The render script reads from TodoWrite JSON, which contains all the wave, phase, agent, and description metadata needed for the graph.
 
 ---
 

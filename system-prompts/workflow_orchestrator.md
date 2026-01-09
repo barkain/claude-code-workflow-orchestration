@@ -430,18 +430,34 @@ After the orchestrator returns with phases and TodoWrite:
 
 ```
 STAGE 2: EXECUTION
+[Render dependency graph from TodoWrite/JSON]
 [Execute phases exactly as orchestrator specified]
 [Update TodoWrite status after each phase]
 ```
 
+### Render Dependency Graph (Before Execution)
+
+**IMMEDIATELY after Stage 1 completes, render the dependency graph:**
+
+1. The orchestrator provides JSON execution plan and TodoWrite entries with encoded metadata
+2. Run the render script to generate deterministic ASCII graph:
+   ```bash
+   ${CLAUDE_PROJECT_DIR}/scripts/render_dependency_graph.sh
+   ```
+3. Display the rendered ASCII graph in the STAGE 1 COMPLETE output
+
+This ensures consistent, deterministic graph formatting across all workflows.
+
 ### How Orchestrator Returns Results
 
 The orchestrator will:
-1. Create the TodoWrite task list
-2. Return phases with agent assignments
-3. Provide execution plan (sequential or parallel)
+1. Create the TodoWrite task list (with encoded wave/phase/agent metadata)
+2. Return JSON execution plan with phases and agent assignments
+3. Provide execution mode (sequential or parallel)
 
-Main agent then executes the plan exactly as specified.
+Main agent then:
+1. Renders the dependency graph from TodoWrite/JSON data
+2. Executes the plan exactly as specified
 
 ### Delegating Phases
 
@@ -775,6 +791,7 @@ How would you like to proceed?
 - [ ] Wait for orchestrator to return
 
 **STAGE 2 - Execution (AFTER orchestrator returns):**
+- [ ] Render dependency graph using `scripts/render_dependency_graph.sh`
 - [ ] Parse orchestrator's returned phases
 - [ ] Execute phases in order specified
 - [ ] Update TodoWrite AFTER each phase completes

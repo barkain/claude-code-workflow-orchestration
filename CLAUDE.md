@@ -79,7 +79,7 @@ uv run pytest
 
 **Multi-step workflows:**
 ```bash
-claude --append-system-prompt "$(cat ~/.claude/system-prompts/workflow_orchestrator.md)" \
+claude --append-system-prompt "$(cat /system-prompts/workflow_orchestrator.md)" \
   "Your multi-step task"
 ```
 

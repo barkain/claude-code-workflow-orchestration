@@ -369,7 +369,7 @@ Solution design expert for architectural decisions and technology selection.
 
 ---
 
-**Note on Progress Tracking:** When the orchestrator identifies multi-step workflows, the main agent must use TodoWrite to create a structured task list for transparent progress tracking throughout all phases.
+**Note on Progress Tracking:** For multi-step workflows, the orchestrator populates TodoWrite with all atomic tasks during analysis. The main agent should verify TodoWrite contains the expected tasks and update statuses (pending -> in_progress -> completed) as each phase executes. Do NOT recreate the task list.
 
 ---
 
@@ -531,7 +531,7 @@ Extract from orchestrator's output:
 - Extract the complete prompt between the code fence markers
 - Note the context passing requirements for subsequent phases
 
-**Important:** For multi-step workflows, immediately create a TodoWrite task list capturing all phases from the orchestrator's recommendation. This ensures systematic progress tracking and transparent communication with the user throughout the workflow execution.
+**Important:** For multi-step workflows, the orchestrator has already populated TodoWrite with all atomic tasks. **DO NOT recreate the task list.** Verify that TodoWrite contains the expected tasks (look for the "TODOWRITE STATUS" section in the orchestrator's recommendation) and proceed with phase execution. Only update task statuses (pending -> in_progress -> completed) as you execute each phase.
 
 ---
 
@@ -684,7 +684,7 @@ Display the Stage 2 header for single-step tasks as shown above, then spawn the 
 **For Multi-Step Tasks:**
 
 1. **Display Stage 2 header** with complete workflow overview as shown above
-2. **Use TodoWrite** to create a task list with all phases identified by the orchestrator, ensuring each phase has both content and activeForm descriptions for clear progress tracking
+2. **Verify TodoWrite** - The orchestrator has already populated TodoWrite with all atomic tasks. Check the "TODOWRITE STATUS" section in the orchestrator's recommendation to confirm. Do NOT recreate the task list - only update statuses as phases execute.
 3. **Execute Phase 1** by spawning the appropriate specialized agent directly with the Phase 1 delegation prompt. The main agent will automatically interpret and spawn the correct subagent using Claude's built-in subagent system
 4. **Update visual progress** after each phase completion using the Phase Completion Display format
 
@@ -1215,7 +1215,7 @@ Next Steps:
 3. **Track context diligently** - In multi-step workflows, capture comprehensive context
 4. **Report transparently** - Let user know which agents handled which parts using visual displays
 5. **Handle errors gracefully** - Stop and ask user before proceeding after failures
-6. **Use TodoWrite for multi-step workflows** - Create task lists immediately after receiving orchestrator recommendations for multi-step tasks, updating status as each phase completes to maintain transparency
+6. **Verify TodoWrite for multi-step workflows** - The orchestrator has already populated TodoWrite with atomic tasks. Do NOT recreate the task list - only verify it exists and update statuses (pending -> in_progress -> completed) as each phase executes
 7. **Display visual progress** - Use the visual output formats defined above at each stage to keep users informed of delegation progress
 8. **Show agent selection rationale** - Always display keyword matches and agent selection reasoning in Stage 1 completion display
 9. **Update phase progress in real-time** - Display current phase status before spawning agents and completion status after each phase

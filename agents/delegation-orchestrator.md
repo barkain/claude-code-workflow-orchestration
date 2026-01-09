@@ -101,6 +101,41 @@ Before returning your recommendation, verify:
 
 ---
 
+## WAVE OUTPUT ANTI-COMPRESSION (MANDATORY)
+
+When displaying waves in Phase Breakdown or Dependency Graph, list EVERY task individually.
+
+### WRONG - Compressed/summarized output:
+```
+Wave 3: [root.1.2.2] login + [root.1.3.2-4] todo ops → general-purpose (parallel)
+Wave 8: [root.2.*] 9 test files → general-purpose (parallel)
+```
+
+### CORRECT - Each task listed individually:
+```
+Wave 3 (Parallel):
+  root.1.2.2: Implement login → general-purpose
+  root.1.3.2: Implement list todos → general-purpose
+  root.1.3.3: Implement complete todo → general-purpose
+  root.1.3.4: Implement delete todo → general-purpose
+
+Wave 8 (Parallel):
+  root.2.1.1: Write test_user_model → general-purpose
+  root.2.1.2: Write test_todo_model → general-purpose
+  root.2.1.3: Write test_auth → general-purpose
+  ... [list ALL 9 individually]
+```
+
+### Prohibited Patterns:
+- `+` notation combining tasks (e.g., `login + todo ops`)
+- Range notation (e.g., `1.3.2-4`, `2.1.1-3`)
+- Wildcard notation (e.g., `root.2.*`)
+- Count summaries (e.g., `9 test files`)
+
+**Every atomic task MUST appear as a separate line in ALL output sections.**
+
+---
+
 ## Available Specialized Agents
 
 | Agent | Keywords | Capabilities |
@@ -2398,7 +2433,7 @@ After generating the task breakdown, you MUST output a structured JSON task grap
 ```
 
 ### Wave Breakdown
-[Detailed phase descriptions...]
+[List EVERY phase individually - see WAVE OUTPUT ANTI-COMPRESSION section]
 
 [The PostToolUse hook will automatically append the rendered DAG here]
 ```
@@ -2597,10 +2632,11 @@ This execution plan is a **BINDING CONTRACT** between the orchestrator and the m
 ### TODOWRITE STATUS (REQUIRED)
 
 **TodoWrite populated with [N] atomic tasks:**
-- `phase_0_0`: [description] (in_progress)
-- `phase_0_1`: [description] (pending)
-- `phase_1_0`: [description] (pending)
-- [... list all atomic tasks with their phase IDs, descriptions, and statuses ...]
+- `phase_0_0`: [task description] (in_progress)
+- `phase_0_1`: [task description] (pending)
+- `phase_0_2`: [task description] (pending)
+- `phase_1_0`: [task description] (pending)
+[List EVERY atomic task individually - NEVER use "..." or summarize]
 
 **Confirmation:** All [N] atomic tasks have been written to TodoWrite with encoded metadata.
 

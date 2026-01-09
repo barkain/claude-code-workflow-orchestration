@@ -86,7 +86,7 @@ claude plugin install workflow-orchestrator@barkain-plugins --scope project  # p
 
 **Optional:** Run `/add-statusline` after installation to enable workflow status display.
 
-### 🔨 Manual Installation
+### 🔨Manual Installation
 
 For development or custom configurations:
 
@@ -110,12 +110,17 @@ Once installed, the delegation hook is automatically active. Simply use Claude C
 
 ```bash
 # Multi-step workflow - enable orchestration for context passing
-claude
+claude --append-system-prompt "$(cat ~/.claude/system-prompts/workflow_orchestrator.md)"  # user-level
+#  or
+claude --append-system-prompt "$(cat ./.claude/system-prompts/workflow_orchestrator.md)"  # project-level
 ```
 and then prompt claude with:
 ```text
-> create a simple calculator cli app
+> create a simple todo cli app with basic authentication.
+  add unit tests and verification steps after each phase
 ```
+**Note: For optimal results, it is highly recommended to launch the claude session using the `--append-system-prompt` flag.
+While the framework is functional without it, this flag ensures your orchestration instructions are prioritized at the system level, leading to significantly better instruction adherence and workflow compliance.**
 
 **What happens:**
 1. First, claude will delegate the task to the delegation-orchestrator subagent for: 
@@ -135,7 +140,7 @@ and then prompt claude with:
 
 4. Claude's native todo list is also getting updated in each step:
 
-    ![img_toto_list.png](assets/img_toto_list.png)
+    ![img_toto_list.png](assets/img_todo_list.png)
 
 ### Emergency Bypass
 

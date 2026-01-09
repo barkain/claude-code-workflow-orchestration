@@ -10,6 +10,99 @@ allowed-tools: Task
 
 ---
 
+## ⚠️ MANDATORY: Dependency Graph Rendering
+
+**YOU MUST RENDER A DEPENDENCY GRAPH** for ALL multi-step workflows. This is NOT optional.
+
+After Stage 1 Orchestration completes, you MUST:
+1. Output the header: `DEPENDENCY GRAPH:`
+2. Render the complete graph using the box format below
+3. NEVER skip the graph or use plain text lists instead
+
+**FAILURE TO RENDER THE GRAPH IS A PROTOCOL VIOLATION.**
+
+### Required Box Format
+
+When displaying dependency graphs, you MUST use this EXACT box-drawing format. **NO EXCEPTIONS.**
+
+#### Format Template
+
+```
+**DEPENDENCY GRAPH:**
+
+Wave 0 (Parallel - Core Arithmetic):
+
+┌───────────┐  ┌───────────┐  ┌───────────┐  ┌───────────┐
+│root.1.1.1 │  │root.1.1.2 │  │root.1.1.3 │  │root.1.1.4 │
+│  add()    │  │subtract() │  │multiply() │  │ divide()  │
+└───────────┘  └───────────┘  └───────────┘  └───────────┘
+      │              │              │              │
+      └──────────────┴──────────────┴──────────────┘
+                           │
+                           ▼
+Wave 1 (Sequential - CLI Interface):
+
+                    ┌───────────┐
+                    │root.1.2.1 │
+                    │ argparse  │
+                    └───────────┘
+                          │
+                          ▼
+                    ┌───────────┐
+                    │root.1.2.2 │
+                    │  routing  │
+                    └───────────┘
+                          │
+                          ▼
+                    ┌───────────┐
+                    │root.1.2.3 │
+                    │  errors   │
+                    └───────────┘
+                          │
+                          ▼
+Wave 2 (Parallel - Unit Tests):
+
+┌───────────┐  ┌───────────┐  ┌───────────┐  ┌───────────┐
+│root.2.1.1 │  │root.2.1.2 │  │root.2.1.3 │  │root.2.1.4 │
+│ test_add  │  │test_subtr │  │test_multi │  │test_divide│
+└───────────┘  └───────────┘  └───────────┘  └───────────┘
+      │              │              │              │
+      └──────────────┴──────────────┴──────────────┘
+                           │
+                           ▼
+Wave 3 (Verification):
+
+                    ┌───────────┐
+                    │root.2.1.5 │
+                    │  VERIFY   │
+                    └───────────┘
+```
+
+### Format Rules
+
+| Element | Characters | Constraint |
+|---------|------------|------------|
+| Box corners | `┌` `┐` `└` `┘` | Required |
+| Box edges | `─` `│` | Required |
+| Wave arrows | `▼` | Between waves only |
+| Wave headers | `Wave N (Type - Title):` | Text with colon, no container box |
+| Task boxes | 2 lines only | Task ID + short description |
+| Descriptions | Short task desc | Max 10 chars |
+| PARALLEL waves | Multiple boxes same row | Side by side, merge arrows |
+| SEQUENTIAL waves | Individual boxes | One per row with ▼ between each |
+
+### FORBIDDEN Formats (NEVER USE)
+
+```
+├── tree style
+└── like this
+│   indented
+```
+
+**If you catch yourself generating `├──` or `└──` characters, STOP and use the box format instead.**
+
+---
+
 ## How This Works
 
 > **⚠️ CRITICAL: VERBATIM PASS-THROUGH RULE**
@@ -461,19 +554,28 @@ Selection Rationale: [keyword matches, e.g., "refactor + optimize + improve"]
 
 [For Multi-Step:]
 
-**DEPENDENCY GRAPH (RENDERED BY MAIN AGENT):**
+**REQUIRED OUTPUT after Stage 1:**
+- DEPENDENCY GRAPH: [box format visualization - MANDATORY]
+- Phase Breakdown: [text summary]
 
-After receiving the orchestrator's JSON task tree and TodoWrite entries, render the dependency graph:
+**DEPENDENCY GRAPH (RENDERED VIA SCRIPT - MANDATORY):**
 
-1. The orchestrator provides JSON execution plan and TodoWrite entries with encoded metadata
-2. Run the render script to generate deterministic ASCII graph:
-   ```bash
-   ${CLAUDE_PROJECT_DIR}/scripts/render_dependency_graph.sh
+For multi-step workflows, render the dependency graph using the render script:
+
+1. Run: `${CLAUDE_PROJECT_DIR}/scripts/render_dependency_graph.sh`
+   (Falls back to `~/.claude/scripts/render_dependency_graph.sh` if project-level not found)
+
+2. Display the script's output in a code fence exactly as rendered
+
+3. If the script fails or is not found, display error:
    ```
-3. Display the rendered ASCII graph output
+   [ERROR: Dependency graph render script not found or failed]
+   ```
+
+**CRITICAL:** NEVER generate ASCII dependency graphs via LLM. ONLY use script output.
 
 ```
-[ASCII dependency graph rendered by script - shows wave structure, task IDs, descriptions, and agents]
+[Script-rendered dependency graph output - shows wave structure, task IDs, descriptions, and agents]
 ```
 
 Total Phases: [N]
@@ -566,23 +668,27 @@ Extract from orchestrator's output:
 
 ### Step 2.6: Render Dependency Graph (Multi-Step Only)
 
+**CRITICAL:** NEVER generate ASCII dependency graphs via LLM. ONLY use script output.
+
 **After receiving the orchestrator's recommendation and initializing state, render the dependency graph:**
 
-1. **Extract TodoWrite Data:**
-   - The orchestrator has populated TodoWrite with encoded task metadata
-   - Format: `[W<wave>:<title>][<phase_id>][<agent>][PARALLEL]? <description>`
-
-2. **Run Render Script:**
+1. **Run Render Script:**
    ```bash
-   # Export TodoWrite as JSON and pipe to render script
-   # Or invoke script with the TodoWrite JSON file
    ${CLAUDE_PROJECT_DIR}/scripts/render_dependency_graph.sh
    ```
+   Falls back to `~/.claude/scripts/render_dependency_graph.sh` if project-level script not found.
 
-3. **Display Rendered Graph:**
+2. **Display Script Output:**
+   - Display the script's output in a code fence exactly as rendered
    - The script produces deterministic ASCII output
-   - Display the complete graph in the STAGE 1 COMPLETE output
-   - This ensures consistent formatting across all workflows
+   - Do NOT modify, summarize, or regenerate the output
+
+3. **Error Handling:**
+   - If script fails or is not found, display:
+     ```
+     [ERROR: Dependency graph render script not found or failed]
+     ```
+   - Do NOT generate a fallback graph via LLM
 
 4. **Why Script-Rendered:**
    - Deterministic output (same input always produces same graph)

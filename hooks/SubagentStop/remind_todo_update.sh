@@ -21,6 +21,12 @@
       echo "   Update next task to 'in_progress' (if multi-step)"
       echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       echo ""
+
+      # Remind about dependency graph for orchestrator
+      if [[ "$SUBAGENT_TYPE" == "delegation-orchestrator" ]] || [[ "$SUBAGENT_TYPE" == *"orchestrat"* ]]; then
+          echo "REQUIRED: Render DEPENDENCY GRAPH using box format. Do NOT skip."
+          echo ""
+      fi
   fi
 
   exit 0

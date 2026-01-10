@@ -26,53 +26,50 @@ When displaying dependency graphs, you MUST use this EXACT box-drawing format. *
 ```
 **DEPENDENCY GRAPH:**
 
-Wave 0 (Parallel - Core Arithmetic):
-
-┌───────────┐  ┌───────────┐  ┌───────────┐  ┌───────────┐
-│root.1.1.1 │  │root.1.1.2 │  │root.1.1.3 │  │root.1.1.4 │
-│  add()    │  │subtract() │  │multiply() │  │ divide()  │
-└───────────┘  └───────────┘  └───────────┘  └───────────┘
-      │              │              │              │
-      └──────────────┴──────────────┴──────────────┘
-                           │
-                           ▼
-Wave 1 (Sequential - CLI Interface):
-
-                    ┌───────────┐
-                    │root.1.2.1 │
-                    │ argparse  │
-                    └───────────┘
-                          │
-                          ▼
-                    ┌───────────┐
-                    │root.1.2.2 │
-                    │  routing  │
-                    └───────────┘
-                          │
-                          ▼
-                    ┌───────────┐
-                    │root.1.2.3 │
-                    │  errors   │
-                    └───────────┘
-                          │
-                          ▼
-Wave 2 (Parallel - Unit Tests):
-
-┌───────────┐  ┌───────────┐  ┌───────────┐  ┌───────────┐
-│root.2.1.1 │  │root.2.1.2 │  │root.2.1.3 │  │root.2.1.4 │
-│ test_add  │  │test_subtr │  │test_multi │  │test_divide│
-└───────────┘  └───────────┘  └───────────┘  └───────────┘
-      │              │              │              │
-      └──────────────┴──────────────┴──────────────┘
-                           │
-                           ▼
-Wave 3 (Verification):
-
-                    ┌───────────┐
-                    │root.2.1.5 │
-                    │  VERIFY   │
-                    └───────────┘
+Wave 0 (Parallel - Core):
+┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐
+│root.1.1 │ │root.1.2 │ │root.1.3 │ │root.1.4 │
+│  add()  │ │subtract │ │multiply │ │ divide  │
+└────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘
+     └───────────┴───────────┴───────────┘
+                      │
+                      ▼
+Wave 1 (Verification):
+                ┌─────────┐
+                │root.1_v │
+                │ VERIFY  │
+                └────┬────┘
+                     │
+                     ▼
+Wave 2 (Sequential - CLI):
+                ┌─────────┐
+                │root.2.1 │
+                │argparse │
+                └────┬────┘
+                     │
+                     ▼
+                ┌─────────┐
+                │root.2.2 │
+                │ routing │
+                └────┬────┘
+                     │
+                     ▼
+Wave 3 (Parallel - Tests):
+┌─────────┐ ┌─────────┐ ┌─────────┐
+│root.3.1 │ │root.3.2 │ │root.3.3 │
+│test_add │ │test_sub │ │test_mul │
+└────┬────┘ └────┬────┘ └────┬────┘
+     └───────────┴───────────┘
+                 │
+                 ▼
+Wave 4 (Final Verification):
+                ┌─────────┐
+                │root.4_v │
+                │ VERIFY  │
+                └─────────┘
 ```
+
+**Keep the graph TIGHT - minimize blank lines between elements.**
 
 ### Format Rules
 
@@ -96,6 +93,17 @@ Wave 3 (Verification):
 ```
 
 **If you catch yourself generating `├──` or `└──` characters, STOP and use the box format instead.**
+
+---
+
+## Parallelism-First Principle
+
+**DEFAULT: PARALLEL. Sequential is the exception, not the rule.**
+
+- Tasks that don't share file dependencies go in the SAME wave (parallel)
+- Sequential ONLY when Task B literally reads files created by Task A
+- When uncertain about dependencies, assume PARALLEL
+- Ask: "CAN these run in parallel?" - if yes, make them parallel
 
 ---
 

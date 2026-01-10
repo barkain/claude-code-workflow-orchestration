@@ -30,53 +30,38 @@ When displaying dependency graphs, you MUST use this EXACT box-drawing format. *
 ```
 **DEPENDENCY GRAPH:**
 
-Wave 0 (Parallel - Core Arithmetic):
-
-┌───────────┐  ┌───────────┐  ┌───────────┐  ┌───────────┐
-│root.1.1.1 │  │root.1.1.2 │  │root.1.1.3 │  │root.1.1.4 │
-│  add()    │  │subtract() │  │multiply() │  │ divide()  │
-└───────────┘  └───────────┘  └───────────┘  └───────────┘
-      │              │              │              │
-      └──────────────┴──────────────┴──────────────┘
-                           │
-                           ▼
-Wave 1 (Sequential - CLI Interface):
-
-                    ┌───────────┐
-                    │root.1.2.1 │
-                    │ argparse  │
-                    └───────────┘
-                          │
-                          ▼
-                    ┌───────────┐
-                    │root.1.2.2 │
-                    │  routing  │
-                    └───────────┘
-                          │
-                          ▼
-                    ┌───────────┐
-                    │root.1.2.3 │
-                    │  errors   │
-                    └───────────┘
-                          │
-                          ▼
-Wave 2 (Parallel - Unit Tests):
-
-┌───────────┐  ┌───────────┐  ┌───────────┐  ┌───────────┐
-│root.2.1.1 │  │root.2.1.2 │  │root.2.1.3 │  │root.2.1.4 │
-│ test_add  │  │test_subtr │  │test_multi │  │test_divide│
-└───────────┘  └───────────┘  └───────────┘  └───────────┘
-      │              │              │              │
-      └──────────────┴──────────────┴──────────────┘
-                           │
-                           ▼
+Wave 0 (Parallel - Implementation):
+┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐
+│root.1.1 │ │root.1.2 │ │root.1.3 │ │root.1.4 │ │root.1.5 │
+│  models │ │  auth   │ │  api    │ │  utils  │ │  config │
+└────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘
+     └───────────┴───────────┴───────────┴───────────┘
+                             │
+                             ▼
+Wave 1 (Parallel - Features):
+┌─────────┐ ┌─────────┐ ┌─────────┐
+│root.2.1 │ │root.2.2 │ │root.2.3 │
+│  crud   │ │  search │ │  export │
+└────┬────┘ └────┬────┘ └────┬────┘
+     └───────────┴───────────┘
+                 │
+                 ▼
+Wave 2 (Parallel - Tests):
+┌─────────┐ ┌─────────┐ ┌─────────┐
+│root.3.1 │ │root.3.2 │ │root.3.3 │
+│test_crud│ │test_srch│ │test_exp │
+└────┬────┘ └────┬────┘ └────┬────┘
+     └───────────┴───────────┘
+                 │
+                 ▼
 Wave 3 (Verification):
-
-                    ┌───────────┐
-                    │root.2.1.5 │
-                    │  VERIFY   │
-                    └───────────┘
+            ┌─────────┐
+            │root.4.1 │
+            │ VERIFY  │
+            └─────────┘
 ```
+
+**Keep the graph TIGHT - minimize blank lines between elements.**
 
 ### Format Rules
 
@@ -534,8 +519,10 @@ Task Analysis:
 - Evaluating task complexity (single-step vs multi-step)
 - Identifying appropriate specialized agent(s)
 - Constructing optimized delegation prompts
+- Designing parallelized-efficient workflow
+- Updating the main agent's TODO list
 
-[Spawn delegation-orchestrator agent and await recommendation...]
+[Orchestrator analyzing task...]
 ```
 
 **After receiving orchestrator recommendation, display:**
@@ -1045,6 +1032,8 @@ Task Analysis:
 - Evaluating task complexity (single-step vs multi-step)
 - Identifying appropriate specialized agent(s)
 - Constructing optimized delegation prompts
+- Designing parallelized-efficient workflow
+- Updating the main agent's TODO list
 
 [Orchestrator analyzing task...]
 
@@ -1111,6 +1100,8 @@ Task Analysis:
 - Evaluating task complexity (single-step vs multi-step)
 - Identifying appropriate specialized agent(s)
 - Constructing optimized delegation prompts
+- Designing parallelized-efficient workflow
+- Updating the main agent's TODO list
 
 [Orchestrator analyzing task...]
 
@@ -1271,6 +1262,8 @@ Task Analysis:
 - Evaluating task complexity (single-step vs multi-step)
 - Identifying appropriate specialized agent(s)
 - Constructing optimized delegation prompts
+- Designing parallelized-efficient workflow
+- Updating the main agent's TODO list
 
 [Orchestrator analyzing task...]
 

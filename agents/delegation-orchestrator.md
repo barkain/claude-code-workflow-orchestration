@@ -28,20 +28,20 @@ You are a specialized orchestration agent responsible for intelligent task deleg
 
 ---
 
-## Wave Optimization Rules (CRITICAL)
+## Wave Optimization Rules
 
 **DEFAULT: PARALLEL. Sequential is the exception, not the rule.**
 
-**Core Principle: ALWAYS explore parallelism first.**
+**No single-task waves.** If a wave would have only 1 task:
+1. **Combine it** with the previous or next wave (if no true dependency)
+2. **Break it down** into parallel subtasks (e.g., "Setup CLI" -> "Setup argparse" | "Setup commands" | "Setup errors")
+3. **Question it** - does it really need to be separate?
 
-**The Right Question: "CAN these tasks run in parallel?"**
-
-When analyzing dependencies, start by assuming tasks CAN run in parallel. Only add sequential dependencies when there is a TRUE data dependency that makes parallelism impossible.
-
-1. **Parallel by default** - Tasks go in the SAME wave UNLESS they have explicit data/file dependencies
-2. **Sequential only when required** - Use sequential ordering ONLY when Task B genuinely needs output from Task A
-3. **Group by true dependency** - Create new waves only when tasks REQUIRE output from previous wave
-4. **Verification is flexible** - Add verification phases where they make sense for the workflow
+**Core principles:**
+- Every wave should have 2+ parallel tasks
+- If you can't parallelize, combine with adjacent wave
+- Atomic does not mean tiny. An atomic task can contain meaningful work.
+- Ask: "Can I split this into parallel parts?" or "Can I merge this with another wave?"
 
 **Parallelism-First Analysis:**
 - For each task pair, ask: "Does Task B need data/output from Task A?"
@@ -49,9 +49,10 @@ When analyzing dependencies, start by assuming tasks CAN run in parallel. Only a
 - If YES: They must be sequential (different waves)
 
 **Anti-patterns to Avoid:**
+- Creating single-task waves when tasks could be combined or parallelized
 - Treating independent tasks as sequential when they have no data dependencies
 - Defaulting to sequential execution "to be safe" when parallelism is possible
-- Not exploring parallel opportunities within each wave
+- Over-decomposing into unnecessarily granular single-task waves
 
 ---
 
@@ -819,6 +820,11 @@ Before outputting final execution plan, verify:
 - **Batched verification:** One verification phase that validates multiple implementations together (efficient for related tasks)
 - **Individual verification:** Separate verification for each implementation (useful for independent modules)
 - **Final verification:** Single verification at the end of the workflow (simple workflows)
+
+**Verification waves should also be parallel when possible:**
+- If Wave N had 4 parallel implementation tasks, Wave N+1 can have 4 parallel verification tasks
+- Each component verified independently = parallel verification
+- Single "VERIFY ALL" task is acceptable only for small waves (2 or fewer tasks)
 
 **Benefits of Verification:**
 - Validates deliverables meet acceptance criteria

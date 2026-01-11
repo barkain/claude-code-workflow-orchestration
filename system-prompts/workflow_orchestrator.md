@@ -26,32 +26,35 @@ When displaying dependency graphs, you MUST use this EXACT box-drawing format. *
 ```
 **DEPENDENCY GRAPH:**
 
-Wave 0 (Parallel - Implementation):
-┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐
-│root.1.1 │ │root.1.2 │ │root.1.3 │ │root.1.4 │ │root.1.5 │
-│  models │ │  auth   │ │  api    │ │  utils  │ │  config │
-└────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘
-     └───────────┴───────────┬───────────┴───────────┘
-                             ▼
-Wave 1 (Parallel - Features):
-┌─────────┐ ┌─────────┐ ┌─────────┐
-│root.2.1 │ │root.2.2 │ │root.2.3 │
-│  crud   │ │  search │ │  export │
-└────┬────┘ └────┬────┘ └────┬────┘
-     └───────────┬───────────┘
-                 ▼
-Wave 2 (Parallel - Tests):
-┌─────────┐ ┌─────────┐ ┌─────────┐
-│root.3.1 │ │root.3.2 │ │root.3.3 │
-│test_crud│ │test_srch│ │test_exp │
-└────┬────┘ └────┬────┘ └────┬────┘
-     └───────────┬───────────┘
-                 ▼
+Wave 0 (Parallel - Foundation):
+┌───────────────────────────┐  ┌───────────────────────────┐  ┌───────────────────────────┐
+│        root.1.1           │  │        root.1.2           │  │        root.1.3           │
+│      User models          │  │      Auth module          │  │      API routes           │
+│    [general-purpose]      │  │    [general-purpose]      │  │    [general-purpose]      │
+└─────────────┬─────────────┘  └─────────────┬─────────────┘  └─────────────┬─────────────┘
+              └──────────────────────────────┴──────────────────────────────┘
+                                             ▼
+Wave 1 (Verification):
+                             ┌───────────────────────────┐
+                             │        root.1_v           │
+                             │     Verify models         │
+                             │ [task-completion-verifier]│
+                             └─────────────┬─────────────┘
+                                           ▼
+Wave 2 (Parallel - Features):
+              ┌───────────────────────────┐  ┌───────────────────────────┐
+              │        root.2.1           │  │        root.2.2           │
+              │      CRUD operations      │  │      Search feature       │
+              │    [general-purpose]      │  │    [general-purpose]      │
+              └─────────────┬─────────────┘  └─────────────┬─────────────┘
+                            └──────────────────────────────┘
+                                           ▼
 Wave 3 (Final Verification):
-            ┌─────────┐
-            │root.4.1 │
-            │ VERIFY  │
-            └─────────┘
+                             ┌───────────────────────────┐
+                             │        root.3_v           │
+                             │       Verify all          │
+                             │ [task-completion-verifier]│
+                             └───────────────────────────┘
 ```
 
 **Keep the graph TIGHT - minimize blank lines between elements.**
@@ -64,10 +67,12 @@ Wave 3 (Final Verification):
 | Box edges | `─` `│` | Required |
 | Wave arrows | `▼` | Between waves only |
 | Wave headers | `Wave N (Type - Title):` | Text with colon, no container box |
-| Task boxes | 2 lines only | Task ID + short description |
-| Descriptions | Short task desc | Max 10 chars |
-| PARALLEL waves | Multiple boxes same row | Side by side, merge arrows |
-| SEQUENTIAL waves | Individual boxes | One per row with ▼ between each |
+| Box width | 27 characters | Fixed width for all boxes |
+| Task boxes | 3 lines only | Task ID + description + [agent-name] |
+| Agent names | Full name in brackets | e.g., [task-completion-verifier] |
+| PARALLEL waves | Multiple boxes same row | Side by side, centered alignment |
+| SEQUENTIAL waves | Individual boxes | Centered, one per row with ▼ between |
+| Merge to arrow | Direct connection | No │ line between merge and ▼ |
 
 ### FORBIDDEN Formats (NEVER USE)
 

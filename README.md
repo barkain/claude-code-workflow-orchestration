@@ -148,8 +148,14 @@ While the framework is functional without it, this flag ensures your orchestrati
 Temporarily disable delegation enforcement if needed:
 
 ```bash
+# From terminal (before starting Claude Code)
 export DELEGATION_HOOK_DISABLE=1
+
+# From within a Claude Code session (interactive toggle)
+/bypass
 ```
+
+The `/bypass` command allows toggling delegation enforcement on/off from within a Claude Code session without restarting.
 
 ## Setup Details
 

@@ -4,7 +4,7 @@ A hook-based framework for Claude Code that enforces task delegation to speciali
 
 See the delegation system in action:
 
-<img src="./assets/workflow-demo-720p-x10.gif" alt="Workflow Demo" width="800">
+<img src="./assets/workflow-demo-x3.gif" alt="Workflow Demo" width="800">
 
 ## Overview
 
@@ -86,7 +86,7 @@ claude plugin install workflow-orchestrator@barkain-plugins --scope project  # p
 
 **Optional:** Run `/add-statusline` after installation to enable workflow status display.
 
-### 🔨 Manual Installation
+### 🔨Manual Installation
 
 For development or custom configurations:
 
@@ -110,12 +110,18 @@ Once installed, the delegation hook is automatically active. Simply use Claude C
 
 ```bash
 # Multi-step workflow - enable orchestration for context passing
-claude
+claude --append-system-prompt "$(cat ~/.claude/system-prompts/workflow_orchestrator.md)"  # user-level
+#  or
+claude --append-system-prompt "$(cat ./.claude/system-prompts/workflow_orchestrator.md)"  # project-level
 ```
 and then prompt claude with:
 ```text
-> create a simple calculator cli app
+> create a simple todo cli app with basic user authentication.
+the app should be implemented in python. use a standard uv project structure.
+add unit tests and make sure to add verification steps after each phase
 ```
+**Note: For optimal results, it is highly recommended to launch the claude session using the `--append-system-prompt` flag.
+While the framework is functional without it, this flag ensures your orchestration instructions are prioritized at the system level, leading to significantly better instruction adherence and workflow compliance.**
 
 **What happens:**
 1. First, claude will delegate the task to the delegation-orchestrator subagent for: 
@@ -135,15 +141,21 @@ and then prompt claude with:
 
 4. Claude's native todo list is also getting updated in each step:
 
-    ![img_toto_list.png](assets/img_toto_list.png)
+    ![img_toto_list.png](assets/img_todo_list.png)
 
 ### Emergency Bypass
 
 Temporarily disable delegation enforcement if needed:
 
 ```bash
+# From terminal (before starting Claude Code)
 export DELEGATION_HOOK_DISABLE=1
+
+# From within a Claude Code session (interactive toggle)
+/bypass
 ```
+
+The `/bypass` command allows toggling delegation enforcement on/off from within a Claude Code session without restarting.
 
 ## Setup Details
 
@@ -290,722 +302,65 @@ claude --append-system-prompt "$(cat ./system-prompts/workflow_orchestrator.md)"
 6. Synchronizes between waves, aggregates results
 7. Provides consolidated summary with absolute paths
 
+## Contributing
 
-## Usage
+We welcome contributions to the Claude Code Workflow Orchestration System! Whether you're fixing bugs, adding features, or improving documentation, your help is appreciated.
 
-This section provides comprehensive guidance on how to use the delegation system effectively. You'll learn how the system processes your requests from initial submission through specialized agent execution, understand the visual flowcharts that illustrate the system's architecture, and see practical examples of delegation patterns for both simple and complex workflows.
+### Reporting Issues
 
-The delegation system orchestrates a sophisticated workflow from user request through specialized agent execution. Here's the complete flow:
+Found a bug or have a feature request? Please open a GitHub Issue with:
+- Clear description of the issue or feature request
+- Steps to reproduce (for bugs)
+- Expected vs. actual behavior
+- Your environment (macOS/Linux, Claude Code version, etc.)
+- The used claude code model
+- Relevant logs or screenshots if applicable
 
-### Complete Delegation Flow
+### Submitting Pull Requests
 
-1. **User prompts normally** - Submit any task request to Claude Code
-2. **workflow_orchestrator detects patterns** - System prompt analyzes for multi-step indicators
-3. **TodoWrite creates task list** - Phases are tracked and organized
-4. **Tool attempts blocked by PreToolUse hook** - Direct tool usage is intercepted
-5. **CLAUDE.md policy enforces immediate delegation** - Instructions require `/delegate` usage
-6. **Hook registers session** - First `/delegate` usage marks session as delegated
-7. **Orchestrator analyzes and recommends** - Task complexity determines single vs multi-step approach
-8. **Main Claude executes phases** - Tools are allowed but delegation pattern continues
-9. **Context passes between phases** - Results flow forward through workflow
+1. **Fork the repository** and create a feature branch:
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
 
-### High-Level Mechanism Flowchart
+2. **Make your changes** following our code style guidelines (see below)
 
-This flowchart illustrates the complete decision tree and execution flow of the delegation system, showing how user requests are analyzed, routed, and executed sequentially through specialized agents.
+3. **Run quality checks (if applicable)** before submitting:
+   ```bash
+   /pre-commit
+   ```
+   This automatically runs:
+   - **Ruff** - Code formatting and linting
+   - **Pyright** - Type checking
+   - **Pytest** - Unit tests
 
-**How to read this chart:**
-- **Start point**: User submits a request to Claude Code
-- **Decision diamonds**: Key decision points (command type detection, multi-step analysis, phase continuation)
-- **Process rectangles**: Actions taken by the system (orchestration, analysis, prompt building)
-- **Flow paths**: The path taken depends on whether the task is a delegation command or regular execution, and whether it's single-step or multi-step
+   All checks must pass before submission.
 
-**Key insights:**
-- The system differentiates between `/delegate` commands and regular requests at the entry point
-- Task complexity analysis determines whether to use single-step or multi-step workflow
-- Multi-step workflows involve decomposition into phases with dependency analysis
-- **Execution mode selection**: Orchestrator analyzes phase dependencies to choose sequential or parallel execution
-- **Sequential mode**: Phases with dependencies execute one at a time with context passing
-- **Parallel mode**: Independent phases execute concurrently in waves for time efficiency
-- Single-step workflows directly select an agent and build a delegation prompt
-- User reviews recommendations before execution, maintaining control over the workflow
-- Each delegation spawns an isolated subagent session
-- Context aggregation: Wave results are collected and passed to dependent phases
-- TodoWrite tracks workflow progress, updating after each phase/wave completion
+4. **Commit with clear messages:**
+   ```bash
+   git commit -m "feat: description of your changes"
+   ```
+   Use conventional commit format: `feat:`, `fix:`, `docs:`, `refactor:`, etc.
 
-```mermaid
-flowchart TD
-    Start([User Request]) --> Parse[Parse Command]
-    Parse --> CheckType{Command Type?}
+5. **Push to your fork** and **submit a Pull Request** to the main branch with a clear description of changes
 
-    CheckType -->|/delegate| Delegate[Delegation Flow]
-    CheckType -->|Regular| Direct[Direct Execution]
+### Python Code Style Expectations
 
-    Delegate --> Orchestrator[Delegation Orchestrator]
-    Orchestrator --> Analyze[Analyze Task Complexity]
+- **Python 3.12+** with modern syntax (e.g., `list[str]`, `str | None`)
+- **Type hints** on all functions and variables
+- **No print statements** - use structured logging with logger calls
+- **Comprehensive docstrings** with examples for public APIs
+- **Clear variable and function names** that reflect intent
+- Automatic enforcement via Ruff (formatting), Pyright (types), and Pytest (tests)
 
-    Analyze --> IsMulti{Multi-step Task?}
+Always run `/pre-commit` locally before submitting to catch issues early.
 
-    IsMulti -->|Yes| MultiFlow[Multi-Step Workflow]
-    IsMulti -->|No| SingleFlow[Single-Step Workflow]
+### We Value
 
-    MultiFlow --> Decompose[Decompose into Phases]
-    Decompose --> MapPhases[Map Phases to Agents]
-    MapPhases --> LoadConfigs[Load Agent Configurations]
-    LoadConfigs --> BuildPrompts[Build Phase Prompts]
-    BuildPrompts --> ContextTemplates[Create Context Templates]
-    ContextTemplates --> MultiReport[Generate Multi-Step Report]
+- Clear, well-documented code
+- Tests for new functionality
+- Documentation updates for new features
+- Constructive feedback and collaboration
+- Diverse perspectives and creative solutions
 
-    SingleFlow --> SelectAgent[Select Specialized Agent]
-    SelectAgent --> LoadConfig[Load Agent Config]
-    LoadConfig --> BuildPrompt[Build Delegation Prompt]
-    BuildPrompt --> SingleReport[Generate Single-Step Report]
-
-    MultiReport --> Return[Return Recommendation]
-    SingleReport --> Return
-
-    Return --> UserReview[User Reviews Recommendation]
-    UserReview --> Execute{Execute Phase?}
-
-    Execute -->|Yes| TaskTool[Use Task Tool]
-    Execute -->|No| End([Complete])
-
-    TaskTool --> AgentExec[Agent Executes Task]
-    AgentExec --> Results[Capture Results]
-    Results --> MorePhases{More Phases?}
-
-    MorePhases -->|Yes| NextPhase[Prepare Next Phase]
-    NextPhase --> PassContext[Pass Context from Previous Phase]
-    PassContext --> TaskTool
-
-    MorePhases -->|No| End
-
-    Direct --> NormalExec[Normal Claude Execution]
-    NormalExec --> End
-```
-
-### Detailed Sequence: "Build calculator with tests" Example
-
-This sequence diagram provides a concrete walkthrough of how the delegation system handles a real-world multi-step task: creating a calculator application with accompanying tests using sequential phase execution.
-
-**How to read this chart:**
-- **Participants**: The different components involved in the workflow (User, Claude Main, Orchestrator, Config, Task Tool, Specialized Agent)
-- **Arrows**: Messages and actions flowing between components, showing the chronological sequence
-- **Note boxes**: Important internal processing steps happening within a component
-- **Vertical timeline**: Time flows from top to bottom, showing the sequential order of operations
-
-**Key insights:**
-- The delegation orchestrator detects "with tests" as a multi-step indicator and automatically decomposes the task into two phases
-- Agent selection happens during orchestration: general-purpose for code creation, task-completion-verifier for testing
-- **Dependency analysis**: Orchestrator identifies that Phase 2 depends on Phase 1's output (file path)
-- **Sequential execution chosen**: Phase 1 must complete before Phase 2 begins due to dependency
-- Context passing is explicit: the file path from Phase 1 is passed to Phase 2, enabling the test agent to locate and test the calculator
-- Configuration loading happens just-in-time: agent system prompts are loaded only when needed for execution
-- User maintains control at each phase: execution requires explicit user confirmation between phases
-- Each phase spawns an isolated subagent session for task execution
-- The specialized agent for Phase 2 reads the created code, writes tests, and verifies coverage before completion
-- Absolute file paths ensure unambiguous references across phases
-- TodoWrite tracks workflow progress, updating status as each phase completes
-- **Note:** If phases were independent (e.g., "analyze auth system AND design payment API"), parallel execution would be selected instead
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant Claude as Claude Main
-    participant Orch as Delegation Orchestrator
-    participant Config as Agent Config
-    participant Task as Task Tool
-    participant Agent as Specialized Agent
-
-    User->>Claude: Create calculator app with tests. Make sure the tests pass
-    Claude->>Orch: Invoke orchestrator
-
-    Note over Orch: Task Complexity Analysis
-    Orch->>Orch: Detect multi-step indicators
-    Orch->>Orch: "with tests" detected
-
-    Note over Orch: Task Decomposition
-    Orch->>Orch: Phase 1: Create calculator
-    Orch->>Orch: Phase 2: Write tests
-
-    Note over Orch: Agent Selection
-    Orch->>Orch: Phase 1 → general-purpose
-    Orch->>Orch: Phase 2 → task-completion-verifier
-
-    Orch->>Config: Load task-completion-verifier.md
-    Config-->>Orch: Agent system prompt
-
-    Note over Orch: Prompt Construction
-    Orch->>Orch: Build Phase 1 prompt
-    Orch->>Orch: Build Phase 2 template with context placeholders
-
-    Orch-->>Claude: Multi-step recommendation
-
-    Note over Claude: Phase 1 Ready
-    Claude->>User: Show Phase 1 recommendation
-    User->>Claude: Execute Phase 1
-
-    Claude->>Task: Delegate with Phase 1 prompt
-    Task->>Agent: Execute (general-purpose)
-    Agent-->>Task: Calculator created at /path/to/calc.py
-    Task-->>Claude: Phase 1 results
-
-    Note over Claude: Context Passing
-    Claude->>Claude: Extract: file path, functionality
-
-    Note over Claude: Phase 2 Preparation
-    Claude->>User: Show Phase 2 recommendation with context
-    User->>Claude: Execute Phase 2
-
-    Claude->>Task: Delegate with Phase 2 prompt + context
-    Task->>Config: Load task-completion-verifier
-    Config-->>Task: Verifier system prompt
-    Task->>Agent: Execute (task-completion-verifier)
-
-    Note over Agent: Test Creation
-    Agent->>Agent: Read /path/to/calc.py
-    Agent->>Agent: Write tests for calculator
-    Agent->>Agent: Verify test coverage
-    Agent-->>Task: Tests created and verified
-
-    Task-->>Claude: Phase 2 complete
-    Claude-->>User: All phases complete
-```
-
-### Basic Delegation
-
-When any tool is blocked, immediately delegate:
-
-```bash
-/delegate Create a calculator module with add, subtract, multiply, divide functions
-```
-
-### Multi-Step Workflows
-
-With orchestration system prompt enabled:
-
-```bash
-# Single command triggers full workflow
-/delegate Create calculator.py with comprehensive tests and run them
-```
-
-The system will:
-1. Create task list via TodoWrite
-2. Delegate Phase 1: Create calculator.py
-3. Delegate Phase 2: Write tests (with context from Phase 1)
-4. Delegate Phase 3: Run tests (with context from Phase 2)
-5. Provide consolidated summary
-
-### Ask Without Modification
-
-Use `/ask` when you only need information:
-
-```bash
-/ask How does the authentication system work?
-```
-
-### Add StatusLine Configuration
-
-Use `/add-statusline` to add the statusline configuration to your settings file:
-
-```bash
-/add-statusline
-```
-
-Prompts for scope (user/project/local) and adds the statusline entry to the appropriate settings.json.
-
-### Pre-Commit Quality Checks
-
-Use `/pre-commit` to run comprehensive code quality checks before committing:
-
-```bash
-# Run pre-commit checks with default Sonnet model
-/pre-commit
-
-# Run with specific model
-/pre-commit opus
-/pre-commit sonnet
-```
-
-**What it does:**
-The `/pre-commit` command performs comprehensive code quality validation on changed files only, preparing your code for commit with automated workflows:
-
-1. **Code Quality Checks** - Runs targeted checks on changed files:
-   - **Ruff linting** - Enforces Python syntax, security, and quality standards
-   - **Ruff formatting** - Validates code formatting consistency
-   - **Pyright type checking** - Verifies type annotations and type safety
-   - **Deadcode detection** - Identifies unused code
-   - **Pytest execution** - Runs test suite if tests exist
-
-2. **Automated Fixes** - Offers to auto-fix issues when possible:
-   - Formatting issues: `ruff format`
-   - Auto-fixable linting violations: `ruff check --fix`
-
-3. **Smart Staging** - Stages changes intelligently:
-   - Detects new and modified files
-   - Filters out autogenerated files
-   - Stages only project-relevant files
-   - Shows diff summary before commit
-
-4. **Commit Message Generation** - Creates conventional commit messages:
-   - Analyzes staged changes using `git diff --cached`
-   - Generates commit message following conventional commit format
-   - Includes type (feat/fix/docs/refactor/etc.), scope, and detailed body
-   - Requests confirmation before committing
-
-**Example workflow:**
-```
-🔍 Running pre-commit checks on changed files...
-
-ℹ️  Detecting changed Python files...
-ℹ️  Found 3 changed Python files
-ℹ️  Running ruff check...
-✅ Ruff check passed
-ℹ️  Running ruff format check...
-⚠️  Code needs formatting (can be auto-fixed)
-ℹ️  Running type check with pyright...
-✅ Type check passed
-ℹ️  Running deadcode check...
-✅ No dead code found
-ℹ️  Running pytest...
-✅ All tests passed
-
-⚠️  Some checks failed or need attention
-
-Suggested fixes:
-  - Run: uv tool run ruff format . (to fix formatting)
-
-📝 Would you like me to fix the formatting issues? (y/n)
-
-[After fixes applied and checks re-run]
-✅ All checks passed! ✨
-
-📝 Staged changes:
-- Modified: backend/src/api.py
-- Modified: common/src/models.py
-- Modified: pyproject.toml
-
-💬 Proposed commit message:
-fix(backend): update API error handling and type annotations
-
-- Fix type annotations to use Python 3.12+ syntax
-- Remove unused imports detected by ruff
-- Update error handling to use proper exception chaining
-- Format code according to project standards
-
-🚀 Ready to commit? (y/n)
-```
-
-**When to use:**
-- Before committing changes to ensure code quality
-- After making code modifications to validate standards compliance
-- To catch common issues early (formatting, linting, type errors)
-- To generate consistent, well-formatted commit messages
-
-**Note:** The `/pre-commit` command only checks changed files (detected via `git status`), making it fast and focused on your current work.
-
-## Architecture Overview
-
-### Execution Model
-
-The delegation system uses an **intelligent subagent execution model** with adaptive orchestration:
-
-**Single-Step Tasks:**
-- Direct delegation to one specialized agent
-- Agent executes task in isolated session
-- Results captured and returned to main session
-
-**Multi-Step Workflows:**
-- **Dependency Analysis** - Orchestrator analyzes phase relationships
-- **Sequential Mode** - Dependent phases execute one at a time with context passing
-- **Parallel Mode** - Independent phases execute concurrently in waves
-- **Context Aggregation** - Results from completed phases flow to dependent phases
-- **TodoWrite Tracking** - Progress visible throughout workflow execution
-
-**Sequential Execution (When Phases Have Dependencies):**
-1. **Context Preservation** - Ensures each phase has complete context from previous phases
-2. **Error Handling** - Allows workflow to stop/adjust if a phase fails
-3. **Resource Management** - Prevents file/resource conflicts
-4. **Debugging** - Clear linear flow makes troubleshooting easier
-5. **State Consistency** - Guarantees artifact availability between phases
-
-**Parallel Execution (When Phases Are Independent):**
-1. **Time Efficiency** - Concurrent execution reduces total workflow time
-2. **Wave Synchronization** - Dependent phases wait for wave completion
-3. **Resource Isolation** - Independent phases operate on different resources
-4. **Scalability** - Up to 4 concurrent delegations per wave
-5. **Conservative Selection** - Defaults to sequential when dependencies are uncertain
-
-**Subagent System:**
-- Each delegation spawns an isolated subagent session
-- Subagents have their own system prompts and tool access
-- Main session orchestrates and captures results
-- Session isolation prevents interference between agents
-
-### Agent Specialization Model
-
-The system provides 10 specialized agents, each with:
-- **Keyword-based activation** - Orchestrator matches task keywords to agent capabilities
-- **Custom system prompts** - Each agent has domain-specific instructions
-- **Tool access control** - Agents have appropriate tool permissions
-- **Expertise focus** - Narrow scope ensures high-quality specialized work
-
-**Agent Selection Process:**
-1. Orchestrator extracts keywords from task description
-2. Matches keywords against agent activation keywords
-3. Selects agent with ≥2 keyword matches
-4. Falls back to general-purpose if no strong match
-5. For multi-step: selects different agents per phase based on phase objectives
-
-## How It Works
-
-### The Sophisticated Hook Mechanism
-
-The system uses **stateful session tracking** to enforce delegation:
-
-#### On Every User Prompt (UserPromptSubmit Hook)
-1. **Clears delegation state** - Deletes `.claude/state/delegated_sessions.txt`
-2. **Fresh slate** - No tools are pre-allowed, forcing explicit delegation
-
-#### On Every Tool Call (PreToolUse Hook)
-1. **Checks session registry** - Is this session ID in `delegated_sessions.txt`?
-2. **If YES** - Allow tool (session was previously delegated)
-3. **If NO** - Check if tool is in allowlist:
-   - `TodoWrite`, `AskUserQuestion` - Always allowed
-   - `SlashCommand`, `Task` - Allowed AND **registers session as delegated**
-   - Everything else - **BLOCKED**
-
-#### The Session Registration Key Insight
-
-When `/delegate` is invoked:
-1. SlashCommand tool is called
-2. **Hook registers the calling session ID** in `delegated_sessions.txt`
-3. **Main session is now "delegated"** - can use tools freely
-4. But workflow_orchestrator prompt instructs continued delegation per phase
-
-### Example: "Build calculator app and then write tests for it and verify"
-
-**Step-by-step execution:**
-
-```
-1. UserPromptSubmit Hook
-   └─ Clears delegated_sessions.txt (fresh state)
-
-2. User Message: "build calculator app and then write tests..."
-   └─ Main Claude receives prompt
-   └─ workflow_orchestrator detects "and then" (multi-step)
-   └─ Uses TodoWrite (ALLOWED) to create 3-phase task list
-
-3. Main Claude tries Write tool
-   └─ PreToolUse hook fires
-   └─ Session NOT in delegated_sessions.txt
-   └─ Write NOT in allowlist
-   └─ ❌ BLOCKED: "Use /delegate immediately"
-
-4. Main Claude follows CLAUDE.md policy
-   └─ Invokes: /delegate build calculator app...
-   └─ SlashCommand is ALLOWED
-   └─ ✅ Hook REGISTERS main session in delegated_sessions.txt
-   └─ Main session now "delegated"
-
-5. /delegate command executes
-   └─ Spawns delegation-orchestrator via Task (ALLOWED)
-   └─ Orchestrator analyzes: 3-phase multi-step workflow
-   └─ Returns recommendation with Phase 1 prompt
-
-6. Main Claude can now use tools directly (session delegated)
-   └─ BUT workflow orchestrator instructs: continue using /delegate
-   └─ Updates TodoWrite: Phase 1 in_progress
-
-7. Phase 1: /delegate [Phase 1 specific prompt]
-   └─ Orchestrator routes to specialized agent
-   └─ Agent creates calculator.py
-   └─ Main Claude captures context: /path/to/calculator.py
-
-8. Phase 2: /delegate [Phase 2 prompt + Phase 1 context]
-   └─ Context: "calculator at /path/to/calculator.py with add/subtract/multiply/divide"
-   └─ Orchestrator routes to task-completion-verifier
-   └─ Agent writes tests
-   └─ Main Claude updates TodoWrite: Phase 2 complete
-
-9. Phase 3: /delegate [Phase 3 prompt + cumulative context]
-   └─ Context: "tests at /path/to/test_calculator.py, calculator at /path/to/calculator.py"
-   └─ Orchestrator routes to task-completion-verifier
-   └─ Agent runs tests and verifies
-
-10. Workflow Complete
-    └─ Main Claude provides consolidated summary
-    └─ All TodoWrite items marked complete
-```
-
-### Why This Design is Sophisticated
-
-1. **Stateful Session Tracking**
-   - Each user message starts with clean slate (UserPromptSubmit clears state)
-   - First `/delegate` registers session as trusted
-   - Subsequent tool calls in that session are allowed
-   - Prevents accidental direct tool usage
-
-2. **Two-Layer Enforcement**
-   - **Hard Layer**: PreToolUse hook physically blocks tools
-   - **Soft Layer**: workflow_orchestrator prompt instructs delegation pattern
-   - Main session CAN use tools after first delegation, but CHOOSES to continue delegating
-
-3. **Adaptive Execution with Context Management**
-   - TodoWrite tracks overall workflow progress visibly
-   - **Sequential mode**: Each phase executes completely before next phase begins
-   - **Parallel mode**: Independent phases execute concurrently, wave synchronization ensures proper ordering
-   - Context aggregation: Results from completed phases/waves flow to dependent phases
-   - Context includes: file paths, decisions, configurations, issues
-   - Absolute paths ensure unambiguous references
-   - Error handling at phase/wave boundaries prevents cascading failures
-
-4. **Intelligent Orchestration**
-   - delegation-orchestrator analyzes task complexity
-   - Dependency analysis determines execution mode (sequential vs parallel)
-   - Keyword matching selects specialized agents (≥2 matches)
-   - Constructs complete prompts with agent system prompts
-   - Multi-step: provides context templates and wave execution plans
-   - Agent selection per phase based on phase-specific objectives
-
-5. **Isolated Subagent Execution**
-   - Each delegation spawns independent subagent session
-   - Subagents have custom system prompts and tool access
-   - Session isolation prevents cross-contamination
-   - Main session orchestrates and captures results
-   - Sequential mode: ensures resource availability between dependent phases
-   - Parallel mode: up to 4 concurrent subagents per wave with resource isolation
-
-6. **Fresh State Philosophy**
-   - UserPromptSubmit ensures no privileges persist across user messages
-   - Forces intentional delegation for each new request
-   - Prevents workflow "leakage" between tasks
-   - Session registry cleanup after 1 hour prevents stale state
-
-## Configuration Files
-
-### `settings.json`
-- Hook configuration (PreToolUse, PostToolUse, UserPromptSubmit, Stop)
-- Permissions (block sensitive files)
-- Status line configuration
-
-### `agents/*.md`
-- Agent system prompts
-- Agent metadata (name, description, tools, keywords)
-
-### `commands/*.md`
-- Slash command definitions
-- Command metadata (description, allowed tools)
-
-### `hooks/PreToolUse/require_delegation.sh`
-- Tool blocking logic
-- Delegation session tracking
-- Allowed tool allowlist
-
-### `system-prompts/workflow_orchestrator.md`
-- Multi-step workflow detection patterns
-- Context passing protocol
-- TodoWrite integration rules
-
-## Advanced Features
-
-### Debug Mode
-
-Enable debug logging for the delegation hook:
-
-```bash
-export DEBUG_DELEGATION_HOOK=1
-tail -f /tmp/delegation_hook_debug.log
-```
-
-### Disable Hook (Emergency)
-
-Temporarily disable delegation enforcement:
-
-```bash
-export DELEGATION_HOOK_DISABLE=1
-```
-
-### Session Tracking
-
-Delegation sessions are tracked in:
-```
-.claude/state/delegated_sessions.txt
-```
-
-Sessions are automatically cleaned up after 1 hour.
-
-## Best Practices
-
-### Task Delegation
-1. **Always delegate immediately** when tools are blocked - don't try alternative approaches
-2. **Use descriptive task descriptions** for better agent selection via keyword matching
-3. **Enable workflow orchestration** for multi-step tasks to get context passing support
-4. **Trust the orchestrator** - it analyzes task complexity and selects appropriate agents
-
-### Multi-Step Workflows
-5. **Trust execution mode selection** - orchestrator intelligently chooses sequential or parallel based on dependencies
-6. **Capture comprehensive context** between workflow phases:
-   - File paths (always absolute)
-   - Key decisions made
-   - Configurations determined
-   - Issues encountered and resolutions
-7. **Update TodoWrite after each phase/wave** - provides transparency and progress tracking
-8. **Verify phase/wave results** before proceeding to dependent phases
-9. **Use absolute paths** when referencing files across phases
-10. **Understand execution modes**:
-    - Sequential: Phases with dependencies execute in order
-    - Parallel: Independent phases execute concurrently in waves for efficiency
-
-### Error Handling
-11. **Stop at phase/wave failures** - don't proceed if a phase or wave fails or encounters errors
-12. **Review orchestrator recommendations** - understand execution mode and phase dependencies
-13. **Use emergency bypass sparingly** - only when delegation enforcement needs to be disabled
-14. **Wave failure handling** - in parallel mode, successful phases are preserved while failed phases can be retried
-
-### Agent Selection
-15. **Include relevant keywords** in task descriptions to trigger specialized agents
-16. **Check agent capabilities** (in commands/delegate.md) to understand which keywords activate which agents
-17. **Let orchestrator select agents** - it uses keyword matching with ≥2 match threshold
-18. **Independence indicators** - use "AND" (capitalized) in task descriptions to hint at parallel-safe phases
-
-## Troubleshooting
-
-### Multi-step workflow not detected
-
-**Symptoms:**
-- Task has multiple steps but treated as single-step
-- No TodoWrite task list created
-- Context not passed between phases
-
-**Solution:**
-```bash
-# Ensure workflow_orchestrator system prompt is appended
-claude --append-system-prompt "$(cat ./system-prompts/workflow_orchestrator.md)" \
-  "Create calculator.py with tests and verify they pass"
-
-# Use multi-step keywords in task description:
-# - Sequential connectors: "and then", "with", "including"
-# - Compound indicators: "with [noun]", "and [verb]"
-# - Phase markers: "first... then...", "start by... then..."
-```
-
-**Verify SessionStart hook (for automatic orchestration):**
-```bash
-# Check settings.json has SessionStart hook configured
-grep -A 10 "SessionStart" settings.json
-
-# Should contain:
-# "SessionStart": [
-#   {
-#     "hooks": [
-#       {
-#         "type": "append_system_prompt",
-#         "path": "system-prompts/workflow_orchestrator.md"
-#       }
-#     ]
-#   }
-# ]
-```
-
-### Tools are blocked but delegation fails
-- Check that `settings.json` is in the correct location
-- Verify hook scripts are executable: `chmod +x hooks/PreToolUse/*.sh`
-- Enable debug mode: `export DEBUG_DELEGATION_HOOK=1`
-
-### Agent not found
-- Verify agent file exists: `ls ./.claude/agents/`
-- Check agent filename matches delegation request
-
-### Multi-step workflow not detected
-- Ensure orchestration system prompt is appended
-- Check task uses multi-step keywords: "and then", "with", "including"
-
-## Project Structure
-
-```
-.
-├── README.md                      # This documentation
-├── CLAUDE.md                      # Project delegation policy
-├── plugin.json                    # Plugin manifest for marketplace
-├── settings.json                  # Claude Code configuration
-├── agents/                        # Specialized agent definitions
-│   ├── delegation-orchestrator.md
-│   ├── tech-lead-architect.md
-│   ├── codebase-context-analyzer.md
-│   └── ...
-├── commands/                      # Slash command definitions
-│   ├── delegate.md
-│   ├── ask.md
-│   └── pre-commit.md
-├── hooks/                         # Hook implementations
-│   ├── PreToolUse/
-│   │   └── require_delegation.sh
-│   └── UserPromptSubmit/
-│       └── clear-delegation-sessions.sh
-├── system-prompts/                # System prompt augmentations
-│   └── workflow_orchestrator.md
-├── scripts/                       # Utility scripts
-│   └── statusline.sh
-└── install.sh                     # Installation script
-```
-
-## Technical Details
-
-### Subagent Execution Model
-
-**How Subagents Work:**
-- Each `/delegate` or Task invocation spawns an isolated subagent session
-- Subagent receives complete system prompt (agent-specific + task context)
-- Subagent executes in separate session with full tool access
-- Main session waits for subagent completion and captures results
-- Session isolation ensures no cross-contamination between agents
-
-**Execution Guarantee:**
-- **Sequential mode:** Main session delegates phases one at a time, waits for completion
-- **Parallel mode:** Main session delegates wave phases concurrently, waits for wave completion
-- Captures results (files, decisions, context) after each phase/wave
-- Context aggregation: Results from completed phases/waves flow to dependent phases
-- TodoWrite updates between phases/waves provide progress visibility
-
-**Resource Management:**
-- **Sequential mode:** Only one subagent active per phase
-- **Parallel mode:** Up to 4 concurrent subagents per wave
-- File system state consistency maintained through dependency analysis
-- Context passing ensures artifacts from completed phases available to dependent phases
-- Wave synchronization prevents race conditions
-
-### Hook Execution
-
-**PreToolUse Hook:**
-- Receives tool name and session ID via stdin JSON
-- Checks against allowed tools list (AskUserQuestion, TodoWrite, SlashCommand, Task, SubagentTask, AgentTask)
-- Manages delegation session registry (marks sessions as delegated)
-- Returns exit code 0 (allow) or 2 (block)
-- Registers session on first Task/SlashCommand usage
-- Cleanup of sessions older than 1 hour
-
-**UserPromptSubmit Hook:**
-- Cleans up old delegation sessions (>1 hour)
-- Clears delegated_sessions.txt to ensure fresh state
-- Ensures fresh delegation enforcement for new user prompts
-- Prevents privilege persistence across user messages
-
-### Agent Selection Algorithm
-
-The delegation-orchestrator uses keyword matching:
-1. Extract keywords from task description
-2. Match against agent activation keywords
-3. Select agent with ≥2 keyword matches
-4. Use highest match count if multiple candidates
-5. Fall back to general-purpose if no match
-
-### Context Passing Protocol
-
-Multi-step workflows pass context via structured format:
-```
-Context from Phase N:
-- File paths: /absolute/path/to/file.ext
-- Key decisions: Framework choice, architecture pattern
-- Configurations: Settings, environment variables
-- Issues encountered: Blockers resolved
-```
+Thank you for contributing to making Claude Code workflows even better!

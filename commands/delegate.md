@@ -10,6 +10,86 @@ allowed-tools: Task
 
 ---
 
+## ⚠️ MANDATORY: Dependency Graph Rendering
+
+**YOU MUST RENDER A DEPENDENCY GRAPH** for ALL multi-step workflows. This is NOT optional.
+
+After Stage 1 Orchestration completes, you MUST:
+1. Output the header: `DEPENDENCY GRAPH:`
+2. Render the complete graph using the box format below
+3. NEVER skip the graph or use plain text lists instead
+
+**FAILURE TO RENDER THE GRAPH IS A PROTOCOL VIOLATION.**
+
+### Required Box Format
+
+When displaying dependency graphs, you MUST use this EXACT box-drawing format. **NO EXCEPTIONS.**
+
+#### Format Template
+
+```
+**DEPENDENCY GRAPH:**
+
+Wave 0 (Parallel - Foundation):
+┌───────────────────────────┐  ┌───────────────────────────┐  ┌───────────────────────────┐
+│        root.1.1           │  │        root.1.2           │  │        root.1.3           │
+│      User models          │  │      Auth module          │  │      API routes           │
+│    [general-purpose]      │  │    [general-purpose]      │  │    [general-purpose]      │
+└─────────────┬─────────────┘  └─────────────┬─────────────┘  └─────────────┬─────────────┘
+              └──────────────────────────────┴──────────────────────────────┘
+                                             ▼
+Wave 1 (Verification):
+                             ┌───────────────────────────┐
+                             │        root.1_v           │
+                             │     Verify models         │
+                             │ [task-completion-verifier]│
+                             └─────────────┬─────────────┘
+                                           ▼
+Wave 2 (Parallel - Features):
+              ┌───────────────────────────┐  ┌───────────────────────────┐
+              │        root.2.1           │  │        root.2.2           │
+              │      CRUD operations      │  │      Search feature       │
+              │    [general-purpose]      │  │    [general-purpose]      │
+              └─────────────┬─────────────┘  └─────────────┬─────────────┘
+                            └──────────────────────────────┘
+                                           ▼
+Wave 3 (Final Verification):
+                             ┌───────────────────────────┐
+                             │        root.3_v           │
+                             │       Verify all          │
+                             │ [task-completion-verifier]│
+                             └───────────────────────────┘
+```
+
+**Keep the graph TIGHT - minimize blank lines between elements.**
+
+### Format Rules
+
+| Element | Characters | Constraint |
+|---------|------------|------------|
+| Box corners | `┌` `┐` `└` `┘` | Required |
+| Box edges | `─` `│` | Required |
+| Wave arrows | `▼` | Between waves only |
+| Wave headers | `Wave N (Type - Title):` | Text with colon, no container box |
+| Box width | 27 characters | Fixed width for all boxes |
+| Task boxes | 3 lines only | Task ID + description + [agent-name] |
+| Agent names | Full name in brackets | e.g., [task-completion-verifier] |
+| PARALLEL waves | Multiple boxes same row | Side by side, centered alignment |
+| SEQUENTIAL waves | Individual boxes | Centered, one per row with ▼ between |
+| Merge to arrow | Direct connection | No │ line between merge and ▼ |
+
+### FORBIDDEN Formats (NEVER USE)
+
+```
+├── tree style
+└── like this
+│   indented
+```
+
+**If you catch yourself generating `├──` or `└──` characters, STOP and use the box format instead.**
+
+---
+
 ## How This Works
 
 > **⚠️ CRITICAL: VERBATIM PASS-THROUGH RULE**
@@ -369,7 +449,7 @@ Solution design expert for architectural decisions and technology selection.
 
 ---
 
-**Note on Progress Tracking:** When the orchestrator identifies multi-step workflows, the main agent must use TodoWrite to create a structured task list for transparent progress tracking throughout all phases.
+**Note on Progress Tracking:** For multi-step workflows, the orchestrator populates TodoWrite with all atomic tasks during analysis. The main agent should verify TodoWrite contains the expected tasks and update statuses (pending -> in_progress -> completed) as each phase executes. Do NOT recreate the task list.
 
 ---
 
@@ -441,8 +521,10 @@ Task Analysis:
 - Evaluating task complexity (single-step vs multi-step)
 - Identifying appropriate specialized agent(s)
 - Constructing optimized delegation prompts
+- Designing parallelized-efficient workflow
+- Updating the main agent's TODO list
 
-[Spawn delegation-orchestrator agent and await recommendation...]
+[Orchestrator analyzing task...]
 ```
 
 **After receiving orchestrator recommendation, display:**
@@ -461,16 +543,29 @@ Selection Rationale: [keyword matches, e.g., "refactor + optimize + improve"]
 
 [For Multi-Step:]
 
-**DEPENDENCY GRAPH (REQUIRED - Extract from Orchestrator Output):**
+**REQUIRED OUTPUT after Stage 1:**
+- DEPENDENCY GRAPH: [box format visualization - MANDATORY]
+- Phase Breakdown: [text summary]
+
+**DEPENDENCY GRAPH (RENDERED VIA SCRIPT - MANDATORY):**
+
+For multi-step workflows, render the dependency graph using the render script:
+
+1. Run: `${CLAUDE_PROJECT_DIR}/scripts/render_dependency_graph.sh`
+   (Falls back to `~/.claude/scripts/render_dependency_graph.sh` if project-level not found)
+
+2. Display the script's output in a code fence exactly as rendered
+
+3. If the script fails or is not found, display error:
+   ```
+   [ERROR: Dependency graph render script not found or failed]
+   ```
+
+**CRITICAL:** NEVER generate ASCII dependency graphs via LLM. ONLY use script output.
 
 ```
-[Extract and display the complete ASCII dependency graph from the orchestrator's recommendation.
-Look for the "### Dependency Graph" or "DEPENDENCY GRAPH & EXECUTION PLAN" section in the
-orchestrator's output and copy the entire ASCII visualization here, preserving all formatting.]
+[Script-rendered dependency graph output - shows wave structure, task IDs, descriptions, and agents]
 ```
-
-**If orchestrator provided ASCII graph:** Display it above in the code fence exactly as generated.
-**If graph is missing:** Use the phase breakdown below as fallback and note the missing graph.
 
 Total Phases: [N]
 Total Waves: [M] (for parallel workflows)
@@ -531,7 +626,7 @@ Extract from orchestrator's output:
 - Extract the complete prompt between the code fence markers
 - Note the context passing requirements for subsequent phases
 
-**Important:** For multi-step workflows, immediately create a TodoWrite task list capturing all phases from the orchestrator's recommendation. This ensures systematic progress tracking and transparent communication with the user throughout the workflow execution.
+**Important:** For multi-step workflows, the orchestrator has already populated TodoWrite with all atomic tasks. **DO NOT recreate the task list.** Verify that TodoWrite contains the expected tasks (look for the "TODOWRITE STATUS" section in the orchestrator's recommendation) and proceed with phase execution. Only update task statuses (pending -> in_progress -> completed) as you execute each phase.
 
 ---
 
@@ -557,6 +652,39 @@ Extract from orchestrator's output:
    - PreToolUse hook will validate all Task invocations against this plan
 
 **CRITICAL:** If JSON execution plan is present, you MUST initialize state file before executing any phases.
+
+---
+
+### Step 2.6: Render Dependency Graph (Multi-Step Only)
+
+**CRITICAL:** NEVER generate ASCII dependency graphs via LLM. ONLY use script output.
+
+**After receiving the orchestrator's recommendation and initializing state, render the dependency graph:**
+
+1. **Run Render Script:**
+   ```bash
+   ${CLAUDE_PROJECT_DIR}/scripts/render_dependency_graph.sh
+   ```
+   Falls back to `~/.claude/scripts/render_dependency_graph.sh` if project-level script not found.
+
+2. **Display Script Output:**
+   - Display the script's output in a code fence exactly as rendered
+   - The script produces deterministic ASCII output
+   - Do NOT modify, summarize, or regenerate the output
+
+3. **Error Handling:**
+   - If script fails or is not found, display:
+     ```
+     [ERROR: Dependency graph render script not found or failed]
+     ```
+   - Do NOT generate a fallback graph via LLM
+
+4. **Why Script-Rendered:**
+   - Deterministic output (same input always produces same graph)
+   - Consistent formatting (box-drawing characters, alignment)
+   - Separates concerns (orchestrator focuses on analysis, script handles visualization)
+
+**NOTE:** The render script reads from TodoWrite JSON, which contains all the wave, phase, agent, and description metadata needed for the graph.
 
 ---
 
@@ -684,7 +812,7 @@ Display the Stage 2 header for single-step tasks as shown above, then spawn the 
 **For Multi-Step Tasks:**
 
 1. **Display Stage 2 header** with complete workflow overview as shown above
-2. **Use TodoWrite** to create a task list with all phases identified by the orchestrator, ensuring each phase has both content and activeForm descriptions for clear progress tracking
+2. **Verify TodoWrite** - The orchestrator has already populated TodoWrite with all atomic tasks. Check the "TODOWRITE STATUS" section in the orchestrator's recommendation to confirm. Do NOT recreate the task list - only update statuses as phases execute.
 3. **Execute Phase 1** by spawning the appropriate specialized agent directly with the Phase 1 delegation prompt. The main agent will automatically interpret and spawn the correct subagent using Claude's built-in subagent system
 4. **Update visual progress** after each phase completion using the Phase Completion Display format
 
@@ -697,38 +825,29 @@ After Phase 1 completes:
    - Issues encountered
    - Specific artifacts to reference
 
-2. **Go back to orchestrator** for Phase 2 guidance:
-   - Spawn the delegation-orchestrator agent directly
-   - Provide user task + context from Phase 1
-   - Request Phase 2 recommendation
+2. **Execute Phase 2 directly** using the delegation prompt from the orchestrator's initial recommendation:
+   - The orchestrator already provided ALL phase prompts in Stage 1
+   - Do NOT re-invoke the orchestrator - use the Phase 2 prompt already received
+   - Inject captured context from Phase 1 into the Phase 2 delegation prompt
 
-   **Example: Re-invoking Orchestrator for Phase 2**
+   **Context Injection Pattern:**
 
-   After Phase 1 completes, invoke the orchestrator again by spawning the delegation-orchestrator agent directly with the following prompt structure:
+   Take the Phase 2 delegation prompt from the orchestrator's recommendation and prepend Phase 1 context:
 
    ```
-   **ORIGINAL USER TASK:** $ARGUMENTS
+   **CONTEXT FROM PREVIOUS PHASE:**
 
-   **COMPLETED PHASES:**
-
-   Phase 1: [Phase name, e.g., 'Research & Analysis']
-   Agent Used: [Agent name, e.g., 'tech-lead-architect']
-   Results:
+   Phase 1 Results:
    - Created file: /absolute/path/to/file.ext
-   - Key decisions: [List decisions made, e.g., 'Selected FastAPI framework', 'Chose PostgreSQL database']
-   - Implementation approach: [Describe approach used, e.g., 'Layered architecture with service pattern']
-   - Configurations determined: [List any configs, e.g., 'Python 3.12+, async/await patterns']
-   - Issues encountered: [Note any blockers/resolutions, e.g., 'None' or 'Resolved dependency conflict']
+   - Key decisions: [List decisions made]
+   - Implementation approach: [Describe approach used]
+   - Configurations determined: [List any configs]
+   - Issues encountered: [Note any blockers/resolutions]
 
-   **REQUEST:**
+   ---
 
-   Please provide Phase 2 recommendation based on the completed Phase 1 context above. Use the Phase 2 template from your multi-step breakdown and fill in the specific context from Phase 1 results.
+   [Original Phase 2 delegation prompt from orchestrator]
    ```
-
-   This prompt includes:
-   - The original user task for reference
-   - Complete context from Phase 1 (files created, decisions, approach)
-   - Clear request for Phase 2 guidance with Phase 1 context
 
    **Key Points:**
    - Always use **absolute file paths** when referencing files created in previous phases
@@ -736,9 +855,7 @@ After Phase 1 completes:
    - Note any **blockers or issues** encountered and how they were resolved
    - Include **configuration details** that affect subsequent phases
 
-3. **Parse Phase 2 recommendation** and execute
-
-4. **Repeat** for all remaining phases
+3. **Repeat** for all remaining phases using their respective prompts from the initial orchestrator recommendation
 
 ### Step 4: Report Results
 
@@ -874,7 +991,7 @@ Context from Phase 1 (Research):
 - Created research notes: /tmp/research_notes.md
 ```
 
-This context gets included in the next orchestrator call to inform Phase 2 planning.
+This context gets prepended to the Phase 2 delegation prompt (already provided by the orchestrator in Stage 1).
 
 ---
 
@@ -917,6 +1034,8 @@ Task Analysis:
 - Evaluating task complexity (single-step vs multi-step)
 - Identifying appropriate specialized agent(s)
 - Constructing optimized delegation prompts
+- Designing parallelized-efficient workflow
+- Updating the main agent's TODO list
 
 [Orchestrator analyzing task...]
 
@@ -983,6 +1102,8 @@ Task Analysis:
 - Evaluating task complexity (single-step vs multi-step)
 - Identifying appropriate specialized agent(s)
 - Constructing optimized delegation prompts
+- Designing parallelized-efficient workflow
+- Updating the main agent's TODO list
 
 [Orchestrator analyzing task...]
 
@@ -1143,6 +1264,8 @@ Task Analysis:
 - Evaluating task complexity (single-step vs multi-step)
 - Identifying appropriate specialized agent(s)
 - Constructing optimized delegation prompts
+- Designing parallelized-efficient workflow
+- Updating the main agent's TODO list
 
 [Orchestrator analyzing task...]
 
@@ -1226,7 +1349,7 @@ Next Steps:
 3. **Track context diligently** - In multi-step workflows, capture comprehensive context
 4. **Report transparently** - Let user know which agents handled which parts using visual displays
 5. **Handle errors gracefully** - Stop and ask user before proceeding after failures
-6. **Use TodoWrite for multi-step workflows** - Create task lists immediately after receiving orchestrator recommendations for multi-step tasks, updating status as each phase completes to maintain transparency
+6. **Verify TodoWrite for multi-step workflows** - The orchestrator has already populated TodoWrite with atomic tasks. Do NOT recreate the task list - only verify it exists and update statuses (pending -> in_progress -> completed) as each phase executes
 7. **Display visual progress** - Use the visual output formats defined above at each stage to keep users informed of delegation progress
 8. **Show agent selection rationale** - Always display keyword matches and agent selection reasoning in Stage 1 completion display
 9. **Update phase progress in real-time** - Display current phase status before spawning agents and completion status after each phase
@@ -1239,12 +1362,12 @@ Next Steps:
 Execute the delegation process now using Steps 1-4 above.
 
 **Important Reminders:**
-- You will spawn agents twice in the process:
-  1. First spawn the delegation-orchestrator agent directly (get recommendation)
-  2. Then spawn the specialized agent directly (execute delegation)
-- For multi-step: Spawn the orchestrator agent again for each subsequent phase
-- Parse the delegation prompt from orchestrator's structured output
-- Use the extracted prompt verbatim when spawning the specialized agent
+- **Single orchestrator call:** The orchestrator is spawned ONCE and returns ALL phase prompts
+- **No re-invocation:** Do NOT spawn the orchestrator again for subsequent phases
+- For single-step: Orchestrator (1 call) -> Specialized agent (1 call) = 2 total spawns
+- For multi-step: Orchestrator (1 call) -> Phase 1 agent -> Phase 2 agent -> ... = N+1 total spawns
+- Parse ALL delegation prompts from orchestrator's structured output in Stage 1
+- Use each phase's prompt verbatim, adding context from previous phases
 - The main agent will automatically interpret your instructions and spawn the correct subagents using Claude's built-in subagent system
 
 ---

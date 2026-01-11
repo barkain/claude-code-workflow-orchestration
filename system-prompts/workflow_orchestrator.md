@@ -26,47 +26,32 @@ When displaying dependency graphs, you MUST use this EXACT box-drawing format. *
 ```
 **DEPENDENCY GRAPH:**
 
-Wave 0 (Parallel - Core):
-┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐
-│root.1.1 │ │root.1.2 │ │root.1.3 │ │root.1.4 │
-│  add()  │ │subtract │ │multiply │ │ divide  │
-└────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘
-     └───────────┴───────────┴───────────┘
-                      │
-                      ▼
-Wave 1 (Verification):
-                ┌─────────┐
-                │root.1_v │
-                │ VERIFY  │
-                └────┬────┘
-                     │
-                     ▼
-Wave 2 (Sequential - CLI):
-                ┌─────────┐
-                │root.2.1 │
-                │argparse │
-                └────┬────┘
-                     │
-                     ▼
-                ┌─────────┐
-                │root.2.2 │
-                │ routing │
-                └────┬────┘
-                     │
-                     ▼
-Wave 3 (Parallel - Tests):
+Wave 0 (Parallel - Implementation):
+┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐
+│root.1.1 │ │root.1.2 │ │root.1.3 │ │root.1.4 │ │root.1.5 │
+│  models │ │  auth   │ │  api    │ │  utils  │ │  config │
+└────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘
+     └───────────┴───────────┬───────────┴───────────┘
+                             ▼
+Wave 1 (Parallel - Features):
+┌─────────┐ ┌─────────┐ ┌─────────┐
+│root.2.1 │ │root.2.2 │ │root.2.3 │
+│  crud   │ │  search │ │  export │
+└────┬────┘ └────┬────┘ └────┬────┘
+     └───────────┬───────────┘
+                 ▼
+Wave 2 (Parallel - Tests):
 ┌─────────┐ ┌─────────┐ ┌─────────┐
 │root.3.1 │ │root.3.2 │ │root.3.3 │
-│test_add │ │test_sub │ │test_mul │
+│test_crud│ │test_srch│ │test_exp │
 └────┬────┘ └────┬────┘ └────┬────┘
-     └───────────┴───────────┘
-                 │
+     └───────────┬───────────┘
                  ▼
-Wave 4 (Final Verification):
-                ┌─────────┐
-                │root.4_v │
-                │ VERIFY  │
-                └─────────┘
+Wave 3 (Final Verification):
+            ┌─────────┐
+            │root.4.1 │
+            │ VERIFY  │
+            └─────────┘
 ```
 
 **Keep the graph TIGHT - minimize blank lines between elements.**

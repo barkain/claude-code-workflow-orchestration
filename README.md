@@ -4,7 +4,7 @@ A hook-based framework for Claude Code that enforces task delegation to speciali
 
 See the delegation system in action:
 
-<img src="./assets/workflow-demo-720p-x10.gif" alt="Workflow Demo" width="800">
+<img src="./assets/workflow-demo-x3.gif" alt="Workflow Demo" width="800">
 
 ## Overview
 
@@ -116,8 +116,9 @@ claude --append-system-prompt "$(cat ./.claude/system-prompts/workflow_orchestra
 ```
 and then prompt claude with:
 ```text
-> create a simple todo cli app with basic authentication.
-  add unit tests and verification steps after each phase
+> create a simple todo cli app with basic user authentication.
+the app should be implemented in python. use a standard uv project structure.
+add unit tests and make sure to add verification steps after each phase
 ```
 **Note: For optimal results, it is highly recommended to launch the claude session using the `--append-system-prompt` flag.
 While the framework is functional without it, this flag ensures your orchestration instructions are prioritized at the system level, leading to significantly better instruction adherence and workflow compliance.**

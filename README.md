@@ -92,7 +92,7 @@ For development or custom configurations:
 
 ```bash
 # Clone the repository
-git clone https://github.com/nadavbarkai/claude-code-workflow-orchestration.git
+git clone https://github.com/barkain/claude-code-workflow-orchestration.git
 ```
 
 #### Project-Specific Installation (Recommended)

@@ -130,6 +130,37 @@ The `task-planner` skill MUST be invoked BEFORE `/delegate` for EVERY user-enter
 **ALL analysis is performed by task-planner first, then by the delegation-orchestrator agent.**
 
 ---
+
+## ⚠️ CRITICAL: AUTOMATIC CONTINUATION AFTER STAGE 0
+
+**DO NOT STOP AFTER TASK-PLANNER RETURNS**
+
+When the task-planner skill completes and returns its plan:
+
+1. **If status is "Ready":** IMMEDIATELY continue to STAGE 1 - invoke `/delegate` in the SAME response
+2. **If status is "Clarification needed":** Ask user the clarification question, then WAIT for response
+3. **NEVER** stop execution after receiving a "Ready" plan - the workflow MUST continue automatically
+
+**The plan output is INPUT for the next stage, not a stopping point.**
+
+**CORRECT behavior after task-planner returns "Ready":**
+```
+[Task-planner output with "Status: Ready"]
+
+STAGE 1: ORCHESTRATION
+/delegate <user request verbatim>
+```
+
+**INCORRECT behavior (PROHIBITED):**
+```
+[Task-planner output with "Status: Ready"]
+
+[Agent stops here and waits for user input]  ← WRONG! Must continue immediately!
+```
+
+**ENFORCEMENT:** Treat "Status: Ready" as a TRIGGER to immediately invoke `/delegate`. No pause. No waiting. No user confirmation needed.
+
+---
 ## ⚠️ ADAPTIVE DECOMPOSITION REQUIREMENTS
 
 **Tasks must decompose to their tier-specific minimum depth.**
@@ -208,7 +239,9 @@ This orchestrator requires STRICT protocol adherence. You MUST:
 > **YOUR ACTIONS:**
 > 1. Display "STAGE 0: PLANNING" header, invoke `/task-planner <request verbatim>`
 > 2. If plan returns "Clarification needed" - ask user, wait for response
-> 3. If plan returns "Ready" - display "STAGE 1: ORCHESTRATION" header, invoke `/delegate`
+> 3. If plan returns "Ready" - **IN THE SAME RESPONSE**, display "STAGE 1: ORCHESTRATION" header and invoke `/delegate`
+>
+> **⚠️ AUTOMATIC CONTINUATION:** When task-planner returns "Ready", you MUST IMMEDIATELY invoke `/delegate` without stopping. Do NOT wait for user input. Do NOT end your response. The workflow continues in a single unbroken flow.
 >
 > The task-planner skill explores the codebase and decomposes the task.
 > The delegation-orchestrator then handles agent routing and execution planning.
@@ -1019,13 +1052,15 @@ How would you like to proceed?
 - [ ] Immediately invoke `/task-planner <user request verbatim>`
 - [ ] Review plan output for clarification needs
 - [ ] If "Clarification needed" - ask user, wait for response
-- [ ] If "Ready" - proceed to Stage 1
+- [ ] If "Ready" - **IMMEDIATELY CONTINUE** to Stage 1 (NO STOPPING!)
 
-**STAGE 1 - Orchestration (AFTER plan returns "Ready"):**
-- [ ] Display "STAGE 1: ORCHESTRATION" header
+**STAGE 1 - Orchestration (IMMEDIATELY AFTER plan returns "Ready"):**
+- [ ] **IN THE SAME RESPONSE** as Stage 0 completion, display "STAGE 1: ORCHESTRATION" header
 - [ ] Invoke `/delegate <user request verbatim>`
 - [ ] NO manual analysis, NO TodoWrite, NO commentary
 - [ ] Wait for orchestrator to return
+
+**⚠️ CRITICAL:** Stages 0 and 1 happen in ONE CONTINUOUS RESPONSE when plan status is "Ready". Do NOT end your response between stages.
 
 **STAGE 2 - Execution (AFTER orchestrator returns):**
 - [ ] Render dependency graph using script (primary: `${CLAUDE_PROJECT_DIR}/scripts/render_dependency_graph.sh`, fallback: `~/.claude/scripts/render_dependency_graph.sh`) - NEVER generate via LLM
@@ -1214,6 +1249,7 @@ At workflow end, provide summary including verification results:
 - **FIRST** invoke `/task-planner` to explore codebase and decompose task
 - Display "STAGE 0: PLANNING" header before planning
 - Handle clarification requests from task-planner before proceeding
+- **IMMEDIATELY AFTER "Ready" status:** Continue to Stage 1 in the SAME response (NO STOPPING!)
 - **THEN** invoke `/delegate` to route to specialized agents
 - Display "STAGE 1: ORCHESTRATION" header before delegating
 - Wait for orchestrator to return before any other action
@@ -1226,6 +1262,7 @@ At workflow end, provide summary including verification results:
 
 **You MUST NOT:**
 - Skip task-planner and go straight to /delegate
+- **Stop or end response after task-planner returns "Ready"** (MUST continue to /delegate immediately!)
 - Analyze or detect multi-step patterns manually (task-planner does this)
 - Create TodoWrite entries before delegation (orchestrator does this)
 - Output "Multi-step workflow detected" or similar

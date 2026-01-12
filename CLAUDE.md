@@ -77,11 +77,16 @@ uv run pytest
 /list-tools                # Show available tools
 ```
 
+**Skills (auto-invoked by orchestrator):**
+- `task-planner` - Explores codebase, decomposes task, returns structured plan (invoked automatically before delegation)
+
 **Multi-step workflows:**
 ```bash
 claude --append-system-prompt "$(cat /system-prompts/workflow_orchestrator.md)" \
   "Your multi-step task"
 ```
+
+Note: When using the workflow orchestrator system prompt, the `task-planner` skill is automatically invoked BEFORE `/delegate` for every user request.
 
 **In-Session Bypass:**
 ```bash

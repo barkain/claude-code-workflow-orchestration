@@ -42,7 +42,7 @@ readonly YELLOW='\033[1;33m'
 readonly NC='\033[0m' # No Color
 
 # Directories and files to copy
-readonly DIRS_TO_COPY=("agents" "commands" "hooks" "scripts" "system-prompts" "output-styles")
+readonly DIRS_TO_COPY=("agents" "commands" "hooks" "scripts" "system-prompts" "output-styles" "skills")
 # Note: settings.json is handled separately by merge_settings_json() for intelligent merging
 readonly FILES_TO_COPY=()
 

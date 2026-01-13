@@ -11,23 +11,34 @@ PLUGIN_DIR="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." &&
 DEBUG_HOOK="${DEBUG_DELEGATION_HOOK:-0}"
 DEBUG_FILE="/tmp/delegation_hook_debug.log"
 
+# --- State directory (single definition) ---
+STATE_DIR="${CLAUDE_PROJECT_DIR:-$PWD}/.claude/state"
+mkdir -p "$STATE_DIR"
+DELEGATED_SESSIONS_FILE="$STATE_DIR/delegated_sessions.txt"
+DELEGATION_FLAG="$STATE_DIR/delegation_active"
+FLAG_FILE="$STATE_DIR/delegated.once"
+
+# --- Check for jq availability (needed for parallel execution features) ---
+JQ_AVAILABLE=0
+if command -v jq &>/dev/null; then
+    JQ_AVAILABLE=1
+else
+    [[ "$DEBUG_HOOK" == "1" ]] && echo "Warning: jq not found, some features disabled" >> "$DEBUG_FILE"
+fi
+
 # --- quick bypass for emergencies ---
 if [[ "${DELEGATION_HOOK_DISABLE:-0}" == "1" ]]; then
   [[ "$DEBUG_HOOK" == "1" ]] && echo "Hook disabled via DELEGATION_HOOK_DISABLE" >> "$DEBUG_FILE"
   exit 0
 fi
 
-# --- State directory for flag files ---
-STATE_DIR="${CLAUDE_PROJECT_DIR:-$PWD}/.claude/state"
-
 # Check for in-session delegation disable flag
 if [[ -f "${STATE_DIR}/delegation_disabled" ]]; then
-    [[ "${DEBUG_DELEGATION_HOOK:-0}" == "1" ]] && echo "[DEBUG] Delegation disabled via flag file, allowing all tools" >> /tmp/delegation_hook_debug.log
+    [[ "$DEBUG_HOOK" == "1" ]] && echo "[DEBUG] Delegation disabled via flag file, allowing all tools" >> "$DEBUG_FILE"
     exit 0
 fi
 
 # --- Cleanup old delegated sessions (older than 1 hour) ---
-DELEGATED_SESSIONS_FILE="$STATE_DIR/delegated_sessions.txt"
 if [[ -f "$DELEGATED_SESSIONS_FILE" ]]; then
   # Clean up if file is older than 1 hour
   if [[ $(find "$DELEGATED_SESSIONS_FILE" -mmin +60 2>/dev/null | wc -l) -gt 0 ]]; then
@@ -71,9 +82,6 @@ if [[ -n "$TOOL_NAME" ]]; then
 
       # If this is a Task or SlashCommand/Skill tool, mark this session as delegated
       if [[ "$TOOL_NAME" == "Task" || "$TOOL_NAME" == "SubagentTask" || "$TOOL_NAME" == "AgentTask" || "$TOOL_NAME" == "SlashCommand" || "$TOOL_NAME" == "Skill" ]]; then
-        STATE_DIR="${CLAUDE_PROJECT_DIR:-$PWD}/.claude/state"
-        mkdir -p "$STATE_DIR"
-        DELEGATED_SESSIONS_FILE="$STATE_DIR/delegated_sessions.txt"
         if [[ -n "$SESSION_ID" ]]; then
           # Use a temporary file to avoid duplicates
           if [[ -f "$DELEGATED_SESSIONS_FILE" ]]; then
@@ -106,8 +114,8 @@ if [[ -n "$TOOL_NAME" ]]; then
           DELEGATION_COUNT=$((DELEGATION_COUNT + 1))
           DELEGATION_ID="deleg_${TIMESTAMP}_$(printf '%03d' $DELEGATION_COUNT)"
 
-          # Check if jq is available for atomic JSON updates
-          if command -v jq &> /dev/null; then
+          # Use jq for atomic JSON updates (availability checked at startup)
+          if [[ "$JQ_AVAILABLE" == "1" ]]; then
             # Use jq for atomic JSON manipulation with temporary file pattern
             # This ensures thread-safe updates to the delegation state
             CURRENT_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -151,9 +159,6 @@ fi
 shopt -u nocasematch
 
 # --- Check delegation flag file ---
-STATE_DIR="${CLAUDE_PROJECT_DIR:-$PWD}/.claude/state"
-FLAG_FILE="$STATE_DIR/delegated.once"
-
 if [[ -f "$FLAG_FILE" ]]; then
   [[ "$DEBUG_HOOK" == "1" ]] && echo "ALLOWED: Delegation flag found" >> "$DEBUG_FILE"
   rm -f -- "$FLAG_FILE" || true
@@ -162,7 +167,6 @@ fi
 
 # --- FIX: Check delegation flag BEFORE session validation ---
 # Flag indicates delegation in progress - allows subagent tools (new session IDs)
-DELEGATION_FLAG="$STATE_DIR/delegation_active"
 if [[ -f "$DELEGATION_FLAG" ]]; then
   [[ "$DEBUG_HOOK" == "1" ]] && echo "ALLOWED: Delegation active flag exists (subagent session inheritance)" >> "$DEBUG_FILE"
   exit 0
@@ -170,7 +174,6 @@ fi
 
 # --- Check if current session is delegated ---
 # If a Task tool was previously invoked in this session, allow nested tools
-DELEGATED_SESSIONS_FILE="$STATE_DIR/delegated_sessions.txt"
 if [[ -f "$DELEGATED_SESSIONS_FILE" && -n "$SESSION_ID" ]]; then
   if grep -Fxq "$SESSION_ID" "$DELEGATED_SESSIONS_FILE" 2>/dev/null; then
     [[ "$DEBUG_HOOK" == "1" ]] && echo "ALLOWED: Session '$SESSION_ID' is delegated" >> "$DEBUG_FILE"

@@ -70,7 +70,6 @@ uv run pytest
 /ask <question>            # Read-only question answering
 /bypass                    # Toggle delegation enforcement on/off
 /add-statusline            # Enable workflow status display
-/list-tools                # Show available tools
 ```
 
 **Skills (auto-invoked by orchestrator):**

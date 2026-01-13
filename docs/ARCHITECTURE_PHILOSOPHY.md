@@ -1094,7 +1094,7 @@ When parallel phases fail:
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              USER INTERFACE                                  │
-│  Commands: /delegate, /ask, /list-tools                                     │
+│  Commands: /delegate, /ask                                                   │
 │  StatusLine: [MODE] Active: N Wave W | Last: Event                          │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │

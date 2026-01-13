@@ -116,7 +116,6 @@ docs/
 ```bash
 /delegate <task>           # Route task to specialized agent
 /ask <question>            # Read-only question answering
-/list-tools                # Show available tools
 ```
 
 ### Debug Commands

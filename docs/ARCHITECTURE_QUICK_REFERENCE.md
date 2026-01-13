@@ -374,9 +374,6 @@ echo '{"version":"2.0","execution_mode":"sequential","active_delegations":[]}' >
 
 # Read-only question
 /ask How does the authentication system work?
-
-# Pre-commit checks
-/pre-commit
 ```
 
 ### Multi-Step Workflow

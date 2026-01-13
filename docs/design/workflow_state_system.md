@@ -1,5 +1,7 @@
 # Hybrid Workflow State System - Design Document
 
+> **DEPRECATED:** This design document references `workflow_sync.sh` which has been removed from the hook system. The workflow state synchronization functionality described here is not currently implemented. This document is retained for historical reference only.
+
 ## 1. Problem Statement
 
 **Current State Gaps:**

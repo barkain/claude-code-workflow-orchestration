@@ -40,7 +40,7 @@ fi
 # Extract all phases from all waves
 # Find phases with is_atomic: true and depth < 3
 violations=$(jq -r '
-  .waves[]?
+  .execution_plan.waves[]?
   | .phases[]?
   | select(.is_atomic == true and .depth < 3)
   | "\(.phase_id) (depth: \(.depth))"

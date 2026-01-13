@@ -59,9 +59,6 @@ uvx deadcode src/
 
 # Run tests
 uv run pytest
-
-# Combined pre-commit check (runs all above)
-/pre-commit
 ```
 
 ---
@@ -71,17 +68,20 @@ uv run pytest
 ```bash
 /delegate <task>           # Route task to specialized agent
 /ask <question>            # Read-only question answering
-/pre-commit                # Quality checks (Ruff, Pyright, Pytest)
 /bypass                    # Toggle delegation enforcement on/off
 /add-statusline            # Enable workflow status display
-/list-tools                # Show available tools
 ```
+
+**Skills (auto-invoked by orchestrator):**
+- `task-planner` - Explores codebase, decomposes task, returns structured plan (invoked automatically before delegation)
 
 **Multi-step workflows:**
 ```bash
 claude --append-system-prompt "$(cat /system-prompts/workflow_orchestrator.md)" \
   "Your multi-step task"
 ```
+
+Note: When using the workflow orchestrator system prompt, the `task-planner` skill is automatically invoked BEFORE `/delegate` for every user request.
 
 **In-Session Bypass:**
 ```bash

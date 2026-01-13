@@ -327,13 +327,18 @@ Found a bug or have a feature request? Please open a GitHub Issue with:
 
 3. **Run quality checks (if applicable)** before submitting:
    ```bash
-   /pre-commit
-   ```
-   This automatically runs:
-   - **Ruff** - Code formatting and linting
-   - **Pyright** - Type checking
-   - **Pytest** - Unit tests
+   # Format code
+   uvx ruff format .
 
+   # Lint code
+   uvx ruff check --no-fix .
+
+   # Type checking
+   uvx pyright .
+
+   # Run tests
+   uv run pytest
+   ```
    All checks must pass before submission.
 
 4. **Commit with clear messages:**
@@ -353,7 +358,7 @@ Found a bug or have a feature request? Please open a GitHub Issue with:
 - **Clear variable and function names** that reflect intent
 - Automatic enforcement via Ruff (formatting), Pyright (types), and Pytest (tests)
 
-Always run `/pre-commit` locally before submitting to catch issues early.
+Always run quality checks locally before submitting to catch issues early.
 
 ### We Value
 

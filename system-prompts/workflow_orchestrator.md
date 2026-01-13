@@ -68,6 +68,18 @@ Wave 1 (Verification):
 - Sequential ONLY when Task B literally reads files created by Task A
 - When uncertain about dependencies, assume PARALLEL
 
+### Core Principle: More Tasks, Fewer Waves
+
+**MAXIMIZE tasks per wave. MINIMIZE total wave count.**
+
+| Metric | Goal |
+| ------ | ---- |
+| Tasks per wave | As many as possible (4+ ideal) |
+| Total waves | As few as possible (target: <6 for most projects) |
+| Sequential chains | Avoid unless data dependency exists |
+
+**Scoring:** A 10-task workflow should have ~2-3 waves, not 10 waves.
+
 ### Verification Wave Optimization
 
 **DO NOT verify after every wave.** Batch verifications intelligently:

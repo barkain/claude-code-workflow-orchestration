@@ -83,6 +83,11 @@ AskUserQuestion(
 | 1 | `<tasks depending on wave 0>` | Wave 0 |
 | 2 | `<tasks depending on wave 1>` | Wave 1 |
 
+**Core Principle: More Tasks, Fewer Waves**
+- Target: 4+ tasks per wave
+- Maximum waves: 5-6 for typical projects
+- If wave has only 1 task, ask: can it merge with adjacent wave?
+
 **Target:** Minimize total waves. Group ALL independent tasks into same wave.
 **Verification:** Single verification wave at end, NOT after each implementation.
 

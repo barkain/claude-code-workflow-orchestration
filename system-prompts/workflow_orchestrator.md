@@ -15,6 +15,8 @@ After Stage 1 Orchestration completes, you MUST:
 2. Render the complete graph using the box format below
 3. NEVER skip the graph or use plain text lists instead
 
+**On restart/modification:** If the user changes their request mid-workflow or the workflow restarts, generate a completely fresh dependency graph. Never skip the graph assuming a previous one is valid.
+
 ### Required Box Format
 
 ```

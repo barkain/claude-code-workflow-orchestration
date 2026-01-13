@@ -118,6 +118,8 @@ Example:
 
 ### 2. Dependency Graph (ASCII)
 
+**CRITICAL: Always render fresh** - Even on workflow restart, modification, or retry, generate the dependency graph fresh. Never assume a previous graph output is still valid or sufficient.
+
 Output centered box format showing task flow:
 
 ```

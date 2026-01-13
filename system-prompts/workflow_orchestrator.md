@@ -420,7 +420,7 @@ Workflow completed:
 - [ ] Wait for orchestrator to return
 
 **STAGE 2 - Execution:**
-- [ ] Render dependency graph using script (NEVER via LLM)
+- [ ] Render the dependency graph using the REQUIRED box format
 - [ ] Execute phases in order specified
 - [ ] Update TodoWrite AFTER each phase
 - [ ] Pass context between phases

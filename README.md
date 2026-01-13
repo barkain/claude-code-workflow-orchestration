@@ -110,9 +110,7 @@ Once installed, the delegation hook is automatically active. Simply use Claude C
 
 ```bash
 # Multi-step workflow - enable orchestration for context passing
-claude --append-system-prompt "$(cat ~/.claude/system-prompts/workflow_orchestrator.md)"  # user-level
-#  or
-claude --append-system-prompt "$(cat ./.claude/system-prompts/workflow_orchestrator.md)"  # project-level
+claude
 ```
 and then prompt claude with:
 ```text
@@ -120,8 +118,6 @@ and then prompt claude with:
 the app should be implemented in python. use a standard uv project structure.
 add unit tests and make sure to add verification steps after each phase
 ```
-**Note: For optimal results, it is highly recommended to launch the claude session using the `--append-system-prompt` flag.
-While the framework is functional without it, this flag ensures your orchestration instructions are prioritized at the system level, leading to significantly better instruction adherence and workflow compliance.**
 
 **What happens:**
 1. First, claude will delegate the task to the delegation-orchestrator subagent for: 
@@ -207,12 +203,6 @@ Multi-step workflow orchestration requires the workflow_orchestrator system prom
 }
 ```
 
-**Manual (command-line flag):**
-```bash
-claude --append-system-prompt "$(cat ./system-prompts/workflow_orchestrator.md)" \
-  "Your multi-step task here"
-```
-
 **What this enables:**
 - Multi-step task detection via pattern matching
 - Dependency analysis for execution mode selection
@@ -275,8 +265,9 @@ The `/delegate` command provides intelligent task delegation:
 Enables multi-step workflow orchestration for complex tasks.
 
 **Activate via:**
+Simply start a Claude code session
 ```bash
-claude --append-system-prompt "$(cat ./system-prompts/workflow_orchestrator.md)"
+claude
 ```
 
 **Multi-step detection patterns:**

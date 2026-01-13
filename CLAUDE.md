@@ -59,9 +59,6 @@ uvx deadcode src/
 
 # Run tests
 uv run pytest
-
-# Combined pre-commit check (runs all above)
-/pre-commit
 ```
 
 ---
@@ -71,7 +68,6 @@ uv run pytest
 ```bash
 /delegate <task>           # Route task to specialized agent
 /ask <question>            # Read-only question answering
-/pre-commit                # Quality checks (Ruff, Pyright, Pytest)
 /bypass                    # Toggle delegation enforcement on/off
 /add-statusline            # Enable workflow status display
 /list-tools                # Show available tools

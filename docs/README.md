@@ -116,7 +116,6 @@ docs/
 ```bash
 /delegate <task>           # Route task to specialized agent
 /ask <question>            # Read-only question answering
-/pre-commit                # Quality checks (Ruff, Pyright, Pytest)
 /list-tools                # Show available tools
 ```
 

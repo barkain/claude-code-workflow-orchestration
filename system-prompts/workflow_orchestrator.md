@@ -262,18 +262,6 @@ STAGE 2: EXECUTION
 [Update TodoWrite status after each phase]
 ```
 
-### Render Dependency Graph (Before Execution)
-
-Run the render script to generate deterministic ASCII graph:
-```bash
-${CLAUDE_PROJECT_DIR}/scripts/render_dependency_graph.sh
-# Fallback: ~/.claude/scripts/render_dependency_graph.sh
-```
-
-**CRITICAL: NEVER generate ASCII dependency graphs via LLM. ONLY use script output.**
-
-If script fails: Display error message, continue with execution plan, do NOT approximate graph via LLM.
-
 ### Delegating Phases
 
 Delegate each phase as directed:

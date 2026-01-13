@@ -144,6 +144,35 @@ Wave 1 (Verification):
     └──────────────────────────────────────────┘
 ```
 
+**CRITICAL: Merge Line Rules**
+
+ALL tasks in a parallel wave MUST connect to the merge line:
+- Every task box has a vertical connector (`│`) descending from its bottom
+- The merge line (`└───────────┬───────────┘`) must span ALL boxes in the wave
+- NO orphaned/floating boxes - every task connects to the flow
+- If wave has N tasks, merge line must have N-1 horizontal segments connecting all N connectors
+
+**Example with 3 parallel tasks:**
+```
+    ┌──────────┐    ┌──────────┐    ┌──────────┐
+    │ task.1   │    │ task.2   │    │ task.3   │
+    └────┬─────┘    └────┬─────┘    └────┬─────┘
+         │               │               │
+         └───────────────┼───────────────┘
+                         │
+                         ▼
+```
+
+**FORBIDDEN: Disconnected tasks**
+```
+    ┌──────────┐    ┌──────────┐    ┌──────────┐
+    │ task.1   │    │ task.2   │    │ task.3   │  <- task.3 not connected!
+    └────┬─────┘    └────┬─────┘    └──────────┘
+         │               │
+         └───────┬───────┘
+                 ▼
+```
+
 ---
 
 ### 3. Execution Plan JSON

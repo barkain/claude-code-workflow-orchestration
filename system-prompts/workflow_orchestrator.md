@@ -520,7 +520,8 @@ When delegation-orchestrator provides execution plan with JSON task graph:
 
 **CRITICAL RULES:**
 
-1. **PARSE JSON IMMEDIATELY** - Write to `.claude/state/active_task_graph.json`
+1. **PARSE JSON IMMEDIATELY** and treat it as a **BINDING CONTRACT** for wave/phase execution.
+   - If persistence is required, have a delegated agent (with file-write permissions) write it to `.claude/state/active_task_graph.json`, or rely on the hook/script that persists the task graph.
 
 2. **PROHIBITED ACTIONS:**
    - Simplifying the execution plan

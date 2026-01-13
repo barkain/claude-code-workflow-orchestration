@@ -27,8 +27,7 @@ You receive structured output from task-planner containing:
 
 1. **Agent Selection** - Match each subtask to specialized agent via keyword analysis
 2. **Execution Plan** - Generate JSON execution plan with wave structure
-3. **Dependency Graph** - Output ASCII visualization of task flow
-4. **TodoWrite Population** - Create task entries for progress tracking
+3. **TodoWrite Population** - Create task entries for progress tracking
 
 ---
 
@@ -116,68 +115,7 @@ Example:
 
 ---
 
-### 2. Dependency Graph (ASCII)
-
-**CRITICAL: Always render fresh** - Even on workflow restart, modification, or retry, generate the dependency graph fresh. Never assume a previous graph output is still valid or sufficient.
-
-Output centered box format showing task flow:
-
-```
-                    ┌─────────────────────────────────────┐
-                    │         WORKFLOW: [Name]            │
-                    │   [N] tasks across [M] waves        │
-                    └─────────────────────────────────────┘
-
-Wave 0 (Foundation):
-    ┌──────────────────┐    ┌──────────────────┐
-    │ root.1.1.1       │    │ root.1.1.2       │
-    │ Create structure │    │ Create config    │
-    │ [general-purpose]│    │ [general-purpose]│
-    └────────┬─────────┘    └────────┬─────────┘
-             │                       │
-             └───────────┬───────────┘
-                         │
-                         ▼
-Wave 1 (Verification):
-    ┌──────────────────────────────────────────┐
-    │ wave_0_verify                            │
-    │ Verify Wave 0 implementations            │
-    │ [task-completion-verifier]               │
-    └──────────────────────────────────────────┘
-```
-
-**CRITICAL: Merge Line Rules**
-
-ALL tasks in a parallel wave MUST connect to the merge line:
-- Every task box has a vertical connector (`│`) descending from its bottom
-- The merge line (`└───────────┬───────────┘`) must span ALL boxes in the wave
-- NO orphaned/floating boxes - every task connects to the flow
-- If wave has N tasks, merge line must have N-1 horizontal segments connecting all N connectors
-
-**Example with 3 parallel tasks:**
-```
-    ┌──────────┐    ┌──────────┐    ┌──────────┐
-    │ task.1   │    │ task.2   │    │ task.3   │
-    └────┬─────┘    └────┬─────┘    └────┬─────┘
-         │               │               │
-         └───────────────┼───────────────┘
-                         │
-                         ▼
-```
-
-**FORBIDDEN: Disconnected tasks**
-```
-    ┌──────────┐    ┌──────────┐    ┌──────────┐
-    │ task.1   │    │ task.2   │    │ task.3   │  <- task.3 not connected!
-    └────┬─────┘    └────┬─────┘    └──────────┘
-         │               │
-         └───────┬───────┘
-                 ▼
-```
-
----
-
-### 3. Execution Plan JSON
+### 2. Execution Plan JSON
 
 ```json
 {
@@ -237,7 +175,7 @@ ALL tasks in a parallel wave MUST connect to the merge line:
 
 ---
 
-### 4. Wave Breakdown
+### 3. Wave Breakdown
 
 List EVERY task individually (no compression):
 
@@ -275,9 +213,6 @@ TodoWrite populated with [N] tasks:
 - `root.1.1.1`: Create project structure (in_progress)
 - `root.1.1.2`: Create database config (pending)
 - `wave_0_verify`: Verify foundation (pending)
-
-### Dependency Graph
-[ASCII visualization]
 
 ### Execution Plan JSON
 ```json
@@ -317,8 +252,7 @@ When invoked with task-planner output:
 2. For each subtask, run agent selection algorithm
 3. Group subtasks by wave (preserve planner's wave assignments)
 4. Generate TodoWrite entries with encoded metadata
-5. Generate ASCII dependency graph
-6. Generate execution plan JSON
-7. Output complete recommendation
+5. Generate execution plan JSON
+6. Output complete recommendation
 
 **You are a mapping engine: planner output -> agent assignments -> execution plan.**

@@ -1,6 +1,7 @@
 ---
 name: task-planner
 description: Analyze user request, explore codebase, return structured execution plan. Invoke as first step before any work.
+context: fork
 allowed-tools: Read, Grep, Glob, Bash, WebFetch, AskUserQuestion
 ---
 

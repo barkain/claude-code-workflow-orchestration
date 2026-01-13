@@ -411,13 +411,8 @@ The system implements a comprehensive 6-hook architecture that governs the entir
    │   └── python_posttooluse_hook.sh - Validate Python code
    ├── Matcher: Task
    │   ├── validate_task_graph_depth.sh - Enforce depth-3 minimum
-   │   ├── update_wave_state.sh - Auto-advance waves
-   │   ├── remind_todo_after_task.sh - Prompt TodoWrite update
-   │   ├── inject_dag_visualization.sh - Show workflow graph
-   │   └── workflow_sync.sh - Sync workflow state
-   ├── Matcher: Task|SlashCommand
-   │   └── validation_gate.sh - Final validation checkpoint
-   └── Output: Validated code, updated workflow state
+   │   └── remind_todo_after_task.sh - Prompt TodoWrite update
+   └── Output: Validated code, task completion reminders
 
 5. SubagentStop
    ├── Trigger: When subagent completes

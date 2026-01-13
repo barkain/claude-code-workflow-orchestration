@@ -1,5 +1,7 @@
 # Semantic Validation Implementation
 
+> **DEPRECATED:** This document describes the `validation_gate.sh` hook which has been removed from the hook system. The semantic validation functionality described here is not currently implemented. This document is retained for historical reference only.
+
 ## Overview
 
 Semantic validation is an intelligent validation layer implemented in the `validation_gate.sh` PostToolUse hook. It uses Claude Haiku to compare task objectives with subagent deliverables to determine if a delegated task was successfully completed.

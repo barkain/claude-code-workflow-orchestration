@@ -39,36 +39,8 @@
           },
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/PostToolUse/update_wave_state.sh",
-            "timeout": 5,
-            "description": "Auto-advance waves when all phases complete"
-          },
-          {
-            "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/PostToolUse/remind_todo_after_task.sh",
             "timeout": 2
-          },
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/PostToolUse/inject_dag_visualization.sh",
-            "timeout": 10,
-            "description": "Inject DAG visualization after Task completion"
-          },
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/PostToolUse/workflow_sync.sh",
-            "timeout": 5,
-            "description": "Sync workflow state after Task completion"
-          }
-        ]
-      },
-      {
-        "matcher": "Task|SlashCommand",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/PostToolUse/validation_gate.sh",
-            "timeout": 10
           }
         ]
       }

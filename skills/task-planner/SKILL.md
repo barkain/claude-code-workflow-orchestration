@@ -75,7 +75,16 @@ AskUserQuestion(
 
 3. ...
 
-**Parallelization**: 1 and 2 can run together; 3 waits for both.
+**Parallelization Analysis** (CRITICAL - maximize parallel execution):
+
+| Wave | Tasks (run in parallel) | Dependencies |
+| ---- | ----------------------- | ------------ |
+| 0 | `<tasks with no deps>` | None |
+| 1 | `<tasks depending on wave 0>` | Wave 0 |
+| 2 | `<tasks depending on wave 1>` | Wave 1 |
+
+**Target:** Minimize total waves. Group ALL independent tasks into same wave.
+**Verification:** Single verification wave at end, NOT after each implementation.
 
 **Risks**:
 - `<what could go wrong and why>`

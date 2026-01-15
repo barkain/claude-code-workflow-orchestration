@@ -369,8 +369,6 @@ return max(candidates, key=lambda a: a.match_count)
 | devops-experience-architect | setup, deploy, docker, CI/CD | Read, Write, Edit, Glob, Grep, Bash | Infrastructure |
 | documentation-expert | document, write docs, README, explain | Read, Write, Edit, Glob, Grep, Bash | Documentation |
 | dependency-manager | dependencies, packages, requirements | Read, Write, Edit, Bash | Package management |
-| task-decomposer | plan, break down, subtasks, roadmap | Read, Task, TodoWrite | Project planning |
-| phase-validator | validate, verify phase, check completion | Read, Bash, Glob, Grep | Phase validation |
 
 ### 4.4 Execution Mode Selection
 

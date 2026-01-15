@@ -1,7 +1,8 @@
 ---
 description: Ask questions and receive answers without any file modifications
 argument-hint: your question(s) [model]
-allowed-tools: Task
+allowed-tools: Read, Glob, Grep, WebFetch, WebSearch
+context: fork
 ---
 
 # Ask Questions - Delegated Mode

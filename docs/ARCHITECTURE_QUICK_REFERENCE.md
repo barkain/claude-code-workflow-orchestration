@@ -64,9 +64,6 @@ Does task contain >= 2 of: document, write docs, README, explain, create guide, 
 Does task contain >= 2 of: dependencies, packages, requirements, install, upgrade, manage packages?
 ├── YES → dependency-manager (implementation)
 
-Does task contain >= 2 of: plan, break down, subtasks, roadmap, phases, organize, milestones?
-├── YES → task-decomposer (planning)
-
 No agent >= 2 matches?
 └── general-purpose delegation
 ```
@@ -137,8 +134,6 @@ ALL criteria met?
 | devops-experience-architect | Y | Y | Y | Y | - | Y | Y |
 | documentation-expert | Y | Y | Y | Y | - | Y | Y |
 | dependency-manager | Y | Y | Y | Y | - | - | - |
-| task-decomposer | Y | - | - | - | Y | - | - |
-| phase-validator | Y | - | - | Y | - | Y | Y |
 
 **Legend:** Y = Has access, - = No access
 
@@ -154,8 +149,6 @@ ALL criteria met?
 | devops-experience-architect | deploy, docker | setup, CI/CD, infrastructure, pipeline, configuration |
 | documentation-expert | document, documentation | write docs, README, explain, create guide |
 | dependency-manager | dependencies, packages | requirements, install, upgrade, manage packages |
-| task-decomposer | plan, break down | subtasks, roadmap, phases, organize, milestones |
-| phase-validator | validate, verify phase | check completion, phase criteria |
 
 ### Agent Use Cases
 
@@ -169,8 +162,6 @@ ALL criteria met?
 | "Set up Docker" | devops-experience-architect | Infrastructure focus |
 | "Update README" | documentation-expert | Documentation focus |
 | "Add pytest dependency" | dependency-manager | Package management |
-| "Break down feature" | task-decomposer | Planning/decomposition |
-| "Check phase deliverables" | phase-validator | Phase verification |
 
 ---
 

@@ -36,7 +36,6 @@ You receive structured output from task-planner containing:
 | Agent | Keywords | Capabilities |
 |-------|----------|--------------|
 | **codebase-context-analyzer** | analyze, understand, explore, architecture, patterns, structure, dependencies | Read-only code exploration and architecture analysis |
-| **task-decomposer** | plan, break down, subtasks, roadmap, phases, organize, milestones | Project planning and task breakdown |
 | **tech-lead-architect** | design, approach, research, evaluate, best practices, architect, scalability, security | Solution design and architectural decisions |
 | **task-completion-verifier** | verify, validate, test, check, review, quality, edge cases | Testing, QA, validation |
 | **code-cleanup-optimizer** | refactor, cleanup, optimize, improve, technical debt, maintainability | Refactoring and code quality improvement |

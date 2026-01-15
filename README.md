@@ -13,7 +13,7 @@ This system uses Claude Code's hook mechanism to create a delegation-enforced wo
 ### Key Features
 
 - **Enforced Delegation** - PreToolUse hooks block direct tool usage, forcing delegation to specialized agents
-- **11 Specialized Agents** - Each agent has domain expertise (code cleanup, testing, architecture, DevOps, etc.)
+- **9 Specialized Agents** - Each agent has domain expertise (code cleanup, testing, architecture, DevOps, etc.)
 - **Intelligent Orchestration** - Delegation orchestrator analyzes tasks and selects optimal agents via keyword matching
 - **Intelligent Multi-Step Workflows** - Sequential execution for dependent phases, parallel for independent phases
 - **Isolated Subagent Sessions** - Each delegation spawns independent session with custom system prompts
@@ -231,19 +231,17 @@ Blocks most tools and forces delegation to specialized agents.
 
 ### 2. Specialized Agents (`agents/`)
 
-11 specialized agents for different task types:
+9 specialized agents for different task types:
 
 - **delegation-orchestrator** - Analyzes tasks and routes to appropriate agents
 - **tech-lead-architect** - Solution design, architecture, research
 - **codebase-context-analyzer** - Code exploration, architecture analysis
-- **task-decomposer** - Project planning, task breakdown
 - **task-completion-verifier** - Validation, testing, quality assurance
 - **code-cleanup-optimizer** - Refactoring, technical debt reduction
 - **code-reviewer** - Code review for best practices
 - **devops-experience-architect** - Infrastructure, deployment, CI/CD
 - **documentation-expert** - Documentation creation and maintenance
 - **dependency-manager** - Dependency management and updates
-- **phase-validator** - Phase completion validation, deliverable verification, quality gates
 
 ### 3. Delegation Command (`commands/delegate.md`)
 

@@ -101,11 +101,11 @@ Toggles delegation enforcement on/off from within a Claude Code session. Uses an
 
 **Allowlist:** `AskUserQuestion`, `TodoWrite`, `SlashCommand`, `Task`
 
-**Agent System:** 11 specialized agents matched via keyword detection (>=2 matches)
-- Meta: delegation-orchestrator, task-decomposer
+**Agent System:** 9 specialized agents matched via keyword detection (>=2 matches)
+- Meta: delegation-orchestrator
 - Read-Only: codebase-context-analyzer, code-reviewer
 - Implementation: code-cleanup-optimizer, devops-experience-architect
-- Verification: task-completion-verifier, phase-validator
+- Verification: task-completion-verifier
 
 **State Files:**
 - `.claude/state/delegated_sessions.txt` - Session registry

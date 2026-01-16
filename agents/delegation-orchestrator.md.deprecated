@@ -1,0 +1,36 @@
+---
+name: delegation-orchestrator
+description: "[DEPRECATED] Functionality merged into task-planner skill. This agent is no longer used."
+tools: ["TodoWrite", "AskUserQuestion"]
+color: gray
+activation_keywords: []
+deprecated: true
+deprecated_by: task-planner
+---
+
+# DEPRECATED: Delegation Orchestrator Agent
+
+**This agent has been deprecated.** Its functionality has been merged into the `task-planner` skill.
+
+## Migration Guide
+
+The `task-planner` skill now handles:
+- Task decomposition and analysis
+- Agent selection via keyword matching
+- Wave assignment for parallel/sequential execution
+- TodoWrite population
+- Execution plan JSON generation
+
+## Previous Functionality (for reference)
+
+This agent previously:
+1. Consumed task-planner output
+2. Mapped subtasks to specialized agents via keyword analysis
+3. Generated JSON execution plans with wave structure
+4. Created TodoWrite entries for progress tracking
+
+All of this is now done directly by the `task-planner` skill, eliminating the need for a separate orchestration step.
+
+## Removal Timeline
+
+This file is kept for reference during the transition period. It will be removed in a future version.

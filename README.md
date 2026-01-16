@@ -13,29 +13,36 @@ This system uses Claude Code's hook mechanism to create a delegation-enforced wo
 ### Key Features
 
 - **Enforced Delegation** - PreToolUse hooks block direct tool usage, forcing delegation to specialized agents
-- **9 Specialized Agents** - Each agent has domain expertise (code cleanup, testing, architecture, DevOps, etc.)
-- **Intelligent Orchestration** - Delegation orchestrator analyzes tasks and selects optimal agents via keyword matching
+- **8 Specialized Agents** - Each agent has domain expertise (code cleanup, testing, architecture, DevOps, etc.)
+- **Unified Task Planner** - Single `task-planner` skill handles planning, agent selection, and execution orchestration
 - **Intelligent Multi-Step Workflows** - Sequential execution for dependent phases, parallel for independent phases
 - **Isolated Subagent Sessions** - Each delegation spawns independent session with custom system prompts
 - **Progress Tracking** - TodoWrite provides visible task list throughout workflow execution
 - **Stateful Session Management** - Fresh delegation enforcement per user message with session registry
-- **Multi-Step Workflow Orchestration** - Automatically detects and orchestrates sequential and parallel workflows with smart dependency analysis
+- **Smart Dependency Analysis** - Automatically analyzes phase dependencies to determine optimal execution mode
 - **Parallel Execution Support** - Executes independent phases concurrently with automatic wave synchronization
 - **Visualization & Debugging** - Comprehensive logging and debug tools for understanding delegation decisions
 
 ### Execution Model
 
-**Single-Step Tasks:**
-1. User submits task → Hook blocks tools → Delegates to specialized agent → Agent executes → Results returned
+The system uses a two-stage execution pipeline:
 
-**Multi-Step Workflows (Sequential or Parallel):**
-1. User submits complex task → Orchestrator decomposes into phases → TodoWrite creates task list
-2. Orchestrator analyzes phase dependencies to determine execution mode
-3. **Sequential:** Dependent phases execute one at a time, passing context forward
-4. **Parallel:** Independent phases execute concurrently in waves for time efficiency
-5. Results consolidated and summary provided
+**Stage 0: Planning & Analysis (task-planner skill)**
+- Analyzes task complexity (single-step vs multi-step)
+- Decomposes complex tasks into atomic phases
+- Performs dependency analysis to determine execution mode
+- Assigns specialized agents via keyword matching
+- Creates wave assignments for parallel/sequential execution
+- Populates TodoWrite with task list
 
-**Execution Mode Selection:** The orchestrator intelligently chooses between sequential (context preservation, dependencies) and parallel (time savings, independence) based on phase dependency analysis.
+**Stage 1: Execution**
+- **Single-Step Tasks:** Hook blocks tools → Delegates to specialized agent → Agent executes → Results returned
+- **Multi-Step Workflows:**
+  - **Sequential:** Dependent phases execute one at a time, passing context forward
+  - **Parallel:** Independent phases execute concurrently in waves for time efficiency
+- Results consolidated and summary provided
+
+**Execution Mode Selection:** The task-planner intelligently chooses between sequential (context preservation, dependencies) and parallel (time savings, independence) based on phase dependency analysis.
 
 
 ## Quick Start
@@ -120,19 +127,21 @@ add unit tests and make sure to add verification steps after each phase
 ```
 
 **What happens:**
-1. First, claude will delegate the task to the delegation-orchestrator subagent for: 
-   - Evaluating task complexity (single-step vs multi-step)
-   - Identifying appropriate specialized agent(s)
-   - Constructing optimized delegation prompts
+1. First, the `task-planner` skill is invoked to:
+   - Analyze task complexity (single-step vs multi-step)
+   - Decompose into atomic subtasks
+   - Assign specialized agents via keyword matching
+   - Create wave assignments for parallel/sequential execution
+   - Populate TodoWrite and generate the execution plan
 
    ![img_delegate.png](assets/img_delegate.png)
 
-2. Once finished constructing the plan the `delegation-orchestrator` agent creates a task dependency graph and the user request is decomposed into parallel atomic subtasks:
+2. Once the task-planner returns, a task dependency graph is rendered and the user request is decomposed into parallel atomic subtasks:
 
     ![img_dependency_graph.png](assets/img_dependency_graph.png)
 
 3. Then, the sequential workflow with parallel subtasks can be initiated:
-   
+
     ![img_wave0.png](assets/img_wave0.png)
 
 4. Claude's native todo list is also getting updated in each step:
@@ -231,9 +240,8 @@ Blocks most tools and forces delegation to specialized agents.
 
 ### 2. Specialized Agents (`agents/`)
 
-9 specialized agents for different task types:
+8 specialized agents for different task types:
 
-- **delegation-orchestrator** - Analyzes tasks and routes to appropriate agents
 - **tech-lead-architect** - Solution design, architecture, research
 - **codebase-context-analyzer** - Code exploration, architecture analysis
 - **task-completion-verifier** - Validation, testing, quality assurance
@@ -243,24 +251,28 @@ Blocks most tools and forces delegation to specialized agents.
 - **documentation-expert** - Documentation creation and maintenance
 - **dependency-manager** - Dependency management and updates
 
+**Note:** The `delegation-orchestrator` agent has been deprecated. Its orchestration and routing functionality is now provided by the unified `task-planner` skill, which handles both planning and execution orchestration in a single pass.
+
 ### 3. Delegation Command (`commands/delegate.md`)
 
-The `/delegate` command provides intelligent task delegation:
+The `/delegate` command provides intelligent task delegation with integrated planning:
 
 ```bash
 /delegate <task description>
 ```
 
 **How it works:**
-1. Spawns the `delegation-orchestrator` agent
-2. Orchestrator analyzes task complexity (single-step vs multi-step)
-3. Selects appropriate specialized agent(s)
-4. Constructs optimized delegation prompt
-5. Returns recommendation for execution
+1. Invokes the `task-planner` skill (unified orchestration engine)
+2. Task-planner analyzes task complexity and decomposes into phases
+3. Performs dependency analysis to determine execution mode (sequential or parallel)
+4. Assigns specialized agents via keyword matching (>=2 match threshold)
+5. Creates wave assignments and execution plan
+6. Populates TodoWrite task list
+7. Executes phases as directed by the plan
 
 ### 4. Workflow Orchestration System Prompt (`system-prompts/workflow_orchestrator.md`)
 
-Enables multi-step workflow orchestration for complex tasks.
+Enables multi-step workflow detection and preparation for complex tasks. Works in conjunction with the `task-planner` skill.
 
 **Activate via:**
 Simply start a Claude code session
@@ -273,23 +285,31 @@ claude
 - Compound indicators: "with [noun]", "including [noun]"
 - Multiple verbs: "create X and test Y"
 
-**Workflow execution model:**
-1. **Intelligent Execution Mode Selection** - Orchestrator analyzes phase dependencies
-2. **Sequential Execution** - Dependent phases execute one at a time with context passing
-3. **Parallel Execution** - Independent phases execute concurrently in waves
-4. **Progress Tracking** - TodoWrite maintains visible task list throughout
-5. **State Management** - Wave synchronization ensures proper completion order
+**Unified Planning & Execution:**
+The `task-planner` skill handles both planning and execution orchestration:
 
-**Note**: The system intelligently chooses execution mode based on phase dependency analysis. Sequential execution is used when phases have data dependencies or file conflicts, ensuring proper context passing and error handling. Parallel execution is used when phases are independent, significantly reducing total execution time while maintaining correctness.
+1. **Task Decomposition** - Breaks complex tasks into atomic phases
+2. **Dependency Analysis** - Analyzes phase dependencies to determine optimal execution mode
+3. **Intelligent Execution Mode Selection** - Chooses between sequential and parallel execution
+4. **Sequential Execution** - Dependent phases execute one at a time with context passing
+5. **Parallel Execution** - Independent phases execute concurrently in waves
+6. **Progress Tracking** - TodoWrite maintains visible task list throughout
+7. **State Management** - Wave synchronization ensures proper completion order
 
-**Workflow orchestration process:**
-1. Detects multi-step patterns in user request
-2. Creates TodoWrite task list with all phases
-3. Analyzes phase dependencies and determines execution mode
-4. **Sequential Mode:** Delegates phases one at a time with context passing
-5. **Parallel Mode:** Groups independent phases into waves, executes waves concurrently
-6. Synchronizes between waves, aggregates results
-7. Provides consolidated summary with absolute paths
+**Execution mode decision logic:**
+- **Sequential:** When phases have data dependencies, file conflicts, or state conflicts requiring ordered execution
+- **Parallel:** When phases are independent with no data dependencies, enabling time-efficient concurrent execution
+- **Conservative fallback:** Sequential is chosen when dependencies are uncertain
+
+**Complete workflow process:**
+1. User submits multi-step task (detected by workflow_orchestrator patterns)
+2. task-planner skill invoked to decompose and plan execution
+3. TodoWrite task list created with all phases
+4. Phase dependencies analyzed to determine execution mode
+5. **Sequential Mode:** Phases execute one at a time with context passing
+6. **Parallel Mode:** Independent phases grouped into waves and executed concurrently
+7. Wave synchronization ensures proper completion order
+8. Results consolidated with absolute file paths and summary provided
 
 ## Contributing
 

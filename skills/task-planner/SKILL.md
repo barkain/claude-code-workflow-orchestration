@@ -297,12 +297,13 @@ A subtask is atomic ONLY when:
 - Depth < tier minimum → **DECOMPOSE** (mandatory)
 - Depth >= tier minimum AND all criteria YES → **ATOMIC**
 - Any criterion NO → **DECOMPOSE** further
+**Example:** "Implement calculator" → decompose to: add, subtract, multiply, divide operations.
 
 ---
 
 ### Success Criteria & Iteration
 
-**Every subtask SHOULD have:**
+**Every subtask MUST have:**
 - `requirements[]` - Functional requirements (what it must do)
 - `success_criterion` - Verifiable command (optional, enables iteration)
 
@@ -315,7 +316,7 @@ ITERATION: Implement → Run criterion → If fail, fix and retry → Max 5 atte
 Return only when PASS or max reached.
 ```
 
-**/ralph-wiggum:ralph-loop:** Add as final workflow step only when user explicitly requests OR planner determines iterative verification needed. Single-line prompts only, no special characters.
+**/ralph-wiggum:ralph-loop:** Final step only when user requests OR planner needs iterative verification. Use simple single-line prompt, avoid: `()`, `:`, numbered lists.
 
 **Success criterion types:**
 

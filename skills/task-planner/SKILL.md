@@ -316,8 +316,6 @@ ITERATION: Implement → Run criterion → If fail, fix and retry → Max 5 atte
 Return only when PASS or max reached.
 ```
 
-**/ralph-wiggum:ralph-loop:** Final workflow step. Always include `--max-iterations 5` (default) and `--completion-promise '<criterion>'` derived from success criteria. Simple prompt, avoid `()`, `:`, numbered lists. Example: `/ralph-wiggum:ralph-loop Verify all tests pass --max-iterations 5 --completion-promise 'ALL TESTS PASS'`
-
 **Success criterion types:**
 
 | Type | Example |
@@ -326,6 +324,20 @@ Return only when PASS or max reached.
 | Lint | `uvx ruff check src/` |
 | Build | `uv run build` |
 | Pattern | `! grep -r "TODO" src/` |
+
+---
+
+### Final Iteration Loop
+
+When user requests or planner needs iterative verification, add `/ralph-wiggum:ralph-loop` as final step.
+
+**Required arguments:**
+- `--max-iterations 5` (default safety limit)
+- `--completion-promise '<CRITERION>'` (from success criteria)
+
+**Prompt constraints:** Simple text, avoid `()`, `:`, numbered lists.
+
+**Example:** `/ralph-wiggum:ralph-loop Verify all tests pass --max-iterations 5 --completion-promise 'ALL TESTS PASS'`
 
 ---
 

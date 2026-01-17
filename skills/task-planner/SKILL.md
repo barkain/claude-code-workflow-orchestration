@@ -284,7 +284,7 @@ A subtask is atomic ONLY when:
 
 | Criterion | Question | Atomic if YES |
 |-----------|----------|---------------|
-| Time-bounded | Completable in <30 minutes? | ✓ |
+| Single operation | One discrete logical action? | ✓ |
 | File-scoped | Modifies ≤3 files? | ✓ |
 | Single deliverable | One clear output? | ✓ |
 | No planning required | Implementation-ready? | ✓ |

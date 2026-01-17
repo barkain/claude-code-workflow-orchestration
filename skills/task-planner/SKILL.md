@@ -316,7 +316,7 @@ ITERATION: Implement → Run criterion → If fail, fix and retry → Max 5 atte
 Return only when PASS or max reached.
 ```
 
-**/ralph-wiggum:ralph-loop:** Final step only when user requests OR planner needs iterative verification. Use simple single-line prompt, avoid: `()`, `:`, numbered lists.
+**/ralph-wiggum:ralph-loop:** Final workflow step. Always include `--max-iterations 5` (default) and `--completion-promise '<criterion>'` derived from success criteria. Simple prompt, avoid `()`, `:`, numbered lists. Example: `/ralph-wiggum:ralph-loop Verify all tests pass --max-iterations 5 --completion-promise 'ALL TESTS PASS'`
 
 **Success criterion types:**
 

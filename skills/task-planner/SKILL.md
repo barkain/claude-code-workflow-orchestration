@@ -82,7 +82,7 @@ Output the following structured plan:
 ### Subtasks with Agent Assignments
 
 | ID | Description | Agent | Depends On | Wave |
-|----|-------------|-------|------------|------|
+| --- | --- | --- | --- | --- |
 | 1 | `<description>` | `<agent-name>` | none | 0 |
 | 2 | `<description>` | `<agent-name>` | none | 0 |
 | 3 | `<description>` | `<agent-name>` | 1, 2 | 1 |
@@ -131,7 +131,10 @@ List EVERY task individually (no compression):
           "description": "Create project structure",
           "agent": "general-purpose",
           "dependencies": [],
-          "context_from_phases": []
+          "context_from_phases": [],
+          "requirements": ["Project directory exists", "pyproject.toml configured"],
+          "success_criterion": "uv run pytest tests/test_structure.py",
+          "iterative": true
         },
         {
           "phase_id": "2",
@@ -206,7 +209,7 @@ Encode metadata in content field:
 ## Available Specialized Agents
 
 | Agent | Keywords | Capabilities |
-|-------|----------|--------------|
+| --- | --- | --- |
 | **codebase-context-analyzer** | analyze, understand, explore, architecture, patterns, structure, dependencies | Read-only code exploration and architecture analysis |
 | **tech-lead-architect** | design, approach, research, evaluate, best practices, architect, scalability, security | Solution design and architectural decisions |
 | **task-completion-verifier** | verify, validate, test, check, review, quality, edge cases | Testing, QA, validation |
@@ -228,7 +231,7 @@ Encode metadata in content field:
 **Selection Rules:**
 
 | Condition | Action |
-|-----------|--------|
+| --- | --- |
 | Single agent >=2 matches | Use that specialized agent |
 | Multiple agents >=2 matches | Use agent with highest count |
 | Tie at highest count | Use first in table order |
@@ -237,7 +240,7 @@ Encode metadata in content field:
 **Examples:**
 
 | Task | Matches | Selected Agent |
-|------|---------|----------------|
+| --- | --- | --- |
 | "Analyze authentication architecture" | codebase-context-analyzer: analyze=1, architecture=1 (2) | codebase-context-analyzer |
 | "Refactor auth to improve maintainability" | code-cleanup-optimizer: refactor=1, improve=1, maintainability=1 (3) | code-cleanup-optimizer |
 | "Create new utility function" | No agent >=2 matches | general-purpose |
@@ -249,7 +252,7 @@ Encode metadata in content field:
 Calculate complexity score BEFORE decomposition to determine required depth:
 
 | Component | Points | Formula |
-|-----------|--------|---------|
+| --- | --- | --- |
 | Action Verbs | 0-10 | `min(verb_count * 2, 10)` |
 | Connector Words | 0-8 | `min(connector_count * 2, 8)` |
 | Domain Indicators | 0-6 | Architecture +2, Security +2, Integration +1 |
@@ -263,7 +266,7 @@ Calculate complexity score BEFORE decomposition to determine required depth:
 ## Tier Classification
 
 | Score | Tier | Minimum Depth | Description |
-|-------|------|---------------|-------------|
+| --- | --- | --- | --- |
 | < 5 | Tier 1 | 1 | Simple single-file tasks |
 | 5-15 | Tier 2 | 2 | Moderate multi-component tasks |
 | > 15 | Tier 3 | 3 | Complex architectural tasks |
@@ -283,7 +286,7 @@ A subtask is atomic ONLY when:
 **Step 2: Atomicity Criteria (only if depth check passes)**
 
 | Criterion | Question | Atomic if YES |
-|-----------|----------|---------------|
+| --- | --- | --- |
 | Single operation | One discrete logical action? | ✓ |
 | File-scoped | Modifies ≤3 files? | ✓ |
 | Single deliverable | One clear output? | ✓ |
@@ -313,8 +316,9 @@ Return only when PASS or max reached.
 ```
 
 **Success criterion types:**
+
 | Type | Example |
-|------|---------|
+| --- | --- |
 | Test | `uv run pytest tests/test_auth.py` |
 | Lint | `uvx ruff check src/` |
 | Build | `uv run build` |
@@ -333,7 +337,7 @@ Return only when PASS or max reached.
 **Target:** Minimize total waves. Group ALL independent tasks into same wave.
 
 | Metric | Goal |
-|---|---|
+| --- | --- |
 | Tasks per wave | As many as possible (4+ ideal) |
 | Total waves | As few as possible (target: <6 for most projects) |
 | Sequential chains | Avoid unless data dependency exists |

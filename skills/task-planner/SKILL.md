@@ -315,6 +315,8 @@ ITERATION: Implement → Run criterion → If fail, fix and retry → Max 5 atte
 Return only when PASS or max reached.
 ```
 
+**/ralph-wiggum:ralph-loop:** Add as final workflow step only when user explicitly requests OR planner determines iterative verification needed. Single-line prompts only, no special characters.
+
 **Success criterion types:**
 
 | Type | Example |

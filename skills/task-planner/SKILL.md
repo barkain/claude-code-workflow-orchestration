@@ -244,6 +244,59 @@ Encode metadata in content field:
 
 ---
 
+## Complexity Scoring
+
+Calculate complexity score BEFORE decomposition to determine required depth:
+
+| Component | Points | Formula |
+|-----------|--------|---------|
+| Action Verbs | 0-10 | `min(verb_count * 2, 10)` |
+| Connector Words | 0-8 | `min(connector_count * 2, 8)` |
+| Domain Indicators | 0-6 | Architecture +2, Security +2, Integration +1 |
+| Scope Indicators | 0-6 | Multiple files +3, Multiple systems +3 |
+| Risk Indicators | 0-5 | Production +2, Data +2, Performance +1 |
+
+**Total Range:** 0-35
+
+---
+
+## Tier Classification
+
+| Score | Tier | Minimum Depth | Description |
+|-------|------|---------------|-------------|
+| < 5 | Tier 1 | 1 | Simple single-file tasks |
+| 5-15 | Tier 2 | 2 | Moderate multi-component tasks |
+| > 15 | Tier 3 | 3 | Complex architectural tasks |
+
+**Rule:** A task at depth less than tier minimum MUST be decomposed further, regardless of atomicity criteria.
+
+---
+
+## Atomicity Validation
+
+A subtask is atomic ONLY when:
+
+**Step 1: Depth Check (MANDATORY)**
+- Current depth >= tier minimum depth?
+- If NO → MUST decompose (skip Step 2)
+
+**Step 2: Atomicity Criteria (only if depth check passes)**
+
+| Criterion | Question | Atomic if YES |
+|-----------|----------|---------------|
+| Time-bounded | Completable in <30 minutes? | ✓ |
+| File-scoped | Modifies ≤3 files? | ✓ |
+| Single deliverable | One clear output? | ✓ |
+| No planning required | Implementation-ready? | ✓ |
+| Single responsibility | One concern only? | ✓ |
+
+**Decision Logic:**
+- Depth < tier minimum → **DECOMPOSE** (mandatory)
+- Depth >= tier minimum AND all criteria YES → **ATOMIC**
+- Any criterion NO → **DECOMPOSE** further
+
+---
+
 ## Wave Optimization Rules
 
 **Principle: More tasks, fewer waves. Parallel by default.**

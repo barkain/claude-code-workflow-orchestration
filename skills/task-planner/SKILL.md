@@ -297,6 +297,31 @@ A subtask is atomic ONLY when:
 
 ---
 
+### Success Criteria & Iteration
+
+**Every subtask SHOULD have:**
+- `requirements[]` - Functional requirements (what it must do)
+- `success_criterion` - Verifiable command (optional, enables iteration)
+
+**When `success_criterion` exists:** Mark `iterative: true`. Subagent loops internally until criterion passes or max iterations (5) reached.
+
+**Delegation includes iteration protocol:**
+```
+SUCCESS CRITERION: `{command}` exits 0
+ITERATION: Implement → Run criterion → If fail, fix and retry → Max 5 attempts
+Return only when PASS or max reached.
+```
+
+**Success criterion types:**
+| Type | Example |
+|------|---------|
+| Test | `uv run pytest tests/test_auth.py` |
+| Lint | `uvx ruff check src/` |
+| Build | `uv run build` |
+| Pattern | `! grep -r "TODO" src/` |
+
+---
+
 ## Wave Optimization Rules
 
 **Principle: More tasks, fewer waves. Parallel by default.**
@@ -308,7 +333,7 @@ A subtask is atomic ONLY when:
 **Target:** Minimize total waves. Group ALL independent tasks into same wave.
 
 | Metric | Goal |
-|--------|------|
+|---|---|
 | Tasks per wave | As many as possible (4+ ideal) |
 | Total waves | As few as possible (target: <6 for most projects) |
 | Sequential chains | Avoid unless data dependency exists |

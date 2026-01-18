@@ -329,15 +329,20 @@ Return only when PASS or max reached.
 
 ### Final Iteration Loop
 
-When user requests or planner needs iterative verification, add `/ralph-wiggum:ralph-loop` as final step.
+Add `/ralph-wiggum:ralph-loop` as final step when user requests or planner needs iterative verification.
 
 **Required arguments:**
-- `--max-iterations 5` (default safety limit)
-- `--completion-promise '<CRITERION>'` (from success criteria)
+- `--max-iterations 5` (safety limit)
+- `--completion-promise '<CRITERION>'`
 
-**Prompt constraints:** Simple text, avoid `()`, `:`, numbered lists.
+**CRITICAL - Prompt must be simple text:**
+- BAD: `Verify: 1) tests pass, 2) lint clean (no errors)`
+- GOOD: `Verify tests pass and lint clean`
 
-**Example:** `/ralph-wiggum:ralph-loop Verify all tests pass --max-iterations 5 --completion-promise 'ALL TESTS PASS'`
+**Example:**
+```
+/ralph-wiggum:ralph-loop Verify calculator tests pass and build succeeds --max-iterations 5 --completion-promise 'ALL TESTS PASS'
+```
 
 ---
 

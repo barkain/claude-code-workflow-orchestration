@@ -335,14 +335,21 @@ Add `/ralph-wiggum:ralph-loop` as final step when user requests or planner needs
 - `--max-iterations 5` (safety limit)
 - `--completion-promise '<CRITERION>'`
 
-**CRITICAL - Prompt must be simple text:**
+**CRITICAL - Prompt must contains escape characters:**
 - BAD: `Verify: 1) tests pass, 2) lint clean (no errors)`
-- GOOD: `Verify tests pass and lint clean`
+- GOOD: `Verify: 1\) tests pass, 2\) lint clean (no errors)`
 
 **Example:**
 ```
-/ralph-wiggum:ralph-loop Verify calculator tests pass and build succeeds --max-iterations 5 --completion-promise 'ALL TESTS PASS'
+/ralph-wiggum:ralph-loop Verify all calculator UI requirements pass: 1\) Calculator functionality works \(add, subtract, multiply, divide\), 2\) No linter errors - npm run lint
+passes, 3\) Build succeeds \(npm run build\), 4\) Documentation updated \(README has Web UI section\). Working directory: /Users/nadavbarkai/projects/calculator-cli-app/calculator-ui
+ --max-iterations 5 --completion-promise \"ALL REQUIREMENTS VERIFIED\"
 ```
+**Rules:**
+1. Single line only - no newlines
+2. Escape parentheses: `\(` and `\)`
+3. Escape quotes in promise: `\"TEXT\"`
+4. Place `--max-iterations` and `--completion-promise` at end
 
 ---
 

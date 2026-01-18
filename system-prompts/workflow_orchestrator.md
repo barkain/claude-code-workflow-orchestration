@@ -567,3 +567,24 @@ When task-planner provides execution plan with JSON task graph:
 ### Compliance Errors
 
 If you see wave order violation errors, you MUST wait for current wave to complete before proceeding.
+
+---
+
+## Ralph-Loop Execution
+
+When executing a ralph-loop phase, construct the command dynamically based on execution results:
+
+**Format:**
+```
+/ralph-wiggum:ralph-loop <PROMPT> --max-iterations 5 --completion-promise '<CRITERION>'
+```
+
+**CRITICAL - Escape rules:**
+- Single line only - no newlines
+- Escape parentheses: `\(` and `\)`
+- Escape quotes in promise: `\"TEXT\"`
+
+**Example:**
+```
+/ralph-wiggum:ralph-loop Verify tests pass and build succeeds --max-iterations 5 --completion-promise 'ALL TESTS PASS'
+```

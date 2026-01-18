@@ -159,21 +159,6 @@ List EVERY task individually (no compression):
         }
       ]
     },
-    {
-      "wave_id": 2,
-      "parallel_execution": false,
-      "description": "Final iterative verification",
-      "phases": [
-        {
-          "phase_id": "4",
-          "description": "Final iterative verification",
-          "agent": "ralph-wiggum",
-          "dependencies": ["3"],
-          "context_from_phases": ["3"],
-          "ralph_loop_command": "/ralph-wiggum:ralph-loop Verify all tests pass and build succeeds --max-iterations 5 --completion-promise 'ALL TESTS PASS'"
-        }
-      ]
-    }
   ],
   "dependency_graph": {
     "1": [],
@@ -366,8 +351,6 @@ passes, 3\) Build succeeds \(npm run build\), 4\) Documentation updated \(README
 2. Escape parentheses: `\(` and `\)`
 3. Escape quotes in promise: `\"TEXT\"`
 4. Place `--max-iterations` and `--completion-promise` at end
-
-**Output:** When ralph-loop is final step, planner outputs `ralph_loop_command` field with the complete escaped command. Main agent executes it verbatim.
 
 ---
 

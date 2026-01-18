@@ -84,7 +84,7 @@ claude plugin install workflow-orchestrator@barkain-plugins --scope project  # p
 - Easy updates via plugin manager
 - No manual file copying required
 
-**Optional:** Run `/add-statusline` after installation to enable workflow status display.
+**Optional:** Run `/workflow-orchestrator:add-statusline` after installation to enable workflow status display.
 
 ### 🔨Manual Installation
 

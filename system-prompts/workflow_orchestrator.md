@@ -572,19 +572,23 @@ If you see wave order violation errors, you MUST wait for current wave to comple
 
 ## Ralph-Loop Execution
 
-When executing a ralph-loop phase, construct the command dynamically based on execution results:
+Add `/ralph-wiggum:ralph-loop` as final workflow step when user requests or planner specifies iterative verification.
 
-**Format:**
-```
-/ralph-wiggum:ralph-loop <PROMPT> --max-iterations 5 --completion-promise '<CRITERION>'
-```
+**Arguments:**
+- `--max-iterations 5` (safety limit)
+- `--completion-promise '<CRITERION>'` (derived from task success criteria)
 
 **CRITICAL - Escape rules:**
-- Single line only - no newlines
-- Escape parentheses: `\(` and `\)`
-- Escape quotes in promise: `\"TEXT\"`
+1. Single line only - no newlines
+2. Escape parentheses: `\(` and `\)`
+3. Escape quotes in promise: `\"TEXT\"`
+4. Place arguments at end of command
 
-**Example:**
+**Examples:**
+- BAD: `Verify: 1) tests pass, 2) lint clean (no errors)`
+- GOOD: `Verify: 1\) tests pass, 2\) lint clean \(no errors\)`
+
+**Full example:**
 ```
 /ralph-wiggum:ralph-loop Verify tests pass and build succeeds --max-iterations 5 --completion-promise 'ALL TESTS PASS'
 ```

@@ -298,7 +298,12 @@ A subtask is atomic ONLY when:
 - Depth < tier minimum → **DECOMPOSE** (mandatory)
 - Depth >= tier minimum AND all criteria YES → **ATOMIC**
 - Any criterion NO → **DECOMPOSE** further
-**Example:** "Implement calculator" → decompose to: add, subtract, multiply, divide operations.
+
+**Minimum Decomposition:**
+- Tasks mentioning multiple operations (add, subtract, etc.) → one subtask per operation
+- Tasks with "and" combining actions → split into separate subtasks
+- CRUD operations → one subtask per operation (create, read, update, delete)
+**REQUIRED:** Tasks with enumerable operations MUST decompose. "Implement calculator" → add, subtract, multiply, divide as separate subtasks.
 
 ---
 

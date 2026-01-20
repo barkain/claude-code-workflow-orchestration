@@ -12,42 +12,23 @@ allowed-tools: Task
 
 ## Process Overview
 
-This command executes the unified plan created by the `task-planner` skill. Task-planner is a unified planning orchestrator that:
-- Analyzes the user's request and intent
-- Explores the codebase to understand context
-- Decomposes the task into atomic subtasks
-- Assigns specialized agents to each subtask via keyword matching (>=2 match threshold)
-- Maps dependencies between subtasks
-- Assigns subtasks to parallel/sequential waves (maximizing parallelism)
-- Populates TodoWrite with encoded task metadata
-- Generates the JSON execution plan (the binding contract)
+This command executes the plan that was created by task-planner in Stage 0 (workflow_orchestrator).
+
+**Important:** Task-planner has ALREADY run before this command is invoked. Do NOT invoke task-planner again - the plan already exists in TodoWrite and the execution plan JSON.
 
 **Your role: Execute the plan exactly as specified. Never deviate from wave order, phase assignments, or dependencies.**
 
 ---
 
-## Step 1: Invoke Task Planner
+## Step 1: Use Task-Planner Output from Stage 0
 
-Invoke the `task-planner` skill to perform unified task analysis, planning, and scheduling:
-
-```
-/task-planner $ARGUMENTS
-```
-
-Task-planner handles ALL planning responsibilities:
-- **Analysis**: Parses intent, checks for ambiguities, explores codebase
-- **Decomposition**: Breaks task into atomic subtasks with clear boundaries
-- **Agent Assignment**: Matches each subtask to a specialized agent using keyword matching
-- **Dependency Mapping**: Analyzes what blocks what and what can parallelize
-- **Wave Scheduling**: Groups independent subtasks into parallel waves (minimizing total waves)
-- **Progress Tracking**: Populates TodoWrite with encoded metadata
-- **Execution Plan**: Returns JSON execution plan as the binding contract
-
-The output includes:
+The task-planner skill already ran in Stage 0 and produced:
+- TodoWrite entries with encoded task metadata (already populated)
 - Subtask table with agent assignments and dependencies
 - Wave breakdown (each task listed individually)
-- JSON execution plan (use this as your binding contract)
-- TodoWrite entries (auto-populated for tracking)
+- JSON execution plan (your binding contract)
+
+**DO NOT invoke task-planner again.** The planning is complete. Proceed directly to parsing and executing the existing plan.
 
 ---
 
@@ -142,9 +123,9 @@ Provide completion summary:
 
 ## Begin Execution
 
-1. Invoke `/task-planner $ARGUMENTS`
-2. Parse the execution plan JSON
+1. Locate the execution plan JSON from Stage 0 (already available)
+2. Parse the execution plan
 3. Execute waves in order
 4. Report results
 
-Trust the task-planner. Execute the plan exactly as specified.
+Task-planner already ran in Stage 0. Execute the plan exactly as specified.

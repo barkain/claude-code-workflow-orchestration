@@ -4,7 +4,7 @@ A hook-based framework for Claude Code that enforces task delegation to speciali
 
 See the delegation system in action:
 
-<img src="./assets/workflow-demo-x3.gif" alt="Workflow Demo" width="800">
+<video src="./assets/workflow-demo.mp4" width="800" autoplay loop muted playsinline></video>
 
 ## Overview
 
@@ -121,9 +121,11 @@ claude
 ```
 and then prompt claude with:
 ```text
-> create a simple todo cli app with basic user authentication.
-the app should be implemented in python. use a standard uv project structure.
-add unit tests and make sure to add verification steps after each phase
+> create a simple calculator app with basic math operations.
+  add a nice UI and use NextJS/Tailwind to build this out.
+  the backend should be implemented in python as a modern uv project.
+  add verification steps after each phase.
+  add ralph loop as a final verification step
 ```
 
 **What happens:**
@@ -136,13 +138,21 @@ add unit tests and make sure to add verification steps after each phase
 
    ![img_delegate.png](assets/img_delegate.png)
 
+
 2. Once the task-planner returns, a task dependency graph is rendered and the user request is decomposed into parallel atomic subtasks:
 
-    ![img_dependency_graph.png](assets/img_dependency_graph.png)
+    ![img_dependancy_graph.png](assets/img_dependancy_graph.png)
+
 
 3. Then, the sequential workflow with parallel subtasks can be initiated:
+   - wave 0:
+   
+   ![img_wave0.png](assets/img_wave0.png)
 
-    ![img_wave0.png](assets/img_wave0.png)
+   - wave 1:
+   
+   ![img_wave1.png](assets/img_wave1.png)
+
 
 4. Claude's native todo list is also getting updated in each step:
 

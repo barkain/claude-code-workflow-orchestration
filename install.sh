@@ -43,19 +43,8 @@ readonly NC='\033[0m' # No Color
 
 # Directories and files to copy
 readonly DIRS_TO_COPY=("agents" "commands" "hooks" "scripts" "system-prompts" "output-styles" "skills")
-# Note: settings.json is handled separately by merge_settings_json() for intelligent merging
+# Note: settings.json is processed separately - template merged with hooks from hooks.json
 readonly FILES_TO_COPY=()
-
-# Hooks that need to be made executable
-readonly EXECUTABLE_HOOKS=(
-    "hooks/PostToolUse/*.sh"
-    "hooks/PreToolUse/*.sh"
-    "hooks/SessionStart/*.sh"
-    "hooks/stop/*.sh"
-    "hooks/SubagentStop/*.sh"
-    "hooks/UserPromptSubmit/*.sh"
-    "scripts/statusline.sh"
-)
 
 # Print colored message
 print_message() {
@@ -323,9 +312,12 @@ validate_source() {
         fi
     done
 
-    # Check settings.json separately (handled by merge_settings_json)
+    # Check files required for generating settings.json
+    if [[ ! -f "$SCRIPT_DIR/hooks/plugin-hooks.json" ]]; then
+        missing_items+=("file: hooks/plugin-hooks.json")
+    fi
     if [[ ! -f "$SCRIPT_DIR/settings.json" ]]; then
-        missing_items+=("file: settings.json")
+        missing_items+=("file: settings.json (template)")
     fi
 
     if [[ ${#missing_items[@]} -gt 0 ]]; then
@@ -429,232 +421,160 @@ copy_files() {
     return 0
 }
 
-# Resolve ${CLAUDE_PLUGIN_ROOT} variable references in settings.json based on installation scope
-# Handles three scopes:
-# - plugin: keeps variable references unchanged (for runtime resolution)
-# - project: replaces with ./.claude (relative project path)
-# - user: replaces with ~/.claude (user home path)
-resolve_settings_json_paths() {
-    local scope="$1"
-    local source_settings="$2"
-    local output_file="$3"
+# Generate settings.json by merging template with hooks from hooks.json
+# Sources:
+#   - settings.json: Template with permissions, statusLine, alwaysThinkingEnabled
+#   - hooks/plugin-hooks.json: Hook configuration (source of truth for hooks)
+#   - output-styles/: Output style name (extracted from frontmatter)
+# Handles path resolution based on scope:
+#   - plugin: keeps ${CLAUDE_PLUGIN_ROOT} variable references
+#   - project: replaces with ./.claude
+#   - user: replaces with ~/.claude
+generate_settings_json() {
+    local claude_dir=$1
+    local scope=${2:-"user"}
+    local settings_template="$SCRIPT_DIR/settings.json"
+    local hooks_json="$SCRIPT_DIR/hooks/plugin-hooks.json"
+    local dest_settings="$claude_dir/settings.json"
 
-    # Validate inputs
-    if [[ ! -f "$source_settings" ]]; then
-        print_error "Source settings.json not found: $source_settings"
+    print_info "Generating settings.json (scope: $scope)..."
+
+    # Validate source files exist
+    if [[ ! -f "$settings_template" ]]; then
+        print_error "Settings template not found: $settings_template"
         return 1
     fi
 
+    if [[ ! -f "$hooks_json" ]]; then
+        print_error "Hooks configuration not found: $hooks_json"
+        return 1
+    fi
+
+    # Check for jq (required for JSON manipulation)
+    if ! command -v jq &>/dev/null; then
+        print_error "jq is required to generate settings.json"
+        print_error "Please install jq: brew install jq (macOS) or apt install jq (Linux)"
+        return 1
+    fi
+
+    # Determine path prefix based on scope
+    local path_prefix
     case "$scope" in
-        plugin)
-            # No substitution needed - copy as-is
-            print_info "Plugin scope: keeping \${CLAUDE_PLUGIN_ROOT} variable references"
-            cp "$source_settings" "$output_file"
-            return $?
-            ;;
-
-        project)
-            # Replace with relative project path
-            local replacement="./.claude"
-            print_info "Project scope: replacing \${CLAUDE_PLUGIN_ROOT} with $replacement"
-            sed 's|\${CLAUDE_PLUGIN_ROOT}|'"$replacement"'|g' "$source_settings" > "$output_file"
-            return $?
-            ;;
-
-        user)
-            # Replace with user home path (literal tilde for portability)
-            local replacement="~/.claude"
-            print_info "User scope: replacing \${CLAUDE_PLUGIN_ROOT} with $replacement"
-            sed 's|\${CLAUDE_PLUGIN_ROOT}|'"$replacement"'|g' "$source_settings" > "$output_file"
-            return $?
-            ;;
-
+        plugin)  path_prefix='${CLAUDE_PLUGIN_ROOT}' ;;
+        project) path_prefix='./.claude' ;;
+        user)    path_prefix='~/.claude' ;;
         *)
             print_error "Invalid scope: $scope"
             return 1
             ;;
     esac
-}
 
-# Merge settings.json intelligently, preserving user customizations
-# Handles three cases:
-# 1. No existing settings.json - simple copy (with path resolution)
-# 2. Existing file + jq available - smart merge preserving user settings
-# 3. Existing file + no jq - backup and copy with warning
-merge_settings_json() {
-    local claude_dir=$1
-    local scope=${2:-"user"}
-    local src_settings="$SCRIPT_DIR/settings.json"
-    local dest_settings="$claude_dir/settings.json"
+    print_info "Using path prefix: $path_prefix"
 
-    print_info "Processing settings.json (scope: $scope)..."
-
-    # Validate source file exists
-    if [[ ! -f "$src_settings" ]]; then
-        print_error "Source settings.json not found: $src_settings"
-        return 1
+    # Read and transform settings template (resolve paths)
+    local settings_content
+    if [[ "$scope" != "plugin" ]]; then
+        settings_content=$(sed "s|\\\${CLAUDE_PLUGIN_ROOT}|$path_prefix|g" "$settings_template")
+    else
+        settings_content=$(cat "$settings_template")
     fi
 
-    # Create temp file with resolved paths for the given scope
-    local temp_resolved
-    temp_resolved=$(mktemp)
-
-    if ! resolve_settings_json_paths "$scope" "$src_settings" "$temp_resolved"; then
-        print_error "Failed to resolve paths in settings.json"
-        rm -f "$temp_resolved"
-        return 1
+    # Read and transform hooks (resolve paths)
+    local hooks_content
+    if [[ "$scope" != "plugin" ]]; then
+        hooks_content=$(sed "s|\\\${CLAUDE_PLUGIN_ROOT}|$path_prefix|g" "$hooks_json")
+    else
+        hooks_content=$(cat "$hooks_json")
     fi
 
-    # Case 1: No existing settings.json - simple copy (using resolved paths)
-    if [[ ! -f "$dest_settings" ]]; then
-        print_info "Installing new settings.json (no existing file found)"
-        if cp "$temp_resolved" "$dest_settings"; then
-            print_success "Installed settings.json with $scope scope paths"
-            rm -f "$temp_resolved"
-            return 0
-        else
-            print_error "Failed to copy settings.json"
-            rm -f "$temp_resolved"
-            return 1
+    # Extract hooks object
+    local hooks_object
+    hooks_object=$(echo "$hooks_content" | jq '.hooks')
+
+    # Detect output style name from output-styles directory
+    local output_style_name=""
+    local output_styles_dir="$SCRIPT_DIR/output-styles"
+    if [[ -d "$output_styles_dir" ]]; then
+        local first_style
+        first_style=$(find "$output_styles_dir" -name "*.md" -type f | head -1)
+        if [[ -n "$first_style" && -f "$first_style" ]]; then
+            local extracted_name
+            extracted_name=$(sed -n '/^---$/,/^---$/p' "$first_style" | grep '^name:' | sed 's/^name:[[:space:]]*//')
+            if [[ -n "$extracted_name" ]]; then
+                output_style_name="$extracted_name"
+                print_info "Detected output style: $output_style_name"
+            fi
         fi
     fi
 
-    # Existing file found - need to merge or backup
-    print_info "Existing settings.json found at $dest_settings"
+    # Build complete settings.json by merging template with hooks
+    local temp_settings
+    temp_settings=$(mktemp)
 
-    # Case 2: Existing file + jq available - smart merge
-    if command -v jq &>/dev/null; then
-        print_info "Merging settings.json (preserving user customizations)"
+    if [[ -n "$output_style_name" ]]; then
+        # Add hooks and outputStyle to template
+        echo "$settings_content" | jq \
+            --argjson hooks "$hooks_object" \
+            --arg output_style "$output_style_name" \
+            '. + {hooks: $hooks, outputStyle: $output_style}' > "$temp_settings"
+    else
+        # Add hooks only (no outputStyle)
+        echo "$settings_content" | jq \
+            --argjson hooks "$hooks_object" \
+            '. + {hooks: $hooks}' > "$temp_settings"
+    fi
 
-        # Create temp file for merged result
+    # Validate generated JSON
+    if ! jq empty "$temp_settings" 2>/dev/null; then
+        print_error "Generated settings.json is invalid"
+        rm -f "$temp_settings"
+        return 1
+    fi
+
+    # Handle existing settings.json at destination
+    if [[ -f "$dest_settings" ]]; then
+        print_info "Existing settings.json found - merging..."
+
         local temp_merged
         temp_merged=$(mktemp)
 
-        # Deep merge using jq:
-        # - User's settings take precedence for scalar values
-        # - For hooks arrays, we append new hooks from plugin
-        # - New top-level keys from plugin are added
-        # Note: Using temp_resolved (scope-adjusted paths) instead of src_settings
+        # Merge: preserve user settings, REPLACE hooks entirely from source
         if jq -s '
-            # Helper function to merge hook arrays
-            def merge_hook_arrays($a; $b):
-                ($a // []) + (($b // []) | map(select(
-                    . as $new | ($a // []) | all(. != $new)
-                )));
-
-            # Merge hooks object - append new hooks to each hook type
-            def merge_hooks($user; $plugin):
-                ($user // {}) as $u |
-                ($plugin // {}) as $p |
-                ($u | keys) + ($p | keys) | unique |
-                reduce .[] as $key ({};
-                    . + {($key): merge_hook_arrays($u[$key]; $p[$key])}
-                );
-
-            # Main merge: user settings (.[0]) take precedence
-            # Plugin settings (.[1]) provide defaults and new hooks
-            .[0] as $user | .[1] as $plugin |
-            $plugin * $user * {
-                "hooks": merge_hooks($user.hooks; $plugin.hooks),
+            # Main merge: user (.[0]) settings preserved, new settings (.[1]) provide hooks
+            .[0] as $user | .[1] as $new |
+            # Start with new settings as base, overlay user settings, then force hooks from source
+            $new * $user * {
+                "hooks": $new.hooks,  # Replace hooks entirely from source (hooks.json)
                 "permissions": {
-                    "allow": (($user.permissions.allow // []) + ($plugin.permissions.allow // []) | unique),
-                    "deny": (($user.permissions.deny // []) + ($plugin.permissions.deny // []) | unique)
+                    "allow": (($user.permissions.allow // []) + ($new.permissions.allow // []) | unique),
+                    "deny": (($user.permissions.deny // []) + ($new.permissions.deny // []) | unique)
                 }
             }
-        ' "$dest_settings" "$temp_resolved" > "$temp_merged" 2>/dev/null; then
-            # Validate the merged JSON
+        ' "$dest_settings" "$temp_settings" > "$temp_merged" 2>/dev/null; then
             if jq empty "$temp_merged" 2>/dev/null; then
-                if cp "$temp_merged" "$dest_settings"; then
-                    print_success "Merged settings.json (user customizations preserved, $scope scope paths)"
-                    rm -f "$temp_merged" "$temp_resolved"
-                    return 0
-                else
-                    print_error "Failed to write merged settings.json"
-                    rm -f "$temp_merged" "$temp_resolved"
-                    return 1
-                fi
-            else
-                print_warning "Merged settings.json is invalid, falling back to backup method"
-                rm -f "$temp_merged"
+                mv "$temp_merged" "$dest_settings"
+                print_success "Merged settings.json (user customizations preserved)"
+                rm -f "$temp_settings"
+                return 0
             fi
-        else
-            print_warning "jq merge failed, falling back to backup method"
-            rm -f "$temp_merged"
         fi
+
+        # Merge failed - backup and replace
+        local backup_name="${dest_settings}.backup.$(date +%Y%m%d_%H%M%S)"
+        print_warning "Merge failed - backing up existing settings to: $backup_name"
+        cp "$dest_settings" "$backup_name"
+        rm -f "$temp_merged"
     fi
 
-    # Case 3: Existing file + no jq (or jq merge failed) - backup and copy with warning
-    local backup_name="${dest_settings}.backup.$(date +%Y%m%d_%H%M%S)"
-    print_warning "jq not available or merge failed - backing up existing settings"
-
-    if cp "$dest_settings" "$backup_name"; then
-        print_info "Backed up existing settings to: $backup_name"
-        if cp "$temp_resolved" "$dest_settings"; then
-            print_success "Installed new settings.json with $scope scope paths"
-            print_warning "WARNING: Your existing settings.json was backed up to:"
-            print_warning "  $backup_name"
-            print_warning "Please manually merge any customizations you had."
-            rm -f "$temp_resolved"
-            return 0
-        else
-            print_error "Failed to copy new settings.json"
-            # Restore backup
-            cp "$backup_name" "$dest_settings"
-            rm -f "$temp_resolved"
-            return 1
-        fi
+    # Install new settings.json
+    if mv "$temp_settings" "$dest_settings"; then
+        print_success "Generated settings.json with $scope scope"
+        return 0
     else
-        print_error "Failed to backup existing settings.json"
-        rm -f "$temp_resolved"
+        print_error "Failed to install settings.json"
+        rm -f "$temp_settings"
         return 1
     fi
-}
-
-# Make hooks executable after installation
-# Iterates through EXECUTABLE_HOOKS array, expands glob patterns,
-# applies chmod +x to each hook, and logs operations
-make_hooks_executable() {
-    local claude_dir=$1
-
-    print_info "Making hooks executable..."
-
-    local made_executable=0
-    local not_found=0
-
-    for hook_pattern in "${EXECUTABLE_HOOKS[@]}"; do
-        # Expand glob pattern relative to claude_dir
-        local hook_path="$claude_dir/$hook_pattern"
-
-        # Use glob expansion to handle wildcards
-        # shellcheck disable=SC2086
-        for hook_file in $hook_path; do
-            if [[ -f "$hook_file" ]]; then
-                if chmod +x "$hook_file"; then
-                    print_success "chmod +x $(basename "$hook_file")"
-                    ((made_executable++))
-                else
-                    print_warning "Failed to chmod +x: $hook_file"
-                fi
-            elif [[ "$hook_file" == *'*'* ]]; then
-                # Pattern didn't expand (no matches found)
-                print_warning "No files matched pattern: $hook_pattern"
-                ((not_found++))
-            else
-                print_warning "Hook not found: $hook_file"
-                ((not_found++))
-            fi
-        done
-    done
-
-    if [[ $made_executable -gt 0 ]]; then
-        print_success "Made $made_executable hooks executable"
-    fi
-
-    if [[ $not_found -gt 0 ]]; then
-        print_warning "$not_found hook patterns had no matches"
-    fi
-
-    return 0
 }
 
 # Main installation function
@@ -737,9 +657,9 @@ main() {
     # Mark installation as started for trap handler
     INSTALLATION_STARTED=true
 
-    # Merge settings.json intelligently (preserves user customizations)
-    if ! merge_settings_json "$claude_dir" "$installation_scope"; then
-        print_error "Installation aborted: Failed to process settings.json"
+    # Generate settings.json from hooks.json (preserves user customizations if merging)
+    if ! generate_settings_json "$claude_dir" "$installation_scope"; then
+        print_error "Installation aborted: Failed to generate settings.json"
         exit 1
     fi
     echo
@@ -747,13 +667,6 @@ main() {
     # Copy files
     if ! copy_files "$claude_dir"; then
         print_error "Installation aborted: Failed to copy files"
-        exit 1
-    fi
-    echo
-
-    # Make hooks executable
-    if ! make_hooks_executable "$claude_dir"; then
-        print_error "Installation aborted: Failed to make hooks executable"
         exit 1
     fi
     echo

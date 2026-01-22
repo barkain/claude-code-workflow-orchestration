@@ -1,147 +1,22 @@
 {
-    "permissions":
-    {
-        "allow":
-        [],
-        "deny":
-        [
-            "Read(**/.env*)",
-            "Read(**/.pem*)",
-            "Read(**/*.key)",
-            "Read(**/secrets/**)",
-            "Read(**/credentials/**)",
-            "Read(**/.aws/**)",
-            "Read(**/.ssh/**)",
-            "Read(**/docker-compose*.yml)",
-            "Read(**/config/database.yml)"
-        ]
-    },
-    "hooks":
-    {
-        "PostToolUse":
-        [
-            {
-                "matcher": "Edit|Write|MultiEdit",
-                "hooks":
-                [
-                    {
-                        "type": "command",
-                        "command": "${CLAUDE_PLUGIN_ROOT}/hooks/PostToolUse/python_posttooluse_hook.sh"
-                    }
-                ]
-            },
-            {
-                "matcher": "Task",
-                "hooks":
-                [
-                    {
-                        "type": "command",
-                        "command": "${CLAUDE_PLUGIN_ROOT}/hooks/PostToolUse/validate_task_graph_depth.sh",
-                        "timeout": 5,
-                        "description": "Enforce minimum depth-3 decomposition for atomic tasks"
-                    },
-                    {
-                        "type": "command",
-                        "command": "${CLAUDE_PLUGIN_ROOT}/hooks/PostToolUse/remind_todo_after_task.sh",
-                        "timeout": 2
-                    }
-                ]
-            }
-        ],
-        "Stop":
-        [
-            {
-                "hooks":
-                [
-                    {
-                        "type": "command",
-                        "command": "${CLAUDE_PLUGIN_ROOT}/hooks/stop/python_stop_hook.sh"
-                    }
-                ]
-            }
-        ],
-        "PreToolUse":
-        [
-            {
-                "matcher": "*",
-                "hooks":
-                [
-                    {
-                        "type": "command",
-                        "command": "${CLAUDE_PLUGIN_ROOT}/hooks/PreToolUse/validate_task_graph_compliance.sh",
-                        "timeout": 5,
-                        "description": "Validate Task invocations against active task graph execution plan"
-                    },
-                    {
-                        "type": "command",
-                        "command": "${CLAUDE_PLUGIN_ROOT}/hooks/PreToolUse/require_delegation.sh",
-                        "timeout": 5
-                    }
-                ]
-            }
-        ],
-        "UserPromptSubmit":
-        [
-            {
-                "hooks":
-                [
-                    {
-                        "type": "command",
-                        "command": "${CLAUDE_PLUGIN_ROOT}/hooks/UserPromptSubmit/clear-delegation-sessions.sh",
-                        "timeout": 2
-                    }
-                ]
-            }
-        ],
-        "SessionStart":
-        [
-            {
-                "matcher": "*",
-                "hooks":
-                [
-                    {
-                        "type": "command",
-                        "command": "${CLAUDE_PLUGIN_ROOT}/hooks/SessionStart/inject_workflow_orchestrator.sh",
-                        "timeout": 20
-                    }
-                ]
-            }
-        ],
-        "SubagentStop":
-        [
-            {
-                "matcher": "*",
-                "hooks":
-                [
-                    {
-                        "type": "command",
-                        "command": "${CLAUDE_PLUGIN_ROOT}/hooks/SubagentStop/remind_todo_update.sh",
-                        "timeout": 3
-                    },
-                    {
-                        "type": "command",
-                        "command": "${CLAUDE_PLUGIN_ROOT}/hooks/SubagentStop/trigger_verification.sh",
-                        "timeout": 5
-                    },
-                    {
-                        "type": "command",
-                        "command": "${CLAUDE_PLUGIN_ROOT}/hooks/UserPromptSubmit/clear-delegation-sessions.sh",
-                        "timeout": 2
-                    }
-                ]
-            }
-        ]
-    },
-    "statusLine":
-    {
-        "type": "command",
-        "command": "${CLAUDE_PLUGIN_ROOT}/scripts/statusline.sh",
-        "padding": 0
-    },
-    "alwaysThinkingEnabled": true,
-    "feedbackSurveyState":
-    {
-        "lastShownTime": 1753985473996
-    },
-    "outputStyle": "Technical Adaptive"
+  "permissions": {
+    "allow": [],
+    "deny": [
+      "Read(**/*.key)",
+      "Read(**/.aws/**)",
+      "Read(**/.env*)",
+      "Read(**/.pem*)",
+      "Read(**/.ssh/**)",
+      "Read(**/config/database.yml)",
+      "Read(**/credentials/**)",
+      "Read(**/docker-compose*.yml)",
+      "Read(**/secrets/**)"
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "uv run --no-project --script ${CLAUDE_PLUGIN_ROOT}/scripts/statusline.py",
+    "padding": 0
+  },
+  "alwaysThinkingEnabled": true
 }

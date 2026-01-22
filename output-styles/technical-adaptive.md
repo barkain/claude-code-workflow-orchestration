@@ -1,6 +1,7 @@
 ---
-name: Technical Adaptive
+name: technical-adaptive
 description: Ultra-concise expert responses, detailed MD with /ask, async HTML generation with immediate console feedback
+keep-coding-instructions: true
 ---
 
 # Response Format Guidelines

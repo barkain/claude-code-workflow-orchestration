@@ -47,7 +47,9 @@ The system uses a two-stage execution pipeline:
 
 ## Quick Start
 
-### Prerequisites (macOS)
+### Prerequisites
+
+#### macOS / Linux
 - uv: https://docs.astral.sh/uv/getting-started/installation/
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -58,15 +60,40 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 curl -fsSL https://bun.com/install | bash
 ```
 
-- bc: Basic calculator for statusline percentage calculations.
-```bash
-brew install bc
-```
-
 - jq: JSON processor for parallel workflow state tracking.
 ```bash
+# macOS
 brew install jq
+# Linux
+sudo apt install jq
 ```
+
+#### Windows
+
+**Python 3.12+** is required. All hooks use cross-platform Python scripts.
+
+- Python: https://www.python.org/downloads/
+  - During installation, ensure "Add Python to PATH" is checked
+  - Verify installation: `python --version`
+
+- uv: https://docs.astral.sh/uv/getting-started/installation/
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+- bun: https://bun.sh/docs/installation
+```powershell
+powershell -c "irm bun.sh/install.ps1 | iex"
+```
+
+- jq (optional, for advanced parallel workflow features):
+```powershell
+# Using Chocolatey
+choco install jq
+# Or download from https://jqlang.github.io/jq/download/
+```
+
+**Note:** The hook system uses Python scripts for cross-platform compatibility. Ensure `python` is available in your PATH.
 
 ## Installation
 
@@ -91,9 +118,13 @@ claude plugin install workflow-orchestrator@barkain-plugins --scope project  # p
 - Easy updates via plugin manager
 - No manual file copying required
 
-**Optional:** Run `/workflow-orchestrator:add-statusline` after installation to enable workflow status display.
+**Optional Settings:**
+- Run `/workflow-orchestrator:add-statusline` after installation to enable workflow status display
+- The plugin includes a `technical-adaptive` output style optimized for workflow orchestration. To select it, configure `outputStyle` in your Claude Code settings (project or user level)
 
-### 🔨Manual Installation
+**Note:** Changing the output style requires restarting your Claude Code session for the change to take effect.
+
+### 🔨 Manual Installation
 
 For development or custom configurations:
 
@@ -110,6 +141,8 @@ For project-isolated configurations or version-controlled delegation setups:
 cd path/to/project
 path/to/repo/install.sh  # follow the installation instructions
 ```
+
+**Windows users:** The `install.sh` script requires bash (Git Bash or WSL). For Windows, we recommend using the **Plugin Installation** method above, which works natively on all platforms.
 
 ## Example Usage - Multi-Step Workflow
 
@@ -176,7 +209,7 @@ The `/bypass` command allows toggling delegation enforcement on/off from within 
 
 ### Hook Configuration
 
-The `settings.json` configures the delegation enforcement hooks:
+The `plugin-hooks.json` configures the delegation enforcement hooks using cross-platform Python scripts:
 
 ```json
 {
@@ -184,17 +217,19 @@ The `settings.json` configures the delegation enforcement hooks:
     "PreToolUse": [
       {
         "matcher": "*",
-        "hooks": [{"type": "command", "command": "./.claude/hooks/PreToolUse/require_delegation.sh"}]
+        "hooks": [{"type": "command", "command": "uv run --no-project --script \"${CLAUDE_PLUGIN_ROOT}/hooks/PreToolUse/require_delegation.py\""}]
       }
     ],
     "UserPromptSubmit": [
       {
-        "hooks": [{"type": "command", "command": "./.claude/hooks/UserPromptSubmit/clear-delegation-sessions.sh"}]
+        "hooks": [{"type": "command", "command": "uv run --no-project --script \"${CLAUDE_PLUGIN_ROOT}/hooks/UserPromptSubmit/clear-delegation-sessions.py\""}]
       }
     ]
   }
 }
 ```
+
+**Note:** All hooks use `uv run --no-project --script` for cross-platform compatibility (Windows, macOS, Linux). The `--no-project` flag allows execution without requiring a pyproject.toml, and `--script` directly runs Python scripts using uv's managed interpreter.
 
 **PreToolUse Hook**: Intercepts every tool call and enforces delegation policy
 **UserPromptSubmit Hook**: Clears delegation state between user prompts to ensure fresh enforcement
@@ -232,9 +267,9 @@ Multi-step workflow orchestration requires the workflow_orchestrator system prom
 
 ## Core Components
 
-### 1. Delegation Hook (`hooks/PreToolUse/require_delegation.sh`)
+### 1. Delegation Hook (`hooks/PreToolUse/require_delegation.py`)
 
-Blocks most tools and forces delegation to specialized agents.
+Blocks most tools and forces delegation to specialized agents. Cross-platform Python implementation.
 
 **Allowed tools:**
 - `AskUserQuestion` - Ask users for clarification
@@ -331,7 +366,7 @@ Found a bug or have a feature request? Please open a GitHub Issue with:
 - Clear description of the issue or feature request
 - Steps to reproduce (for bugs)
 - Expected vs. actual behavior
-- Your environment (macOS/Linux, Claude Code version, etc.)
+- Your environment (Windows/macOS/Linux, Claude Code version, Python version, etc.)
 - The used claude code model
 - Relevant logs or screenshots if applicable
 

@@ -36,9 +36,8 @@ REQUIRED: Use /delegate command immediately:
 ## Prerequisites
 
 - **uv** - Python package manager (required for `uvx`, `uv run`)
-- **bun** - JavaScript runtime
-- **bc** - Basic calculator (required by statusline)
-- **jq** - JSON processor
+- **bun** - JavaScript runtime (for ccusage cost tracking)
+- **jq** - JSON processor (optional, for advanced features)
 
 ---
 
@@ -80,8 +79,7 @@ The `task-planner` skill is automatically invoked before every delegation. It ha
 - Agent selection via keyword matching (>=2 matches threshold)
 - Dependency mapping between subtasks
 - Wave assignment for parallel/sequential execution
-- TodoWrite population with encoded metadata
-- JSON execution plan generation (binding contract)
+- TodoWrite population with encoded metadata (execution plan embedded in task entries)
 
 **Note:** The `task-planner` skill now provides unified orchestration. The separate `delegation-orchestrator` agent has been deprecated.
 
@@ -108,7 +106,7 @@ The `task-planner` skill performs all planning responsibilities:
 - Assigns each subtask to a specialized agent via keyword matching
 - Maps dependencies between subtasks
 - Schedules subtasks into optimal parallel/sequential waves
-- Populates TodoWrite and generates JSON execution plan
+- Populates TodoWrite with encoded metadata (format: `[W<wave>][<phase_id>][<agent>] <description>`)
 
 **Hook System** (3 active hooks enforce delegation policy):
 - **PreToolUse** - Blocks non-allowed tools, enforces allowlist (Read, Glob, Grep blocked)
@@ -163,6 +161,8 @@ The `task-planner` skill uses keyword matching to intelligently assign agents to
 - "Refactor code to improve maintainability" -> code-cleanup-optimizer (matches: refactor, improve, maintainability)
 - "Test and verify functionality" -> task-completion-verifier (matches: test, verify)
 - "Setup CI/CD pipeline" -> devops-experience-architect (matches: setup, CI/CD, pipeline)
+
+**Note:** In plugin mode, agent names use the prefix `workflow-orchestrator:` (e.g., `workflow-orchestrator:task-completion-verifier`).
 
 ---
 

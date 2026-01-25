@@ -4,3 +4,9 @@
 /.complexipy_cache/
 /__pycache__/
 .coverage
+
+# Remotion animation build artifacts
+remotion-animation/
+.agents/
+.codex/
+.github/

@@ -18,5 +18,126 @@
     "command": "uv run --no-project --script ${CLAUDE_PLUGIN_ROOT}/scripts/statusline.py",
     "padding": 0
   },
-  "alwaysThinkingEnabled": true
+  "alwaysThinkingEnabled": true,
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --no-project --script \"${CLAUDE_PLUGIN_ROOT}/hooks/PreToolUse/validate_task_graph_compliance.py\"",
+            "timeout": 5,
+            "description": "Validate Task invocations against active task graph execution plan"
+          },
+          {
+            "type": "command",
+            "command": "uv run --no-project --script \"${CLAUDE_PLUGIN_ROOT}/hooks/PreToolUse/require_delegation.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --no-project --script \"${CLAUDE_PLUGIN_ROOT}/hooks/PostToolUse/python_posttooluse_hook.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "Skill|SlashCommand",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --no-project --script \"${CLAUDE_PLUGIN_ROOT}/hooks/PostToolUse/remind_skill_continuation.py\"",
+            "timeout": 2
+          }
+        ]
+      },
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --no-project --script \"${CLAUDE_PLUGIN_ROOT}/hooks/PostToolUse/validate_task_graph_depth.py\"",
+            "timeout": 5,
+            "description": "Enforce minimum depth-3 decomposition for atomic tasks"
+          },
+          {
+            "type": "command",
+            "command": "uv run --no-project --script \"${CLAUDE_PLUGIN_ROOT}/hooks/PostToolUse/remind_todo_after_task.py\"",
+            "timeout": 2,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --no-project --script \"${CLAUDE_PLUGIN_ROOT}/hooks/UserPromptSubmit/clear-delegation-sessions.py\"",
+            "timeout": 2
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --no-project --script \"${CLAUDE_PLUGIN_ROOT}/hooks/SessionStart/inject_workflow_orchestrator.py\"",
+            "timeout": 20
+          },
+          {
+            "type": "command",
+            "command": "uv run --no-project --script \"${CLAUDE_PLUGIN_ROOT}/hooks/SessionStart/inject-output-style.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --no-project --script \"${CLAUDE_PLUGIN_ROOT}/hooks/SubagentStop/remind_todo_update.py\"",
+            "timeout": 3,
+            "async": true
+          },
+          {
+            "type": "command",
+            "command": "uv run --no-project --script \"${CLAUDE_PLUGIN_ROOT}/hooks/SubagentStop/trigger_verification.py\"",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "uv run --no-project --script \"${CLAUDE_PLUGIN_ROOT}/hooks/UserPromptSubmit/clear-delegation-sessions.py\"",
+            "timeout": 2
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --no-project --script \"${CLAUDE_PLUGIN_ROOT}/hooks/stop/python_stop_hook.py\"",
+            "async": true
+          }
+        ]
+      }
+    ]
+  },
+  "outputStyle": "technical-adaptive"
 }

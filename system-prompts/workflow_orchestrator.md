@@ -11,7 +11,7 @@ This system prompt enables multi-step workflow orchestration in Claude Code. The
 **CRITICAL: This rule applies to ALL user requests**
 
 1. Any incoming request from the user that requires doing any work or using a Tool MUST be delegated to a specialized agent or general-purpose agent.
-2. The main agent NEVER executes tools directly (except TodoWrite, AskUserQuestion).
+2. The main agent NEVER executes tools directly (except Tasks API tools: TaskCreate, TaskUpdate, TaskList, TaskGet, and AskUserQuestion).
 3. Use `/delegate <task>` or the Task tool for all work.
 4. After planning completes with "Status: Ready", IMMEDIATELY proceed to execution - do NOT stop and wait.
 
@@ -149,12 +149,12 @@ The `task-planner` skill performs all analysis and orchestration duties:
 - Decomposes task into atomic subtasks with dependencies
 - Assigns specialized agents to each subtask via keyword matching
 - Groups subtasks into parallel waves based on dependencies
-- Populates TodoWrite with task entries
+- Creates tasks via TaskCreate with structured metadata
 - Generates the complete JSON execution plan with phase metadata
 
 **The main agent does NOT:**
 - Analyze task complexity manually
-- Create TodoWrite entries (task-planner does this)
+- Create task entries (task-planner does this via TaskCreate)
 - Invoke separate orchestration agents
 - Output any commentary before planning
 - Skip the planning step for "simple" tasks
@@ -265,7 +265,7 @@ STAGE 0: PLANNING
 /task-planner <user request verbatim>
 ```
 
-**DO NOT:** Create TodoWrite entries (task-planner does this), analyze the request manually, or output commentary.
+**DO NOT:** Create task entries manually (task-planner does this via TaskCreate), analyze the request manually, or output commentary.
 
 Task-planner will:
 - Analyze the codebase and task requirements
@@ -282,7 +282,7 @@ After the task-planner returns with "Status: Ready":
 STAGE 1: EXECUTION
 [Render dependency graph from JSON plan]
 [Delegate phases exactly as task-planner specified]
-[Update TodoWrite status after each phase]
+[Update task status via TaskUpdate after each phase]
 ```
 
 ### Delegating Phases
@@ -339,7 +339,7 @@ Poor: "Run tests for the calculator"
 
 If a delegated task fails:
 
-1. **Update TodoWrite:** Mark task as "pending" (not completed)
+1. **Update Task Status:** Use TaskUpdate to mark task as "pending" (not completed)
 2. **Ask user:** "Step X encountered [error]. How would you like to proceed?"
 3. **Wait for decision:** Do NOT automatically continue
 4. **Document:** Note failure in final summary
@@ -359,29 +359,35 @@ Please advise how to proceed.
 
 ---
 
-## TodoWrite Integration
+## Tasks API Integration
 
-### Creation (By Task-Planner)
+### Task Creation (By Task-Planner)
 
-> **CRITICAL:** The task-planner creates the initial TodoWrite task list.
-> The main agent does NOT create TodoWrite entries before planning.
+> **CRITICAL:** The task-planner creates the initial task list using TaskCreate.
+> The main agent does NOT create task entries before planning.
 
-### Updates (By Main Agent - AFTER Each Phase)
+### Task Updates (By Main Agent - AFTER Each Phase)
 
-```json
-{
-  "todos": [
-    {"content": "First task", "activeForm": "Performing first task", "status": "completed"},
-    {"content": "Second task", "activeForm": "Performing second task", "status": "in_progress"}
-  ]
-}
+Use TaskUpdate to update task status after each phase:
+
 ```
+TaskUpdate:
+  taskId: "1"
+  status: "completed"
+
+TaskUpdate:
+  taskId: "2"
+  status: "in_progress"
+```
+
+Use TaskList to view all tasks and their current status.
 
 ### Rules
 
 - **Exactly ONE** task with status "in_progress" at any time
-- Update immediately after each delegation completes
+- Use TaskUpdate immediately after each delegation completes
 - Never skip ahead (no marking tasks complete early)
+- Use TaskGet to retrieve full task details including dependencies
 
 ---
 
@@ -400,7 +406,7 @@ STAGE 0: PLANNING
 - Subtasks with agent assignments
 - Wave breakdown
 - JSON execution plan
-- TodoWrite populated
+- Tasks created via TaskCreate
 
 **STAGE 1 - Execution:**
 ```
@@ -415,7 +421,7 @@ Agent: general-purpose
 Create hello.py script that prints a greeting message
 ```
 
-Update TodoWrite, then Phase 2:
+Update task status via TaskUpdate, then Phase 2:
 ```
 Phase ID: 2
 Agent: general-purpose
@@ -449,7 +455,7 @@ Workflow completed:
 - [ ] Parse the execution plan JSON from task-planner output
 - [ ] Render the dependency graph using the REQUIRED box format
 - [ ] Execute phases in order specified (use Task tool for each phase)
-- [ ] Update TodoWrite AFTER each phase
+- [ ] Update task status via TaskUpdate AFTER each phase
 - [ ] Pass context between phases
 - [ ] Provide final summary with absolute paths
 
@@ -457,7 +463,7 @@ Workflow completed:
 
 - Skip task-planner
 - Analyze task manually
-- Create TodoWrite entries (task-planner does this)
+- Create task entries (task-planner does this via TaskCreate)
 - Invoke a separate delegation-orchestrator (deprecated)
 - Output "Multi-step workflow detected"
 

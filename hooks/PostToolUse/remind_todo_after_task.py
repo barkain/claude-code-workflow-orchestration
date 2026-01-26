@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
 """
-PostToolUse Hook: Remind to update todo list after Task tool completions (cross-platform)
+PostToolUse Hook: Remind to update task list after Task tool completions (cross-platform)
 
-Analyzes todo state and provides friendly reminder for incomplete todos.
+Provides a reminder to update task status using the Tasks API after delegation completes.
 
 This Python version works on Windows, macOS, and Linux.
 """
 
+import io
 import json
-import os
 import sys
-from pathlib import Path
+
+# Force UTF-8 output on Windows (fixes emoji encoding errors)
+if sys.platform == "win32":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 
 def main() -> int:
@@ -29,47 +33,17 @@ def main() -> int:
     if tool_name not in ("Task", "SubagentTask", "AgentTask"):
         return 0
 
-    # Determine project directory
-    project_dir = Path(os.environ.get("CLAUDE_PROJECT_DIR", Path.cwd()))
-
-    # Check if todo state file exists
-    todo_state_file = project_dir / ".claude" / "state" / "todos.json"
-
-    if not todo_state_file.exists():
-        # No todo file means no todos to track - exit silently
-        return 0
-
-    # Parse todo state and analyze completion status
-    try:
-        todo_data = json.loads(todo_state_file.read_text(encoding="utf-8"))
-        todos = todo_data.get("todos", [])
-
-        if not todos:
-            return 0
-
-        pending = sum(1 for t in todos if t.get("status") == "pending")
-        in_progress = sum(1 for t in todos if t.get("status") == "in_progress")
-        completed = sum(1 for t in todos if t.get("status") == "completed")
-        total = len(todos)
-        incomplete = pending + in_progress
-
-    except (json.JSONDecodeError, OSError):
-        return 0
-
-    # Display reminder if there are incomplete todos
-    if incomplete > 0:
-        print("", file=sys.stderr)
-        print(f"📋 Reminder: You have {incomplete} incomplete todo(s) out of {total} total.", file=sys.stderr)
-
-        if in_progress > 0 and pending > 0:
-            print(f"   ({in_progress} in progress, {pending} pending)", file=sys.stderr)
-        elif in_progress > 0:
-            print(f"   ({in_progress} in progress)", file=sys.stderr)
-        elif pending > 0:
-            print(f"   ({pending} pending)", file=sys.stderr)
-
-        print("   Consider updating your todo list with TodoWrite.", file=sys.stderr)
-        print("", file=sys.stderr)
+    # Display reminder to update task status using Tasks API
+    # Note: The Tasks API manages state internally, so we provide a generic reminder
+    msg = """
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REMINDER: Update task status with Tasks API
+   Use TaskUpdate to mark completed tasks
+   Use TaskList to view remaining tasks
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"""
+    sys.stderr.write(msg)
+    sys.stderr.flush()
 
     # Always exit 0 to allow tool execution to proceed
     return 0

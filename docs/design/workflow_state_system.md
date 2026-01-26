@@ -5,9 +5,9 @@
 ## 1. Problem Statement
 
 **Current State Gaps:**
-- **Fragmented state:** `active_task_graph.json` (execution order), `delegated_sessions.txt` (sessions), `TodoWrite` (ephemeral UI)
+- **Fragmented state:** `active_task_graph.json` (execution order), `delegated_sessions.txt` (sessions), `Tasks API` (ephemeral UI)
 - **No single source of truth:** Each component tracks different aspects, no unified view
-- **No persistence for user:** TodoWrite updates disappear after session ends
+- **No persistence for user:** Tasks API updates disappear after session ends
 - **Manual synchronization:** Agents must manually update multiple state locations
 - **No workflow resumption:** If orchestration fails mid-workflow, state is lost
 
@@ -25,7 +25,7 @@
 │          delegation-orchestrator (Workflow Creator)         │
 │  - Writes workflow.json (phases, agents, deliverables)      │
 │  - Generates initial workflow_state_system.md               │
-│  - Initializes TodoWrite with phase list                    │
+│  - Initializes Tasks API with phase list                    │
 └────────────────────────┬────────────────────────────────────┘
                          │
                          ▼
@@ -38,7 +38,7 @@
           │ (on agent completion)             │
           ▼                                   ▼
 ┌──────────────────────────┐      ┌──────────────────────────┐
-│  TodoWrite Tool          │      │  workflow_state_system.md│
+│  Tasks API Tool          │      │  workflow_state_system.md│
 │  (Claude Code UI)        │      │  (Human-readable view)   │
 │  - Shows current phase   │      │  - Markdown report       │
 │  - Progress visualization│      │  - Phase status          │
@@ -47,11 +47,11 @@
 ```
 
 **Data Flow:**
-1. **Orchestrator writes:** `workflow.json` + initial `workflow_state_system.md` + `TodoWrite`
+1. **Orchestrator writes:** `workflow.json` + initial `workflow_state_system.md` + `Tasks API`
 2. **Agents execute:** Complete phases, write deliverables
 3. **PostToolUse hook triggers:** On agent task completion
-4. **Hook updates:** `workflow.json` status → regenerates `workflow_state_system.md` → syncs `TodoWrite`
-5. **User reads:** Either file or TodoWrite UI
+4. **Hook updates:** `workflow.json` status → regenerates `workflow_state_system.md` → syncs `Tasks API`
+5. **User reads:** Either file or Tasks API UI
 
 ## 3. Minimal Schema
 
@@ -114,7 +114,7 @@
 - Function: `update_phase_status(workflow_id, phase_id, status, deliverables)`
 - Updates `workflow.json` phase status and deliverables
 - Regenerates `workflow_state_system.md`
-- NO direct TodoWrite sync (deferred to hook)
+- NO direct Tasks API sync (deferred to hook)
 
 **P1.3: PostToolUse Hook Enhancement**
 - Trigger: After `Task` tool completes (agent finishes)
@@ -122,7 +122,7 @@
   1. Check if `.claude/state/workflow.json` exists
   2. Extract phase result from tool output
   3. Call `update_phase_status()`
-  4. Sync TodoWrite with workflow phases
+  4. Sync Tasks API with workflow phases
 - File: `hooks/PostToolUse/workflow_sync.sh`
 
 **P1.4: workflow_state_system.md Generator**
@@ -204,14 +204,14 @@ workflow.json:           "WHAT is happening" (current status, deliverables)
 }
 ```
 
-### 5.3 With TodoWrite Tool
+### 5.3 With Tasks API Tool
 
 **Sync Strategy:**
-- Orchestrator: Initializes TodoWrite with phase list
-- PostToolUse hook: Updates TodoWrite when phases complete
-- One-way sync: `workflow.json` → `TodoWrite` (TodoWrite is write-only from code)
+- Orchestrator: Initializes Tasks API with phase list
+- PostToolUse hook: Updates Tasks API when phases complete
+- One-way sync: `workflow.json` → `Tasks API` (Tasks API is write-only from code)
 
-**TodoWrite Update Pattern:**
+**Tasks API Update Pattern:**
 ```python
 # In workflow_sync.sh (calls Python script)
 phases = load_workflow_json()["phases"]
@@ -223,7 +223,7 @@ todos = [
     }
     for phase in phases
 ]
-# Call TodoWrite tool with updated list
+# Call Tasks API tool with updated list
 ```
 
 ## 6. Agent Protocol
@@ -235,7 +235,7 @@ todos = [
 2. Select agents for each phase
 3. Create `workflow.json` with all phases
 4. Generate initial `workflow_state_system.md`
-5. Initialize `TodoWrite` with phase list
+5. Initialize `Tasks API` with phase list
 6. Return delegation commands for main Claude
 
 **Code Pattern:**
@@ -265,8 +265,8 @@ write_json(".claude/state/workflow.json", workflow)
 # Generate status document
 generate_markdown(".claude/workflow_state_system.md", workflow)
 
-# Initialize TodoWrite
-TodoWrite(todos=[...])
+# Initialize Tasks API
+Tasks API(todos=[...])
 ```
 
 ### 6.2 Execution Agent (Phase Worker)
@@ -345,7 +345,7 @@ else:
 
 2. **`hooks/PostToolUse/workflow_sync.sh`** - Hook for state sync
    - Trigger: After Task tool completes
-   - Logic: Extract phase result → update workflow.json → sync TodoWrite
+   - Logic: Extract phase result → update workflow.json → sync Tasks API
    - Call: `scripts/workflow_state.py` functions
 
 3. **`.claude/workflow_state_system.md`** - Generated status view (created by workflow_state.py)
@@ -355,7 +355,7 @@ else:
 4. **`agents/delegation-orchestrator.md`** - Add workflow initialization
    - After phase analysis, create workflow state
    - Generate workflow_state_system.md
-   - Initialize TodoWrite with phases
+   - Initialize Tasks API with phases
 
 5. **`settings.json`** - Register new PostToolUse hook
    - Add `workflow_sync.sh` to PostToolUse hooks
@@ -379,9 +379,9 @@ else:
   - Phase 1 (test) → active → context passed
   - Phase 1 → completed → workflow status = "completed"
 
-**Test 3: TodoWrite Sync**
+**Test 3: Tasks API Sync**
 - Input: Multi-phase task
-- Expected: TodoWrite UI shows phase list, updates as phases complete
+- Expected: Tasks API UI shows phase list, updates as phases complete
 
 **Test 4: Hook Trigger**
 - Input: Manual Task tool invocation
@@ -407,7 +407,7 @@ else:
 **Day 4: End-to-End Testing**
 - Run complete workflows (single and multi-phase)
 - Verify state transitions
-- Check TodoWrite synchronization
+- Check Tasks API synchronization
 
 **Day 5: Documentation & Refinement**
 - Update CLAUDE.md with agent protocol
@@ -495,7 +495,7 @@ else:
 **Success Criteria:**
 - Users can view workflow status at any time (cat workflow_state_system.md)
 - Agents update state automatically (via hook)
-- TodoWrite stays synchronized (via hook)
+- Tasks API stays synchronized (via hook)
 - Workflow state persists across sessions (JSON file)
 - Implementation < 500 lines of Python (excluding tests)
 

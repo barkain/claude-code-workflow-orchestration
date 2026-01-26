@@ -113,6 +113,7 @@
           {
             "type": "command",
             "command": "uv run --no-project --script \"${CLAUDE_PLUGIN_ROOT}/hooks/stop/python_stop_hook.py\"",
+            "timeout": 10,
             "async": true
           }
         ]

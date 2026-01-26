@@ -43,6 +43,7 @@ REMINDER: Update task status with Tasks API
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
     sys.stderr.write(msg)
+    sys.stderr.flush()
 
     # Always exit 0 to allow tool execution to proceed
     return 0

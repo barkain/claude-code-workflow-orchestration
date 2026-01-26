@@ -50,7 +50,8 @@
           {
             "type": "command",
             "command": "uv run --no-project --script \"${CLAUDE_PLUGIN_ROOT}/hooks/PostToolUse/remind_todo_after_task.py\"",
-            "timeout": 2
+            "timeout": 2,
+            "async": true
           }
         ]
       }
@@ -90,7 +91,8 @@
           {
             "type": "command",
             "command": "uv run --no-project --script \"${CLAUDE_PLUGIN_ROOT}/hooks/SubagentStop/remind_todo_update.py\"",
-            "timeout": 3
+            "timeout": 3,
+            "async": true
           },
           {
             "type": "command",
@@ -110,7 +112,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run --no-project --script \"${CLAUDE_PLUGIN_ROOT}/hooks/stop/python_stop_hook.py\""
+            "command": "uv run --no-project --script \"${CLAUDE_PLUGIN_ROOT}/hooks/stop/python_stop_hook.py\"",
+            "async": true
           }
         ]
       }

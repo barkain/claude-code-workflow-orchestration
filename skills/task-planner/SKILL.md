@@ -2,7 +2,7 @@
 name: task-planner
 description: Analyze user request, explore codebase, decompose into subtasks, assign agents, and return complete execution plan with wave assignments.
 context: fork
-allowed-tools: Read, Grep, Glob, Bash, WebFetch, AskUserQuestion, TodoWrite
+allowed-tools: Read, Grep, Glob, Bash, WebFetch, AskUserQuestion, TaskCreate, TaskUpdate, TaskList, TaskGet
 ---
 
 # Task Planner
@@ -29,7 +29,7 @@ Analyze the user's request and return a complete execution plan including agent 
 
 8. **Flag risks** — Complexity, missing tests, potential breaks.
 
-9. **Populate TodoWrite** — Create task entries with encoded metadata for execution.
+9. **Populate Tasks** — Create task entries using TaskCreate with structured metadata for execution.
 
 ---
 
@@ -109,34 +109,43 @@ List EVERY task individually (no compression):
 
 ---
 
-### TodoWrite Population
+### Task Creation with Tasks API
 
-**Note:** The TodoWrite entries contain all execution metadata. No separate JSON output needed.
+**Note:** Use TaskCreate for each subtask. Metadata is stored in structured fields, not encoded strings.
 
-Encode metadata in content field:
-`[W<wave>][<phase_id>][<agent>][PARALLEL]? <description>`
+**TaskCreate Parameters:**
+- `subject`: Brief imperative title (e.g., "Create project structure")
+- `description`: Detailed description including requirements and context
+- `activeForm`: Present continuous form shown during execution (e.g., "Creating project structure")
+- `metadata`: Object containing wave, phase, agent, and parallel execution info
 
-**Example:**
-```json
-{
-  "todos": [
-    {
-      "content": "[W0][1][general-purpose][PARALLEL] Create project structure",
-      "activeForm": "Creating project structure",
-      "status": "pending"
-    },
-    {
-      "content": "[W0][2][general-purpose][PARALLEL] Create database config",
-      "activeForm": "Creating database config",
-      "status": "pending"
-    },
-    {
-      "content": "[W1][3][task-completion-verifier] Verify implementations",
-      "activeForm": "Verifying implementations",
-      "status": "pending"
-    }
-  ]
-}
+**Example TaskCreate calls:**
+
+```
+TaskCreate:
+  subject: "Create project structure"
+  description: "Set up initial project directory structure with src/, tests/, and config files"
+  activeForm: "Creating project structure"
+  metadata: {"wave": 0, "phase_id": "1", "agent": "general-purpose", "parallel": true}
+
+TaskCreate:
+  subject: "Create database config"
+  description: "Create database configuration with connection pooling and environment-based settings"
+  activeForm: "Creating database config"
+  metadata: {"wave": 0, "phase_id": "2", "agent": "general-purpose", "parallel": true}
+
+TaskCreate:
+  subject: "Verify implementations"
+  description: "Run all tests and verify implementations meet requirements"
+  activeForm: "Verifying implementations"
+  metadata: {"wave": 1, "phase_id": "3", "agent": "task-completion-verifier", "parallel": false}
+```
+
+**After creating tasks, set up dependencies:**
+```
+TaskUpdate:
+  taskId: "3"
+  addBlockedBy: ["1", "2"]
 ```
 
 ---
@@ -170,7 +179,7 @@ To detect mode: Check if running as a plugin by looking for `workflow-orchestrat
 | **documentation-expert** | document, write docs, README, explain, create guide, documentation | Documentation creation and maintenance |
 | **dependency-manager** | dependencies, packages, requirements, install, upgrade, manage packages | Dependency management (Python/UV focused) |
 
-**When assigning agents in TodoWrite and delegations, ALWAYS use the full prefixed name: `workflow-orchestrator:<agent-name>`**
+**When assigning agents in TaskCreate metadata and delegations, ALWAYS use the full prefixed name: `workflow-orchestrator:<agent-name>`**
 
 ---
 
@@ -310,9 +319,9 @@ Return only when PASS or max reached.
 - Never implement anything
 - Explore enough to plan, no more
 - Trivial requests still get structure (one subtask)
-- No tool execution beyond Read, Grep, Glob, Bash (for exploration), AskUserQuestion, TodoWrite
-- MUST populate TodoWrite with all tasks before returning
-- Do NOT output raw JSON - all metadata is encoded in TodoWrite entries
+- No tool execution beyond Read, Grep, Glob, Bash (for exploration), AskUserQuestion, TaskCreate, TaskUpdate, TaskList, TaskGet
+- MUST create all tasks using TaskCreate before returning
+- Use TaskUpdate to set up dependencies between tasks (addBlockedBy, addBlocks)
 
 ---
 
@@ -327,7 +336,8 @@ When invoked:
 5. For each subtask, run agent selection algorithm
 6. Map dependencies between subtasks
 7. Assign subtasks to waves (maximize parallelism)
-8. Populate TodoWrite with encoded metadata
-9. Output structured plan (tables + wave breakdown, NO raw JSON)
+8. Create tasks using TaskCreate with structured metadata
+9. Set up task dependencies using TaskUpdate (addBlockedBy/addBlocks)
+10. Output structured plan (tables + wave breakdown)
 
-**You are the unified planner: analyze -> decompose -> assign agents -> schedule waves -> populate TodoWrite.**
+**You are the unified planner: analyze -> decompose -> assign agents -> schedule waves -> create tasks via Tasks API.**

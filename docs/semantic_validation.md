@@ -138,7 +138,7 @@ Semantic validation is attempted for:
 ### When Semantic Validation Falls Back
 
 Returns `NOT_APPLICABLE` and falls back to rule-based validation when:
-- Tool is not a delegation tool (e.g., `TodoWrite`, `AskUserQuestion`)
+- Tool is not a delegation tool (e.g., `Tasks API`, `AskUserQuestion`)
 - No task objective found in `tool.parameters.prompt`
 - No tool result available in `tool.result`
 - Claude command not available

@@ -39,6 +39,8 @@ REQUIRED: Use /delegate command immediately:
 - **bun** - JavaScript runtime (for ccusage cost tracking)
 - **jq** - JSON processor (optional, for advanced features)
 
+See README.md for full installation instructions (plugin or manual).
+
 ---
 
 ## Build, Lint, and Test Commands
@@ -54,9 +56,9 @@ uvx ruff check --no-fix .
 uvx pyright .
 
 # Dead code detection
-uvx deadcode src/
+uvx deadcode hooks/ scripts/
 
-# Run tests
+# Run tests (optional - no test files exist yet)
 uv run pytest
 ```
 
@@ -71,6 +73,10 @@ uv run pytest
 /add-statusline            # Enable workflow status display
 ```
 
+**Installation:**
+- Plugin mode: `claude plugin install workflow-orchestrator@barkain-plugins`
+- Manual mode: Run `install.sh`
+
 **Unified Planning:**
 The `task-planner` skill is automatically invoked before every delegation. It handles all planning duties:
 - Codebase exploration and context gathering
@@ -79,7 +85,7 @@ The `task-planner` skill is automatically invoked before every delegation. It ha
 - Agent selection via keyword matching (>=2 matches threshold)
 - Dependency mapping between subtasks
 - Wave assignment for parallel/sequential execution
-- TodoWrite population with encoded metadata (execution plan embedded in task entries)
+- Task creation via TaskCreate with structured metadata (wave, phase_id, agent stored in metadata field)
 
 **Note:** The `task-planner` skill now provides unified orchestration. The separate `delegation-orchestrator` agent has been deprecated.
 
@@ -106,14 +112,14 @@ The `task-planner` skill performs all planning responsibilities:
 - Assigns each subtask to a specialized agent via keyword matching
 - Maps dependencies between subtasks
 - Schedules subtasks into optimal parallel/sequential waves
-- Populates TodoWrite with encoded metadata (format: `[W<wave>][<phase_id>][<agent>] <description>`)
+- Creates tasks via TaskCreate with structured metadata (subject, description, activeForm, metadata: {wave, phase_id, agent})
 
 **Hook System** (3 active hooks enforce delegation policy):
 - **PreToolUse** - Blocks non-allowed tools, enforces allowlist (Read, Glob, Grep blocked)
 - **PostToolUse** - Validates Python code (Ruff, Pyright)
 - **UserPromptSubmit** - Clears delegation state per user message
 
-**Allowlist:** `AskUserQuestion`, `TodoWrite`, `SlashCommand`, `Task`
+**Allowlist:** `AskUserQuestion`, `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet`, `SlashCommand`, `Task`
 
 **Specialized Agents (8 active):**
 - **Analysis & Review:** codebase-context-analyzer, code-reviewer
@@ -128,7 +134,7 @@ The `task-planner` skill performs all planning responsibilities:
 - Multi-step tasks: Wave-based execution (sequential or parallel)
 - Phase dependencies: Automatically detected and optimized
 - Context passing: Between phases in sequential workflows
-- Progress tracking: TodoWrite updated after each phase/wave
+- Progress tracking: Task status updated via TaskUpdate after each phase/wave
 
 **State Files:**
 - `.claude/state/delegated_sessions.txt` - Session registry for delegation enforcement
@@ -181,6 +187,8 @@ The `task-planner` skill uses keyword matching to intelligently assign agents to
 export DEBUG_DELEGATION_HOOK=1        # Enable hook debug logging
 tail -f /tmp/delegation_hook_debug.log
 export DELEGATION_HOOK_DISABLE=1      # Emergency bypass
+export CHECK_RUFF=0                   # Skip Ruff validation in PostToolUse hook
+export CHECK_PYRIGHT=0                # Skip Pyright validation in PostToolUse hook
 cat .claude/state/delegated_sessions.txt  # Check delegation state
 ```
 

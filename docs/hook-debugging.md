@@ -207,7 +207,7 @@ bash ~/.claude/hooks/PreToolUse/require_delegation.sh
 The following tools are always allowed without delegation:
 
 - `AskUserQuestion` - Read-only questions
-- `TodoWrite` - Task tracking
+- `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet` - Task tracking via Tasks API
 - `SlashCommand` - Triggers session registration
 - `Task`/`SubagentTask`/`AgentTask` - Triggers session registration
 

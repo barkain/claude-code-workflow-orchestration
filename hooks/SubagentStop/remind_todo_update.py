@@ -27,10 +27,10 @@ def main() -> int:
     if subagent_status == "completed":
         print("")
         print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-        print("📋 REMINDER: Update TodoWrite task list")
+        print("REMINDER: Update task status with Tasks API")
         print(f"   Subagent ({subagent_type}) completed successfully")
-        print("   Mark current task as 'completed'")
-        print("   Update next task to 'in_progress' (if multi-step)")
+        print("   Use TaskUpdate to mark current task as 'completed'")
+        print("   Use TaskUpdate to set next task to 'in_progress' (if multi-step)")
         print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         print("")
 

@@ -290,7 +290,7 @@ echo '{"version":"2.0","execution_mode":"sequential","active_delegations":[]}' >
 
 **Always Allowed (no delegation required):**
 - `AskUserQuestion` - Read-only questions
-- `TodoWrite` - Task tracking
+- `Tasks API` - Task tracking
 - `SlashCommand` - Triggers session registration
 - `Task`/`SubagentTask`/`AgentTask` - Delegation mechanism
 

@@ -17,7 +17,7 @@ This system uses Claude Code's hook mechanism to create a delegation-enforced wo
 - **Unified Task Planner** - Single `task-planner` skill handles planning, agent selection, and execution orchestration
 - **Intelligent Multi-Step Workflows** - Sequential execution for dependent phases, parallel for independent phases
 - **Isolated Subagent Sessions** - Each delegation spawns independent session with custom system prompts
-- **Progress Tracking** - TodoWrite provides visible task list throughout workflow execution
+- **Progress Tracking** - Tasks API (TaskCreate/TaskUpdate/TaskList) provides visible task list throughout workflow execution
 - **Stateful Session Management** - Fresh delegation enforcement per user message with session registry
 - **Smart Dependency Analysis** - Automatically analyzes phase dependencies to determine optimal execution mode
 - **Parallel Execution Support** - Executes independent phases concurrently with automatic wave synchronization
@@ -33,7 +33,7 @@ The system uses a two-stage execution pipeline:
 - Performs dependency analysis to determine execution mode
 - Assigns specialized agents via keyword matching
 - Creates wave assignments for parallel/sequential execution
-- Populates TodoWrite with task list
+- Creates tasks via TaskCreate with structured metadata
 
 **Stage 1: Execution**
 - **Single-Step Tasks:** Hook blocks tools → Delegates to specialized agent → Agent executes → Results returned
@@ -167,7 +167,7 @@ and then prompt claude with:
    - Decompose into atomic subtasks
    - Assign specialized agents via keyword matching
    - Create wave assignments for parallel/sequential execution
-   - Populate TodoWrite and generate the execution plan
+   - Create tasks via TaskCreate and generate the execution plan
 
    ![img_delegate.png](assets/img_delegate.png)
 
@@ -261,7 +261,7 @@ Multi-step workflow orchestration requires the workflow_orchestrator system prom
 - Multi-step task detection via pattern matching
 - Dependency analysis for execution mode selection
 - Context passing between workflow phases
-- TodoWrite integration for progress tracking
+- Tasks API integration for progress tracking
 - Wave synchronization for parallel execution
 
 
@@ -273,7 +273,7 @@ Blocks most tools and forces delegation to specialized agents. Cross-platform Py
 
 **Allowed tools:**
 - `AskUserQuestion` - Ask users for clarification
-- `TodoWrite` - Track task progress
+- `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet` - Track task progress via Tasks API
 - `SlashCommand` - Execute slash commands (including `/delegate`)
 - `Task` - Spawn subagents
 
@@ -312,7 +312,7 @@ The `/delegate` command provides intelligent task delegation with integrated pla
 3. Performs dependency analysis to determine execution mode (sequential or parallel)
 4. Assigns specialized agents via keyword matching (>=2 match threshold)
 5. Creates wave assignments and execution plan
-6. Populates TodoWrite task list
+6. Creates task list via TaskCreate
 7. Executes phases as directed by the plan
 
 ### 4. Workflow Orchestration System Prompt (`system-prompts/workflow_orchestrator.md`)
@@ -338,7 +338,7 @@ The `task-planner` skill handles both planning and execution orchestration:
 3. **Intelligent Execution Mode Selection** - Chooses between sequential and parallel execution
 4. **Sequential Execution** - Dependent phases execute one at a time with context passing
 5. **Parallel Execution** - Independent phases execute concurrently in waves
-6. **Progress Tracking** - TodoWrite maintains visible task list throughout
+6. **Progress Tracking** - Tasks API maintains visible task list throughout
 7. **State Management** - Wave synchronization ensures proper completion order
 
 **Execution mode decision logic:**
@@ -349,7 +349,7 @@ The `task-planner` skill handles both planning and execution orchestration:
 **Complete workflow process:**
 1. User submits multi-step task (detected by workflow_orchestrator patterns)
 2. task-planner skill invoked to decompose and plan execution
-3. TodoWrite task list created with all phases
+3. Task list created via TaskCreate with all phases
 4. Phase dependencies analyzed to determine execution mode
 5. **Sequential Mode:** Phases execute one at a time with context passing
 6. **Parallel Mode:** Independent phases grouped into waves and executed concurrently

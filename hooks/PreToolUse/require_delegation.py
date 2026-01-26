@@ -54,7 +54,11 @@ def get_state_dir() -> Path:
 # Allowlist of tools that don't require delegation
 ALLOWED_TOOLS = {
     "AskUserQuestion",
-    "TodoWrite",
+    # Tasks API tools (replaces deprecated TodoWrite)
+    "TaskCreate",
+    "TaskUpdate",
+    "TaskList",
+    "TaskGet",
     "Skill",  # Claude Code 70+ tool name for slash commands
     "SlashCommand",  # Deprecated: Keep for backwards compatibility
     "Task",  # Allow delegation Task tool

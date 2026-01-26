@@ -14,7 +14,7 @@ allowed-tools: Task
 
 This command executes the plan that was created by task-planner in Stage 0 (workflow_orchestrator).
 
-**Important:** Task-planner has ALREADY run before this command is invoked. Do NOT invoke task-planner again - the plan already exists in TodoWrite and the execution plan JSON.
+**Important:** Task-planner has ALREADY run before this command is invoked. Do NOT invoke task-planner again - the plan already exists in the task list (use TaskList to view) and the execution plan JSON.
 
 **Your role: Execute the plan exactly as specified. Never deviate from wave order, phase assignments, or dependencies.**
 
@@ -23,7 +23,7 @@ This command executes the plan that was created by task-planner in Stage 0 (work
 ## Step 1: Use Task-Planner Output from Stage 0
 
 The task-planner skill already ran in Stage 0 and produced:
-- TodoWrite entries with encoded task metadata (already populated)
+- Tasks created via TaskCreate with structured metadata (use TaskList to view)
 - Subtask table with agent assignments and dependencies
 - Wave breakdown (each task listed individually)
 - JSON execution plan (your binding contract)
@@ -96,9 +96,9 @@ CONTEXT FROM PREVIOUS PHASE:
 [Phase delegation prompt]
 ```
 
-**Update TodoWrite after each phase:**
-- Mark completed phases as `completed`
-- Mark current phase as `in_progress`
+**Update task status after each phase:**
+- Use TaskUpdate to mark completed phases as `completed`
+- Use TaskUpdate to mark current phase as `in_progress`
 - Keep pending phases as `pending`
 
 ---

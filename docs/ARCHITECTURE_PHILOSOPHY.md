@@ -35,7 +35,7 @@ Constrained Model:  Agent -> [Delegation] -> [Specialized Agents] -> [Deep Execu
 
 When an agent has unlimited tool access, it tends toward shallow, immediate solutions. The constraint of delegation forces:
 - Task decomposition before execution
-- Explicit planning through TodoWrite
+- Explicit planning through Tasks API
 - Verification at the end of workflows
 - Context preservation between phases
 
@@ -47,7 +47,7 @@ Each specialized agent has a restricted tool set that matches its domain:
 |------------|-------------|-----|
 | Read-Only (analyzer, reviewer) | Read, Glob, Grep, Bash | Objectivity requires inability to modify |
 | Implementation (optimizer, devops) | Read, Write, Edit, Glob, Grep, Bash | Can modify but cannot spawn sub-delegations |
-| Meta-Agents (orchestrator, decomposer) | Read, Task, TodoWrite | Coordinates but doesn't execute directly |
+| Meta-Agents (orchestrator, decomposer) | Read, Task, Tasks API | Coordinates but doesn't execute directly |
 | Verification (verifier, validator) | Read, Bash, Glob, Grep | Validates without modifying (maintains objectivity) |
 | Planning (task-planner) | Read, Glob, Grep, Bash, WebFetch, AskUserQuestion | Analyzes and plans but never implements |
 
@@ -83,7 +83,7 @@ Each specialized agent has a restricted tool set that matches its domain:
                               |
 +-------------------------------------------------------------------+
 |                    MAIN CLAUDE SESSION                             |
-|  Allowlist: TodoWrite, AskUserQuestion, SlashCommand, Task         |
+|  Allowlist: Tasks API, AskUserQuestion, SlashCommand, Task         |
 |  All other tools: BLOCKED                                          |
 +-------------------------------------------------------------------+
                               |
@@ -130,7 +130,7 @@ Phase N Completion
 |  - Issues encountered                 |
 +---------------------------------------+
         |
-TodoWrite Update (Phase N -> completed)
+Tasks API Update (Phase N -> completed)
         |
 Phase N+1 Delegation with captured context
 ```
@@ -176,7 +176,7 @@ Wave 2 (Final): [Verification]
 
 **PostToolUse Gate (Task):**
 - Task graph depth enforcement
-- TodoWrite update reminder
+- Tasks API update reminder
 
 ---
 
@@ -213,7 +213,7 @@ The system implements hooks across 6 lifecycle events:
      - python_posttooluse_hook.sh - Validate Python code
    - Matcher: Task
      - validate_task_graph_depth.sh - Enforce decomposition depth
-     - remind_todo_after_task.sh - Prompt TodoWrite update
+     - remind_todo_after_task.sh - Prompt Tasks API update
    - Output: Validated code, task completion reminders
 
 5. SubagentStop
@@ -327,7 +327,7 @@ The system uses a planning-first approach:
 | Main Claude (with workflow_orchestrator system prompt)             |
 |                                                                    |
 | Processing:                                                        |
-| 1. Create TodoWrite task list                                      |
+| 1. Create Tasks API task list                                      |
 | 2. Execute Wave N phases (spawn via Task)                          |
 | 3. Wait for wave sync                                              |
 | 4. Capture context from completed phases                           |
@@ -360,7 +360,7 @@ return max(candidates, key=lambda a: a.match_count)
 
 | Agent | Keywords | Tool Access | Use Case |
 |-------|----------|-------------|----------|
-| delegation-orchestrator | delegate, orchestrate, route task | TodoWrite, AskUserQuestion | Meta-agent for routing |
+| delegation-orchestrator | delegate, orchestrate, route task | Tasks API, AskUserQuestion | Meta-agent for routing |
 | codebase-context-analyzer | analyze, understand, explore, architecture | Read, Glob, Grep, Bash | Code exploration |
 | tech-lead-architect | design, approach, research, best practices | Read, Write, Edit, Glob, Grep, Bash | Solution design |
 | task-completion-verifier | verify, validate, test, check, review | Read, Bash, Glob, Grep | QA and validation |
@@ -459,7 +459,7 @@ sess_def456
     Session in registry?         Tool in allowlist?
            |                           |
        YES: ALLOW               Task/SlashCommand: Register + ALLOW
-       NO: Check allowlist      TodoWrite/AskUserQuestion: ALLOW
+       NO: Check allowlist      Tasks API/AskUserQuestion: ALLOW
                                 Other: BLOCK
 ```
 
@@ -518,7 +518,7 @@ Delegation privileges automatically decay:
 [PAR] Active: 2 Wave 1 | Last: codebase-context-analyzer completed (87s)
 ```
 
-**TodoWrite (Progress Tracking)**
+**Tasks API (Progress Tracking)**
 ```json
 {
   "todos": [

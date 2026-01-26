@@ -17,7 +17,9 @@ This system uses Claude Code's hook mechanism to create a delegation-enforced wo
 - **Unified Task Planner** - Single `task-planner` skill handles planning, agent selection, and execution orchestration
 - **Intelligent Multi-Step Workflows** - Sequential execution for dependent phases, parallel for independent phases
 - **Isolated Subagent Sessions** - Each delegation spawns independent session with custom system prompts
-- **Progress Tracking** - Tasks API (TaskCreate/TaskUpdate/TaskList) provides visible task list throughout workflow execution
+- **Tasks API Integration** - Native task tracking via TaskCreate, TaskUpdate, TaskList, TaskGet with structured metadata
+- **Structured Task Metadata** - Wave assignments, phase IDs, agent assignments, and dependencies encoded in task metadata
+- **Async Hook Support** - Non-blocking background tasks for reminders and cleanup operations
 - **Stateful Session Management** - Fresh delegation enforcement per user message with session registry
 - **Smart Dependency Analysis** - Automatically analyzes phase dependencies to determine optimal execution mode
 - **Parallel Execution Support** - Executes independent phases concurrently with automatic wave synchronization
@@ -205,6 +207,27 @@ export DELEGATION_HOOK_DISABLE=1
 
 The `/bypass` command allows toggling delegation enforcement on/off from within a Claude Code session without restarting.
 
+## Environment Variables
+
+The system supports several environment variables for configuration and debugging:
+
+**Tasks API Configuration:**
+```bash
+CLAUDE_CODE_ENABLE_TASKS=true              # Enable Tasks API (default: true)
+CLAUDE_CODE_TASK_LIST_ID=list_id           # Share task list across sessions
+CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1     # Disable async background tasks
+```
+
+**Debug & Control:**
+```bash
+DEBUG_DELEGATION_HOOK=1                    # Enable hook debug logging
+DELEGATION_HOOK_DISABLE=1                  # Emergency bypass (disable enforcement)
+CHECK_RUFF=0                               # Skip Ruff validation in PostToolUse
+CHECK_PYRIGHT=0                            # Skip Pyright validation in PostToolUse
+```
+
+See [Environment Variables](./docs/environment-variables.md) for detailed configuration.
+
 ## Setup Details
 
 ### Hook Configuration
@@ -273,7 +296,7 @@ Blocks most tools and forces delegation to specialized agents. Cross-platform Py
 
 **Allowed tools:**
 - `AskUserQuestion` - Ask users for clarification
-- `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet` - Track task progress via Tasks API
+- `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet` - Track task progress with structured metadata
 - `SlashCommand` - Execute slash commands (including `/delegate`)
 - `Task` - Spawn subagents
 

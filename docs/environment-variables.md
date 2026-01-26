@@ -8,6 +8,8 @@
 ## Table of Contents
 
 - [Overview](#overview)
+- [Tasks API Configuration](#tasks-api-configuration)
+- [Debug & Control Variables](#debug--control-variables)
 - [DEBUG_DELEGATION_HOOK](#debug_delegation_hook)
 - [DELEGATION_HOOK_DISABLE](#delegation_hook_disable)
 - [CLAUDE_PROJECT_DIR](#claude_project_dir)
@@ -18,17 +20,133 @@
 
 ## Overview
 
-The delegation system supports 3 environment variables for controlling behavior and debugging:
+The delegation system supports several environment variables for controlling behavior and debugging:
+
+**Tasks API Configuration (3 variables):**
+- `CLAUDE_CODE_ENABLE_TASKS` - Enable/disable Tasks API integration
+- `CLAUDE_CODE_TASK_LIST_ID` - Share task list across sessions
+- `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS` - Control async background tasks
+
+**Debug & Control Variables (5 variables):**
+- `DEBUG_DELEGATION_HOOK` - Enable debug logging
+- `DELEGATION_HOOK_DISABLE` - Emergency bypass
+- `CLAUDE_PROJECT_DIR` - Override project directory
+- `CHECK_RUFF` - Skip Ruff validation
+- `CHECK_PYRIGHT` - Skip Pyright validation
+
+**Complete Reference Table:**
 
 | Variable | Purpose | Default | Values |
 |----------|---------|---------|--------|
+| `CLAUDE_CODE_ENABLE_TASKS` | Enable Tasks API | `true` | `true`, `false` |
+| `CLAUDE_CODE_TASK_LIST_ID` | Share task list | Per-session | Any list ID |
+| `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS` | Disable async hooks | Not set | Set to `1` to disable |
 | `DEBUG_DELEGATION_HOOK` | Enable debug logging | `0` | `0` (off), `1` (on) |
 | `DELEGATION_HOOK_DISABLE` | Emergency bypass | `0` | `0` (enforcement on), `1` (enforcement off) |
 | `CLAUDE_PROJECT_DIR` | Override project directory | `$PWD` | Any valid path |
+| `CHECK_RUFF` | Skip Ruff validation | `1` | `1` (check), `0` (skip) |
+| `CHECK_PYRIGHT` | Skip Pyright validation | `1` | `1` (check), `0` (skip) |
 
 ---
 
-## DEBUG_DELEGATION_HOOK
+## Tasks API Configuration
+
+The system uses Claude Code's native Tasks API for progress tracking. This section documents configuration variables for this integration.
+
+### CLAUDE_CODE_ENABLE_TASKS
+
+**Purpose:** Enable or disable Tasks API integration. When enabled (default), the system uses TaskCreate, TaskUpdate, TaskList, and TaskGet for structured task management. When disabled, reverts to legacy TodoWrite behavior.
+
+**Values:**
+- `true` (default): Tasks API enabled
+- `false`: Tasks API disabled, use TodoWrite instead
+
+**Usage:**
+
+```bash
+# Disable Tasks API and revert to TodoWrite
+export CLAUDE_CODE_ENABLE_TASKS=false
+
+# Run workflow (will use TodoWrite)
+/delegate "Create calculator.py"
+
+# Re-enable Tasks API
+export CLAUDE_CODE_ENABLE_TASKS=true
+```
+
+**Task Storage:**
+- Tasks are stored in `~/.claude/tasks/`
+- Access via UI toggle: `Ctrl+T` in Claude Code
+
+**When to Use:**
+- Default (enabled): Recommended for all users. Provides structured metadata and better integration.
+- Disabled: Only if you need legacy TodoWrite behavior or encounter Tasks API issues.
+
+### CLAUDE_CODE_TASK_LIST_ID
+
+**Purpose:** Share a task list across multiple Claude Code sessions. By default, each session has its own isolated task list.
+
+**Values:**
+- Default: Per-session (unique ID generated per session)
+- Custom: Any task list ID string
+
+**Usage:**
+
+```bash
+# Share task list across sessions
+export CLAUDE_CODE_TASK_LIST_ID=shared_workflow
+
+# Session 1
+claude "Create part A"
+
+# Session 2 (in new terminal)
+export CLAUDE_CODE_TASK_LIST_ID=shared_workflow
+claude "Create part B"
+
+# Both sessions update the same task list
+```
+
+**When to Use:**
+- **Multi-session workflows** - Coordinating work across multiple Claude Code sessions
+- **Team collaboration** - Multiple team members working on the same workflow
+- **Continuous workflows** - Long-running workflows split across sessions
+- **Default (unset)** - Recommended for isolated, single-session workflows
+
+### CLAUDE_CODE_DISABLE_BACKGROUND_TASKS
+
+**Purpose:** Disable async background task features (reminders, cleanup operations). Background tasks run asynchronously via async hooks to avoid blocking the main workflow.
+
+**Values:**
+- Default: Not set (async hooks enabled)
+- Disabled: Set to `1` or any truthy value
+
+**Usage:**
+
+```bash
+# Disable background task features
+export CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1
+
+# Run workflow (no background reminders or cleanup)
+/delegate "Long-running task"
+
+# Re-enable background tasks
+unset CLAUDE_CODE_DISABLE_BACKGROUND_TASKS
+```
+
+**Async Hooks Affected:**
+- `remind_todo_after_task.py` - Async reminder after task execution
+- `remind_todo_update.py` - Async reminder when updating tasks
+- `python_stop_hook.py` - Async cleanup on session stop
+
+**When to Use:**
+- **Default (enabled)** - Recommended for normal workflows
+- **Disabled** - Testing, performance-sensitive environments, or when background operations interfere
+
+---
+
+## Debug & Control Variables
+
+### DEBUG_DELEGATION_HOOK
 
 ### Purpose
 
@@ -371,24 +489,47 @@ tail /tmp/delegation_hook_debug.log
 
 ### Variable Summary
 
+**Tasks API Configuration:**
+
+| Variable | Default | Enable | Disable |
+|----------|---------|--------|---------|
+| `CLAUDE_CODE_ENABLE_TASKS` | `true` | `export CLAUDE_CODE_ENABLE_TASKS=true` | `export CLAUDE_CODE_ENABLE_TASKS=false` |
+| `CLAUDE_CODE_TASK_LIST_ID` | Per-session | `export CLAUDE_CODE_TASK_LIST_ID=id` | `unset CLAUDE_CODE_TASK_LIST_ID` |
+| `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS` | Not set | `export CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` | `unset CLAUDE_CODE_DISABLE_BACKGROUND_TASKS` |
+
+**Debug & Control:**
+
 | Variable | Default | Enable | Disable |
 |----------|---------|--------|---------|
 | `DEBUG_DELEGATION_HOOK` | `0` | `export DEBUG_DELEGATION_HOOK=1` | `unset DEBUG_DELEGATION_HOOK` |
 | `DELEGATION_HOOK_DISABLE` | `0` | `export DELEGATION_HOOK_DISABLE=1` | `unset DELEGATION_HOOK_DISABLE` |
 | `CLAUDE_PROJECT_DIR` | `$PWD` | `export CLAUDE_PROJECT_DIR=/path` | `unset CLAUDE_PROJECT_DIR` |
+| `CHECK_RUFF` | `1` | `export CHECK_RUFF=1` | `export CHECK_RUFF=0` |
+| `CHECK_PYRIGHT` | `1` | `export CHECK_PYRIGHT=1` | `export CHECK_PYRIGHT=0` |
 
 ### Common Commands
 
 ```bash
 # Check current values
+echo "TASKS_ENABLED: $CLAUDE_CODE_ENABLE_TASKS"
+echo "TASK_LIST_ID: $CLAUDE_CODE_TASK_LIST_ID"
+echo "BACKGROUND_DISABLED: $CLAUDE_CODE_DISABLE_BACKGROUND_TASKS"
 echo "DEBUG: $DEBUG_DELEGATION_HOOK"
 echo "DISABLE: $DELEGATION_HOOK_DISABLE"
 echo "PROJECT_DIR: $CLAUDE_PROJECT_DIR"
 
 # Reset all to defaults
+unset CLAUDE_CODE_ENABLE_TASKS
+unset CLAUDE_CODE_TASK_LIST_ID
+unset CLAUDE_CODE_DISABLE_BACKGROUND_TASKS
 unset DEBUG_DELEGATION_HOOK
 unset DELEGATION_HOOK_DISABLE
 unset CLAUDE_PROJECT_DIR
+
+# Tasks API specific
+export CLAUDE_CODE_ENABLE_TASKS=true       # Enable Tasks API
+export CLAUDE_CODE_TASK_LIST_ID=shared     # Share task list
+export CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1  # Disable async hooks
 
 # Debug mode
 export DEBUG_DELEGATION_HOOK=1 && tail -f /tmp/delegation_hook_debug.log
@@ -398,6 +539,9 @@ export DELEGATION_HOOK_DISABLE=1
 
 # Verify state location
 ls -la ${CLAUDE_PROJECT_DIR:-.}/.claude/state/
+
+# View task storage
+ls -la ~/.claude/tasks/
 ```
 
 ### Troubleshooting Matrix

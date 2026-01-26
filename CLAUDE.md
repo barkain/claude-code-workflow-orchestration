@@ -116,10 +116,16 @@ The `task-planner` skill performs all planning responsibilities:
 
 **Hook System** (3 active hooks enforce delegation policy):
 - **PreToolUse** - Blocks non-allowed tools, enforces allowlist (Read, Glob, Grep blocked)
-- **PostToolUse** - Validates Python code (Ruff, Pyright)
+- **PostToolUse** - Validates Python code (Ruff, Pyright); async hooks for background tasks
 - **UserPromptSubmit** - Clears delegation state per user message
 
 **Allowlist:** `AskUserQuestion`, `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet`, `SlashCommand`, `Task`
+
+**Tasks API (Replaces TodoWrite):**
+- `TaskCreate` - Create tasks with structured metadata (wave, phase_id, agent, parallel)
+- `TaskUpdate` - Update task status, add dependencies via `addBlockedBy`/`addBlocks`
+- `TaskList` - Query task lists
+- `TaskGet` - Retrieve specific task details
 
 **Specialized Agents (8 active):**
 - **Analysis & Review:** codebase-context-analyzer, code-reviewer
@@ -181,7 +187,26 @@ The `task-planner` skill uses keyword matching to intelligently assign agents to
 
 ---
 
-## Debug Commands
+## Environment Variables
+
+**Tasks API Configuration:**
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `CLAUDE_CODE_ENABLE_TASKS` | `true` | Set `false` to revert to TodoWrite |
+| `CLAUDE_CODE_TASK_LIST_ID` | Per-session | Share task list across sessions |
+| `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS` | Not set | Disable background task features (async hooks) |
+
+**Debug & Control:**
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `DEBUG_DELEGATION_HOOK` | `0` | Enable hook debug logging (`1` to enable) |
+| `DELEGATION_HOOK_DISABLE` | `0` | Emergency bypass (`1` to disable enforcement) |
+| `CHECK_RUFF` | `1` | Skip Ruff validation (`0` to disable) |
+| `CHECK_PYRIGHT` | `1` | Skip Pyright validation (`0` to disable) |
+
+**Debug Commands:**
 
 ```bash
 export DEBUG_DELEGATION_HOOK=1        # Enable hook debug logging

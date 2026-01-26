@@ -276,21 +276,26 @@ echo '{"version":"2.0","execution_mode":"sequential","active_delegations":[]}' >
 
 ### Hook Quick Reference
 
-| Hook | Trigger | Key Actions | Timeout |
-|------|---------|-------------|---------|
-| SessionStart | startup, resume, clear, compact | Inject workflow_orchestrator.md | 20s |
-| UserPromptSubmit | Before user message | Clear delegated_sessions.txt | 2s |
-| PreToolUse (*) | Before every tool | Validate task graph, check allowlist | 5s each |
-| PostToolUse (Write/Edit) | After Python file changes | Ruff + Pyright validation | default |
-| PostToolUse (Task) | After Task tool | Depth validation, wave update, DAG viz | 5-10s each |
-| SubagentStop | Subagent completes | Todo reminder, verification trigger | 2-5s each |
-| Stop | Session ends | Cleanup stale sessions | default |
+| Hook | Trigger | Key Actions | Async | Timeout |
+|------|---------|-------------|-------|---------|
+| SessionStart | startup, resume, clear, compact | Inject workflow_orchestrator.md | - | 20s |
+| UserPromptSubmit | Before user message | Clear delegated_sessions.txt | - | 2s |
+| PreToolUse (*) | Before every tool | Validate task graph, check allowlist | - | 5s each |
+| PostToolUse (Write/Edit) | After Python file changes | Ruff + Pyright validation | - | default |
+| PostToolUse (Task) | After Task tool | Depth validation, wave update, DAG viz | - | 5-10s each |
+| SubagentStop | Subagent completes | Task reminder, verification trigger | Yes* | 2-5s each |
+| Stop | Session ends | Cleanup stale sessions, background tasks | Yes* | default |
+
+**Async Hooks (controlled by CLAUDE_CODE_DISABLE_BACKGROUND_TASKS):**
+- `remind_todo_after_task.py` - Reminder after task execution (async)
+- `remind_todo_update.py` - Reminder on task updates (async)
+- `python_stop_hook.py` - Cleanup on session stop (async)
 
 ### Allowlist Reference
 
 **Always Allowed (no delegation required):**
 - `AskUserQuestion` - Read-only questions
-- `Tasks API` - Task tracking
+- `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet` - Native task tracking with structured metadata
 - `SlashCommand` - Triggers session registration
 - `Task`/`SubagentTask`/`AgentTask` - Delegation mechanism
 
@@ -300,6 +305,8 @@ echo '{"version":"2.0","execution_mode":"sequential","active_delegations":[]}' >
 - Bash
 - NotebookEdit
 - All other tools
+
+**Note:** Tasks API replaced TodoWrite. Task metadata includes: wave, phase_id, agent, and parallel flag for structured execution tracking.
 
 ---
 
@@ -460,6 +467,16 @@ score = file_count*2 + lines/50 + concerns*1.5 + ext_deps + (arch_decisions ? 3 
 ---
 
 ## Environment Variables Quick Reference
+
+**Tasks API Configuration:**
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `CLAUDE_CODE_ENABLE_TASKS` | `true` | Enable Tasks API (set `false` to revert to TodoWrite) |
+| `CLAUDE_CODE_TASK_LIST_ID` | Per-session | Share task list across sessions |
+| `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS` | Not set | Disable async background tasks (reminders, cleanup) |
+
+**Debug & Control:**
 
 | Variable | Default | Enable | Purpose |
 |----------|---------|--------|---------|

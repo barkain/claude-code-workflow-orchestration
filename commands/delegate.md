@@ -69,7 +69,9 @@ There is NO separate orchestrator step. Task-planner IS the orchestrator.
 **BINDING CONTRACT RULES - NO EXCEPTIONS:**
 
 - Execute waves in order (Wave 0 -> Wave 1 -> ...)
-- For parallel waves (`parallel_execution: true`): spawn ALL phase Tasks in SINGLE message
+- For parallel waves (`parallel_execution: true`): spawn in batches of **MAX 4 concurrent**
+  - If wave has >4 phases: spawn first 4, wait for completion, spawn next 4, repeat
+  - This prevents context exhaustion while preserving parallelism
 - For sequential waves: execute one phase at a time
 - NEVER simplify, reorder, skip, or modify the plan
 - Include phase ID in every Task invocation:

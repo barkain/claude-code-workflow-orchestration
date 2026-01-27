@@ -215,6 +215,8 @@ grep "sess_abc123" .claude/state/delegated_sessions.txt
 }
 ```
 
+**Concurrency Enforcement:** The `max_concurrent` field (default: 4) limits parallel agent spawns. Waves with >4 parallel phases are executed in batches to prevent context exhaustion.
+
 **Operations:**
 ```bash
 # View current state

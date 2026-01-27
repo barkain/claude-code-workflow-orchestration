@@ -565,7 +565,7 @@ When task-planner provides execution plan with JSON task graph:
 
 3. **EXACT WAVE EXECUTION:**
    - Execute Wave 0 before Wave 1, etc.
-   - For parallel waves: Spawn tasks in batches of **MAX 4 concurrent** (see Concurrency Limits below)
+   - For parallel waves: Spawn tasks in batches of **MAX_CONCURRENT** (default 8, see Concurrency Limits below)
    - Wait for batch to complete before spawning next batch within same wave
 
 4. **PHASE ID MARKERS MANDATORY:**
@@ -595,24 +595,26 @@ If you see wave order violation errors, you MUST wait for current wave to comple
 
 ### Maximum Concurrent Agents
 
-| Setting | Value | Purpose |
-| ------- | ----- | ------- |
-| MAX_CONCURRENT | 4 | Maximum agents running simultaneously |
+| Setting | Default | Env Variable | Purpose |
+| ------- | ------- | ------------ | ------- |
+| MAX_CONCURRENT | 8 | `CLAUDE_MAX_CONCURRENT` | Maximum agents running simultaneously |
+
+**Configuration:** Set `CLAUDE_MAX_CONCURRENT` environment variable to override default (e.g., `export CLAUDE_MAX_CONCURRENT=4` for constrained systems).
 
 ### Batch Execution for Parallel Waves
 
-When a wave has `parallel_execution: true` with more than 4 phases:
+When a wave has `parallel_execution: true` with more than MAX_CONCURRENT phases:
 
-1. **Batch 1:** Spawn first 4 phases in a single message
-2. **Wait:** Monitor for batch completion (all 4 agents finish)
-3. **Batch 2:** Spawn next 4 phases
+1. **Batch 1:** Spawn first N phases in a single message (N = MAX_CONCURRENT)
+2. **Wait:** Monitor for batch completion (all N agents finish)
+3. **Batch 2:** Spawn next N phases
 4. **Repeat:** Until all phases in wave are complete
 
-**Example - Wave 0 with 10 parallel phases:**
+**Example - Wave 0 with 20 parallel phases (MAX_CONCURRENT=8):**
 ```
-Batch 1: Spawn phases 1, 2, 3, 4 → Wait for completion
-Batch 2: Spawn phases 5, 6, 7, 8 → Wait for completion
-Batch 3: Spawn phases 9, 10 → Wait for completion
+Batch 1: Spawn phases 1-8 → Wait for completion
+Batch 2: Spawn phases 9-16 → Wait for completion
+Batch 3: Spawn phases 17-20 → Wait for completion
 Wave 0 complete → Proceed to Wave 1
 ```
 
@@ -620,16 +622,17 @@ Wave 0 complete → Proceed to Wave 1
 
 - **Context exhaustion:** 15+ concurrent agents rapidly consume context window
 - **Workflow failure:** Context limits force manual intervention (`/compact` or `/clear`)
-- **Batching preserves parallelism:** 4 agents still run in parallel, just not unlimited
+- **Batching preserves parallelism:** Multiple agents still run in parallel, just not unlimited
 
 ### Implementation
 
-For waves with >4 phases and `parallel_execution: true`:
+For waves with >MAX_CONCURRENT phases and `parallel_execution: true`:
+- Check `CLAUDE_MAX_CONCURRENT` env var (default: 8)
 - Count phases in wave
-- Divide into batches of 4 (last batch may have fewer)
+- Divide into batches of MAX_CONCURRENT (last batch may have fewer)
 - Execute batches sequentially, phases within batch in parallel
 
-**PROHIBITED:** Spawning more than 4 Task tool invocations in a single message.
+**PROHIBITED:** Spawning more than MAX_CONCURRENT Task tool invocations in a single message.
 
 ---
 

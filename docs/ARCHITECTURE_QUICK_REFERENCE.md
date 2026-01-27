@@ -211,11 +211,11 @@ grep "sess_abc123" .claude/state/delegated_sessions.txt
       "agent": "agent-name"
     }
   ],
-  "max_concurrent": 4
+  "max_concurrent": 8
 }
 ```
 
-**Concurrency Enforcement:** The `max_concurrent` field (default: 4) limits parallel agent spawns. Waves with >4 parallel phases are executed in batches to prevent context exhaustion.
+**Concurrency Enforcement:** The `max_concurrent` field (default: 8, configurable via `CLAUDE_MAX_CONCURRENT` env var) limits parallel agent spawns. Waves with more parallel phases than this limit are executed in batches to prevent context exhaustion.
 
 **Operations:**
 ```bash

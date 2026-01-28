@@ -251,6 +251,7 @@ A subtask is atomic ONLY when:
 | --- | --- | --- |
 | Single operation | One discrete logical action? | ✓ |
 | File-scoped | Modifies ≤3 files? | ✓ |
+| Input-bounded | Reads ≤5 files or ≤10K lines total? | ✓ |
 | Single deliverable | One clear output? | ✓ |
 | No planning required | Implementation-ready? | ✓ |
 | Single responsibility | One concern only? | ✓ |
@@ -259,6 +260,14 @@ A subtask is atomic ONLY when:
 - Depth < tier minimum → **DECOMPOSE** (mandatory)
 - Depth >= tier minimum AND all criteria YES → **ATOMIC**
 - Any criterion NO → **DECOMPOSE** further
+
+**Input-Bounded Decomposition:**
+Tasks requiring large input must be split by scope:
+- "Review all API docs" → Split by module: "Review Auth API docs", "Review User API docs", etc.
+- "Analyze entire codebase" → Split by directory: "Analyze src/auth/", "Analyze src/api/", etc.
+- "Test all endpoints" → Split by feature: "Test auth endpoints", "Test user endpoints", etc.
+
+**REQUIRED:** Tasks consuming unbounded input MUST decompose into bounded subtasks.
 
 **Minimum Decomposition:**
 - Tasks mentioning multiple operations (add, subtract, etc.) → one subtask per operation
@@ -296,13 +305,16 @@ Return only when PASS or max reached.
 
 ## Wave Optimization Rules
 
-**Principle: More tasks, fewer waves. Parallel by default.**
+**Principle: More tasks, fewer waves. Parallel by default. Bounded input per task.**
 
 - No single-task implementation waves (combine or split into parallel subtasks)
 - Verification waves MAY be single-task (they verify multiple prior tasks)
 - One batched verification per implementation wave, not per task
+- Each parallel task must be input-bounded (≤5 files or ≤10K lines)
 
 **Target:** Minimize total waves. Group ALL independent tasks into same wave.
+
+**Context Budget:** Each subagent has its own context window. Large input tasks exhaust subagent context, causing failures. Split large-scope tasks into bounded subtasks.
 
 | Metric | Goal |
 | --- | --- |

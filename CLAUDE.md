@@ -203,6 +203,7 @@ The `task-planner` skill uses keyword matching to intelligently assign agents to
 |----------|---------|---------|
 | `DEBUG_DELEGATION_HOOK` | `0` | Enable hook debug logging (`1` to enable) |
 | `DELEGATION_HOOK_DISABLE` | `0` | Emergency bypass (`1` to disable enforcement) |
+| `CLAUDE_MAX_CONCURRENT` | `8` | Max parallel agents per batch |
 | `CHECK_RUFF` | `1` | Skip Ruff validation (`0` to disable) |
 | `CHECK_PYRIGHT` | `1` | Skip Pyright validation (`0` to disable) |
 

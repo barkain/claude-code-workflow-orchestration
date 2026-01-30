@@ -108,6 +108,20 @@ def cleanup_old_validations(validation_dir: Path) -> None:
     debug_log(f"Validation cleanup completed: deleted {deleted_count} files older than {VALIDATION_FILE_MAX_AGE_HOURS}h")
 
 
+def record_turn_start_timestamp(state_dir: Path) -> None:
+    """Record the timestamp when user prompt is submitted.
+
+    This is used by the stop hook to calculate turn duration.
+    """
+    timestamp_file = state_dir / "turn_start_timestamp.txt"
+    try:
+        state_dir.mkdir(parents=True, exist_ok=True)
+        timestamp_file.write_text(str(datetime.now().timestamp()), encoding="utf-8")
+        debug_log(f"Recorded turn start timestamp: {timestamp_file}")
+    except OSError as e:
+        debug_log(f"WARNING: Failed to record turn start timestamp: {e}")
+
+
 def main() -> int:
     """Main entry point."""
     state_dir = get_state_dir()
@@ -117,6 +131,10 @@ def main() -> int:
     validation_dir = state_dir / "validation"
     gate_log_file = validation_dir / "gate_invocations.log"
     delegation_disabled_file = state_dir / "delegation_disabled"
+
+    # Always record turn start timestamp (for duration tracking)
+    # This happens before any bypass checks so we always track timing
+    record_turn_start_timestamp(state_dir)
 
     # Emergency bypass
     if os.environ.get("DELEGATION_HOOK_DISABLE", "0") == "1":

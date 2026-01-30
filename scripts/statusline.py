@@ -13,16 +13,22 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
+import time
 from datetime import datetime
 from pathlib import Path
+
+# Cache configuration
+COST_CACHE_TTL_SECONDS = 60  # Cache costs for 60 seconds
+COST_CACHE_FILE = Path(tempfile.gettempdir()) / "statusline_cost_cache.json"
 
 # Force UTF-8 output on Windows (fixes emoji encoding errors)
 if sys.platform == "win32":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
-# Configuration
-DEBUG_LOG = Path("/tmp/statusline_debug.log") if os.name != "nt" else Path(os.environ.get("TEMP", ".")) / "statusline_debug.log"
+# Configuration - use system temp directory securely
+DEBUG_LOG = Path(tempfile.gettempdir()) / "statusline_debug.log"
 
 
 def debug_log(message: str) -> None:
@@ -86,15 +92,24 @@ def find_session_file(session_id: str, current_dir: str) -> Path | None:
         return direct_file
 
     # Method 2: Project-based lookup (with tilde replacement)
-    project_dir = current_dir.replace(str(home), "~").replace("/", "-").replace("\\", "-").lstrip("-")
-    project_file = home / ".claude" / "projects" / f"-{project_dir}" / f"{session_id}.jsonl"
+    project_dir = (
+        current_dir.replace(str(home), "~")
+        .replace("/", "-")
+        .replace("\\", "-")
+        .lstrip("-")
+    )
+    project_file = (
+        home / ".claude" / "projects" / f"-{project_dir}" / f"{session_id}.jsonl"
+    )
     if project_file.exists():
         debug_log(f"Found session file (project): {project_file}")
         return project_file
 
     # Method 3: Project-based lookup (without tilde)
     alt_project_dir = current_dir.replace("/", "-").replace("\\", "-").lstrip("-")
-    alt_project_file = home / ".claude" / "projects" / f"-{alt_project_dir}" / f"{session_id}.jsonl"
+    alt_project_file = (
+        home / ".claude" / "projects" / f"-{alt_project_dir}" / f"{session_id}.jsonl"
+    )
     if alt_project_file.exists():
         debug_log(f"Found session file (alt project): {alt_project_file}")
         return alt_project_file
@@ -113,7 +128,9 @@ def find_session_file(session_id: str, current_dir: str) -> Path | None:
 def calculate_context_usage(input_data: dict) -> str | None:
     """Calculate actual context usage from session file."""
     session_id = input_data.get("session_id", "")
-    current_dir = input_data.get("cwd") or input_data.get("workspace", {}).get("current_dir", "")
+    current_dir = input_data.get("cwd") or input_data.get("workspace", {}).get(
+        "current_dir", ""
+    )
 
     debug_log(f"Session ID: {session_id}, Current Dir: {current_dir}")
 
@@ -121,7 +138,9 @@ def calculate_context_usage(input_data: dict) -> str | None:
         return None
 
     # Determine max context based on model
-    model_name = input_data.get("model", {}).get("display_name") or input_data.get("model", {}).get("id", "")
+    model_name = input_data.get("model", {}).get("display_name") or input_data.get(
+        "model", {}
+    ).get("id", "")
     max_context = 200000  # Default
 
     if "1M" in model_name or "1M token" in model_name:
@@ -156,12 +175,14 @@ def calculate_context_usage(input_data: dict) -> str | None:
                 entry = json.loads(line)
                 usage = entry.get("message", {}).get("usage", {})
                 if usage:
-                    token_entries.append({
-                        "input": usage.get("input_tokens", 0),
-                        "cache_read": usage.get("cache_read_input_tokens", 0),
-                        "cache_create": usage.get("cache_creation_input_tokens", 0),
-                        "output": usage.get("output_tokens", 0),
-                    })
+                    token_entries.append(
+                        {
+                            "input": usage.get("input_tokens", 0),
+                            "cache_read": usage.get("cache_read_input_tokens", 0),
+                            "cache_create": usage.get("cache_creation_input_tokens", 0),
+                            "output": usage.get("output_tokens", 0),
+                        }
+                    )
             except json.JSONDecodeError:
                 continue
 
@@ -169,9 +190,15 @@ def calculate_context_usage(input_data: dict) -> str | None:
 
         if token_entries:
             last_entry = token_entries[-1]
-            total_input = last_entry["input"] + last_entry["cache_read"] + last_entry["cache_create"]
+            total_input = (
+                last_entry["input"]
+                + last_entry["cache_read"]
+                + last_entry["cache_create"]
+            )
 
-            debug_log(f"Last entry tokens - Input: {last_entry['input']}, Cache Read: {last_entry['cache_read']}, Cache Create: {last_entry['cache_create']}, Total: {total_input}")
+            debug_log(
+                f"Last entry tokens - Input: {last_entry['input']}, Cache Read: {last_entry['cache_read']}, Cache Create: {last_entry['cache_create']}, Total: {total_input}"
+            )
 
             if total_input > 0:
                 usage_rate = total_input * 100 / max_context
@@ -203,7 +230,7 @@ def shorten_cwd(full_path: str) -> str:
 
     # Home-relative path
     if full_path.startswith(home):
-        rel_path = full_path[len(home):].lstrip("/\\")
+        rel_path = full_path[len(home) :].lstrip("/\\")
         components = [c for c in rel_path.replace("\\", "/").split("/") if c]
         if len(components) > 3:
             return f"~/{components[0]}/.../{components[-1]}"
@@ -217,7 +244,7 @@ def get_git_branch() -> str:
     """Get the current git branch."""
     try:
         result = subprocess.run(
-            ["git", "branch", "--show-current"],
+            ["git", "branch", "--show-current"],  # noqa: S607, S603
             capture_output=True,
             text=True,
             timeout=5,
@@ -232,14 +259,71 @@ def get_git_branch() -> str:
     return "🌿 no-git"
 
 
-def get_daily_cost() -> str:
-    """Get today's cost from ccusage."""
+def load_cost_cache() -> dict:
+    """Load cost cache from file.
+
+    Returns:
+        Cache dictionary with 'daily_cost', 'session_cost', 'timestamp', 'cwd' keys,
+        or empty dict if cache doesn't exist or is invalid.
+    """
+    try:
+        if COST_CACHE_FILE.exists():
+            return json.loads(COST_CACHE_FILE.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        pass
+    return {}
+
+
+def save_cost_cache(daily_cost: str, session_cost: str, cwd: str) -> None:
+    """Save cost values to cache file.
+
+    Args:
+        daily_cost: Formatted daily cost string.
+        session_cost: Formatted session cost string.
+        cwd: Current working directory (for cache invalidation).
+    """
+    cache = {
+        "daily_cost": daily_cost,
+        "session_cost": session_cost,
+        "timestamp": time.time(),
+        "cwd": cwd,
+    }
+    try:
+        COST_CACHE_FILE.write_text(json.dumps(cache), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def is_cache_valid(cache: dict, cwd: str) -> bool:
+    """Check if cache is still valid.
+
+    Args:
+        cache: Cache dictionary from load_cost_cache().
+        cwd: Current working directory to check against cached cwd.
+
+    Returns:
+        True if cache is fresh and for the same directory, False otherwise.
+    """
+    if not cache:
+        return False
+    cache_time = cache.get("timestamp", 0)
+    cache_cwd = cache.get("cwd", "")
+    age = time.time() - cache_time
+    return age < COST_CACHE_TTL_SECONDS and cache_cwd == cwd
+
+
+def fetch_daily_cost_raw() -> str:
+    """Fetch daily cost from ccusage (slow, uncached).
+
+    Returns:
+        Formatted cost string like "$X.XX".
+    """
     today = datetime.now().strftime("%Y%m%d")
 
     # Try bunx (bun) first, then npx
     for cmd in [["bunx", "ccusage@latest"], ["npx", "ccusage@latest"]]:
         try:
-            result = subprocess.run(
+            result = subprocess.run(  # noqa: S603, S607
                 [*cmd, "daily", "--json", "--since", today],
                 capture_output=True,
                 text=True,
@@ -248,11 +332,222 @@ def get_daily_cost() -> str:
             if result.returncode == 0 and result.stdout.strip():
                 data = json.loads(result.stdout)
                 cost = data.get("totals", {}).get("totalCost", 0)
-                return f"${cost:.2f} today"
-        except (subprocess.TimeoutExpired, FileNotFoundError, json.JSONDecodeError, OSError):
+                return f"${cost:.2f}"
+        except (
+            subprocess.TimeoutExpired,
+            FileNotFoundError,
+            json.JSONDecodeError,
+            OSError,
+        ):
             continue
 
-    return "$0.00 today"
+    return "$0.00"
+
+
+def fetch_session_cost_raw(cwd: str) -> str:
+    """Fetch session cost from ccusage (slow, uncached).
+
+    Args:
+        cwd: Current working directory, used to identify the project.
+
+    Returns:
+        Formatted cost string like "$X.XX".
+    """
+    if not cwd:
+        return "$0.00"
+
+    today = datetime.now().strftime("%Y%m%d")
+
+    # Convert cwd to project name format (replace / with -)
+    project_name = cwd.replace("/", "-").replace("\\", "-")
+
+    # Try bunx (bun) first, then npx
+    for cmd in [["bunx", "ccusage@latest"], ["npx", "ccusage@latest"]]:
+        try:
+            result = subprocess.run(  # noqa: S603, S607
+                [*cmd, "daily", "--json", "--since", today, "-i"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                data = json.loads(result.stdout)
+                projects = data.get("projects", {})
+
+                # Look up cost for this project
+                if project_name in projects:
+                    project_data = projects[project_name]
+                    if project_data and len(project_data) > 0:
+                        # Sum costs for all entries today (usually just one)
+                        total_cost = sum(
+                            entry.get("totalCost", 0) for entry in project_data
+                        )
+                        return f"${total_cost:.2f}"
+
+                return "$0.00"
+        except (
+            subprocess.TimeoutExpired,
+            FileNotFoundError,
+            json.JSONDecodeError,
+            OSError,
+        ):
+            continue
+
+    return "$0.00"
+
+
+def get_costs_cached(cwd: str) -> tuple[str, str]:
+    """Get daily and session costs with caching.
+
+    Uses a file-based cache to avoid slow ccusage calls on every statusline refresh.
+    Cache TTL is 60 seconds.
+
+    Args:
+        cwd: Current working directory for session cost lookup.
+
+    Returns:
+        Tuple of (daily_cost, session_cost) formatted strings like "$X.XX".
+    """
+    cache = load_cost_cache()
+
+    if is_cache_valid(cache, cwd):
+        debug_log(
+            f"Using cached costs (age: {time.time() - cache.get('timestamp', 0):.1f}s)"
+        )
+        return cache.get("daily_cost", "$0.00"), cache.get("session_cost", "$0.00")
+
+    # Cache is stale or missing, fetch fresh values
+    debug_log("Cache miss, fetching fresh costs...")
+    daily_cost = fetch_daily_cost_raw()
+    session_cost = fetch_session_cost_raw(cwd)
+
+    # Save to cache
+    save_cost_cache(daily_cost, session_cost, cwd)
+    debug_log(f"Cached new costs: daily={daily_cost}, session={session_cost}")
+
+    return daily_cost, session_cost
+
+
+def get_claude_version() -> str:
+    """Get the Claude Code version."""
+    try:
+        result = subprocess.run(  # noqa: S603
+            ["claude", "--version"],  # noqa: S607
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            # Output is like "2.1.25 (Claude Code)"
+            version = result.stdout.strip()
+            # Extract just the version number (e.g., "2.1.25")
+            version_num = version.split()[0] if version else "unknown"
+            return f"v{version_num}"
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        pass
+    return "v?"
+
+
+def generate_sparkline(durations: list[float]) -> str:
+    """Generate a sparkline visualization from duration values.
+
+    Maps each duration to a block character based on its relative position
+    between the min and max values in the array.
+
+    Args:
+        durations: List of duration values in seconds.
+
+    Returns:
+        Sparkline string using block characters (e.g., "▁▃▅▂█").
+    """
+    if not durations:
+        return ""
+
+    # Sparkline characters from lowest to highest
+    spark_chars = "▁▂▃▄▅▆▇█"
+    max_index = len(spark_chars) - 1
+
+    min_val = min(durations)
+    max_val = max(durations)
+    value_range = max_val - min_val
+
+    sparkline = ""
+    for duration in durations:
+        if value_range == 0:
+            # All values are equal - use middle height
+            index = max_index // 2
+        else:
+            # Map value to 0-7 index based on position in range
+            normalized = (duration - min_val) / value_range
+            index = int(normalized * max_index)
+            # Clamp to valid range
+            index = max(0, min(max_index, index))
+        sparkline += spark_chars[index]
+
+    return sparkline
+
+
+def get_duration_history() -> list[float]:
+    """Get the history of turn durations for sparkline visualization.
+
+    Reads from the JSON file maintained by the stop hook.
+
+    Returns:
+        List of duration values in seconds, or empty list if not available.
+    """
+    state_dir = (
+        Path(os.environ.get("CLAUDE_PROJECT_DIR", Path.cwd())) / ".claude" / "state"
+    )
+    history_file = state_dir / "turn_durations.json"
+
+    if not history_file.exists():
+        return []
+
+    try:
+        data = json.loads(history_file.read_text(encoding="utf-8"))
+        durations = data.get("durations", [])
+        # Validate and convert to floats
+        return [float(d) for d in durations if isinstance(d, int | float)]
+    except (json.JSONDecodeError, ValueError, OSError):
+        return []
+
+
+def get_turn_duration() -> str | None:
+    """Get the duration of the last completed turn with sparkline visualization.
+
+    Reads from the state file written by the stop hook which calculates
+    duration from UserPromptSubmit to Stop events. Also includes a sparkline
+    showing the trend of the last 10 turn durations.
+
+    Returns:
+        Formatted duration string like "▁▃▅▂█ 45s", or None if not available.
+    """
+    state_dir = (
+        Path(os.environ.get("CLAUDE_PROJECT_DIR", Path.cwd())) / ".claude" / "state"
+    )
+    duration_file = state_dir / "last_turn_duration.txt"
+
+    if not duration_file.exists():
+        return None
+
+    try:
+        duration_str = duration_file.read_text(encoding="utf-8").strip()
+        if duration_str:
+            # Get sparkline from duration history
+            durations = get_duration_history()
+            sparkline = generate_sparkline(durations)
+
+            if sparkline:
+                # Color the sparkline with coral/salmon (RGB true color)
+                # Fallback-safe: Windows Terminal supports RGB, older terminals ignore
+                CORAL = "\033[38;2;255;127;80m"
+                RESET = "\033[0m"
+                return f"{CORAL}{sparkline}{RESET} {duration_str}"
+            return duration_str
+    except OSError:
+        pass
+
+    return None
 
 
 def main() -> None:
@@ -265,11 +560,12 @@ def main() -> None:
         pass
 
     # Color codes
-    SHINY_AQUA = "\033[38;2;0;255;255m"
+    SHINY_AQUA = (
+        "\033[38;2;0;255;255m"  # Cyan/aqua - visible on both light and dark themes
+    )
     GREEN = "\033[92m"
     YELLOW = "\033[93m"
     BLUE = "\033[94m"
-    WHITE = "\033[97m"
     RESET = "\033[0m"
 
     # Read JSON input from stdin if available
@@ -279,7 +575,8 @@ def main() -> None:
             input_data = json.loads(sys.stdin.read())
             # Save for debugging
             try:
-                with open(Path("/tmp" if os.name != "nt" else os.environ.get("TEMP", ".")) / "statusline_input.json", "w") as f:
+                debug_input_path = Path(tempfile.gettempdir()) / "statusline_input.json"
+                with open(debug_input_path, "w") as f:
                     json.dump(input_data, f, indent=2)
             except OSError:
                 pass
@@ -293,8 +590,14 @@ def main() -> None:
 
     debug_log(f"Model: {raw_model}, Style: {output_style}")
 
-    # Get daily cost
-    daily_cost = get_daily_cost()
+    # Get current working directory for project-based cost tracking
+    full_cwd = os.getcwd()
+
+    # Get daily and session costs (with caching for fast statusline refresh)
+    daily_cost, session_cost = get_costs_cached(full_cwd)
+
+    # Get Claude version
+    claude_version = get_claude_version()
 
     # Get context info
     context_info = calculate_context_usage(input_data)
@@ -312,9 +615,29 @@ def main() -> None:
     # Get shortened CWD
     cwd = shorten_cwd(os.getcwd())
 
-    # Output statusline
-    print(f"{SHINY_AQUA}🤖 {raw_model}{RESET} | {BLUE}🎨 {output_style}{RESET} | {GREEN}💰 {daily_cost}{RESET} | {context_info}")
-    print(f"{YELLOW}{git_status}{RESET} | {WHITE}📁 {cwd}{RESET}")
+    # Get turn duration if available
+    turn_duration = get_turn_duration()
+
+    # Format costs: extract numbers and combine as "💰 $Y.YY (🎯 $X.XX)"
+    # where daily_cost is first (larger), session_cost in parentheses
+    # session_cost format: "$X.XX"
+    # daily_cost format: "$Y.YY"
+    daily_amount = daily_cost
+    session_amount = session_cost
+    cost_display = f"{GREEN}💰 {daily_amount} (🎯 {session_amount}){RESET}"
+
+    # Output statusline (print is required for statusline output)
+    # Row 1: Claude version first, then model, style, costs, context
+    sys.stdout.write(
+        f"{BLUE}{claude_version}{RESET} | {SHINY_AQUA}🤖 {raw_model}{RESET} | {BLUE}🎨 {output_style}{RESET} | {cost_display} | {context_info}\n"
+    )
+    # Row 2: Turn duration, git branch, CWD (cyan for visibility on both light/dark themes)
+    cwd_display = f"{SHINY_AQUA}📁 {cwd}{RESET}"
+    if turn_duration:
+        turn_display = f"{YELLOW}⏱️ {turn_duration}{RESET} | "
+        sys.stdout.write(f"{turn_display}{YELLOW}{git_status}{RESET} | {cwd_display}\n")
+    else:
+        sys.stdout.write(f"{YELLOW}{git_status}{RESET} | {cwd_display}\n")
 
 
 if __name__ == "__main__":

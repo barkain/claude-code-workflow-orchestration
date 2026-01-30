@@ -25,14 +25,18 @@ Is the task blocked by PreToolUse hook?
 ├── YES → Use /delegate immediately
 │         Do NOT try alternative tools
 │
-└── NO → Is task multi-step?
-         ├── YES → Consider workflow orchestration
-         │         (append workflow_orchestrator.md)
+└── NO → 3-Step Routing Check:
          │
-         └── NO → Is task read-only question?
-                  ├── YES → Use /ask
-                  │
-                  └── NO → Use /delegate for execution
+         Step 1: Does task require Write/Edit?
+         ├── NO → Use breadth-reader skill (read-only)
+         │
+         └── YES → Step 2: Is this a breadth task (many files)?
+                   ├── YES → Use breadth-reader skill
+                   │
+                   └── NO → Step 3: Is task simple?
+                            ├── YES → DIRECT EXECUTION (bypass task-planner)
+                            │
+                            └── NO → Use /delegate for complex tasks
 ```
 
 ### Which Agent Will Handle My Task?
@@ -125,7 +129,7 @@ ALL criteria met?
 
 | Agent | Read | Write | Edit | Bash | Task | Glob | Grep |
 |-------|:----:|:-----:|:----:|:----:|:----:|:----:|:----:|
-| delegation-orchestrator | - | - | - | - | - | - | - |
+| breadth-reader (skill) | Y | - | - | - | - | Y | Y |
 | codebase-context-analyzer | Y | - | - | Y | - | Y | Y |
 | tech-lead-architect | Y | Y | Y | Y | - | Y | Y |
 | task-completion-verifier | Y | - | - | Y | - | Y | Y |
@@ -217,6 +221,8 @@ grep "sess_abc123" .claude/state/delegated_sessions.txt
 
 **Concurrency Enforcement:** The `max_concurrent` field (default: 8, configurable via `CLAUDE_MAX_CONCURRENT` env var) limits parallel agent spawns. Waves with more parallel phases than this limit are executed in batches to prevent context exhaustion.
 
+**Simplified State:** The `delegation_active` flag (boolean) replaces complex session registration for subagent detection.
+
 **Operations:**
 ```bash
 # View current state
@@ -300,6 +306,7 @@ echo '{"version":"2.0","execution_mode":"sequential","active_delegations":[]}' >
 - `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet` - Native task tracking with structured metadata
 - `SlashCommand` - Triggers session registration
 - `Task`/`SubagentTask`/`AgentTask` - Delegation mechanism
+- `Skill` - Skill invocation
 
 **Blocked Until Delegated:**
 - Read, Write, Edit, MultiEdit
@@ -308,7 +315,20 @@ echo '{"version":"2.0","execution_mode":"sequential","active_delegations":[]}' >
 - NotebookEdit
 - All other tools
 
+**Write Tool Exceptions (Always Allowed):**
+- `/tmp/` - Temporary files
+- `/private/tmp/` - macOS private temp
+- `/var/folders/` - macOS user temp
+- `$CLAUDE_SCRATCHPAD_DIR` - Agent output scratchpad
+
+**Subagent Detection:** When `CLAUDE_PARENT_SESSION_ID` is set, hooks are skipped (subagent context).
+
 **Note:** Tasks API replaced TodoWrite. Task metadata includes: wave, phase_id, agent, and parallel flag for structured execution tracking.
+
+**PROHIBITED (Context Exhaustion):**
+- `TaskOutput` - Causes context window exhaustion
+- `TaskList` polling - Use completion notifications instead
+- Agents returning full results - Return `DONE|{path}` only
 
 ---
 
@@ -326,10 +346,11 @@ echo '{"version":"2.0","execution_mode":"sequential","active_delegations":[]}' >
 
 ### Delegation Failing
 
-- [ ] Is delegation-orchestrator agent file present? Check `~/.claude/agents/delegation-orchestrator.md`
-- [ ] Are other agent files present? Check `ls ~/.claude/agents/`
+- [ ] Is task-planner skill present? Check `~/.claude/skills/task-planner/`
+- [ ] Are agent files present? Check `ls ~/.claude/agents/`
 - [ ] Is settings.json configured? Check `cat ~/.claude/settings.json | jq '.hooks'`
-- [ ] Reinstall if needed: `cp -r agents hooks ~/.claude/`
+- [ ] Reinstall if needed: `cp -r agents hooks skills ~/.claude/`
+- [ ] Check routing: Simple tasks use DIRECT EXECUTION (bypass task-planner)
 
 ### Multi-Step Not Detected
 
@@ -485,6 +506,10 @@ score = file_count*2 + lines/50 + concerns*1.5 + ext_deps + (arch_decisions ? 3 
 | `DEBUG_DELEGATION_HOOK` | 0 | `=1` | Hook debug logging |
 | `DELEGATION_HOOK_DISABLE` | 0 | `=1` | Emergency bypass |
 | `CLAUDE_PROJECT_DIR` | `$PWD` | `=/path` | State file location |
+| `CLAUDE_SCRATCHPAD_DIR` | - | `=/path` | Agent output scratchpad directory |
+| `CLAUDE_MAX_CONCURRENT` | 8 | `=N` | Max parallel agents per batch |
+| `CLAUDE_PARENT_SESSION_ID` | - | Auto | Subagent detection (hooks skip when set) |
+| `CLAUDE_TOOL_INPUT` | - | Auto | Tool arguments JSON (preferred over CLAUDE_TOOL_ARGUMENTS) |
 | `CHECK_RUFF` | 1 | `=0` | Skip Ruff validation |
 | `CHECK_PYRIGHT` | 1 | `=0` | Skip Pyright validation |
 

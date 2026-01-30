@@ -222,8 +222,10 @@ CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1     # Disable async background tasks
 ```bash
 DEBUG_DELEGATION_HOOK=1                    # Enable hook debug logging
 DELEGATION_HOOK_DISABLE=1                  # Emergency bypass (disable enforcement)
+CLAUDE_MAX_CONCURRENT=8                    # Max parallel agents per batch (default 8)
 CHECK_RUFF=0                               # Skip Ruff validation in PostToolUse
 CHECK_PYRIGHT=0                            # Skip Pyright validation in PostToolUse
+CLAUDE_SKIP_PYTHON_VALIDATION=1            # Skip all Python validation
 ```
 
 See [Environment Variables](./docs/environment-variables.md) for detailed configuration.
@@ -297,8 +299,10 @@ Blocks most tools and forces delegation to specialized agents. Cross-platform Py
 **Allowed tools:**
 - `AskUserQuestion` - Ask users for clarification
 - `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet` - Track task progress with structured metadata
-- `SlashCommand` - Execute slash commands (including `/delegate`)
-- `Task` - Spawn subagents
+- `Skill`, `SlashCommand` - Execute slash commands (including `/delegate`)
+- `Task`, `SubagentTask`, `AgentTask` - Spawn subagents
+
+**Note:** `TaskOutput` is prohibited to prevent context exhaustion. Agents write to `$CLAUDE_SCRATCHPAD_DIR` and return `DONE|{path}` only.
 
 **All other tools are blocked** and show:
 ```
@@ -321,7 +325,20 @@ Blocks most tools and forces delegation to specialized agents. Cross-platform Py
 
 **Note:** The `delegation-orchestrator` agent has been deprecated. Its orchestration and routing functionality is now provided by the unified `task-planner` skill, which handles both planning and execution orchestration in a single pass.
 
-### 3. Delegation Command (`commands/delegate.md`)
+### 3. Breadth Reader Skill (`skills/breadth-reader/`)
+
+For read-only breadth tasks (explore, review, summarize), the `breadth-reader` skill provides optimized handling:
+
+```bash
+/breadth-reader explore ~/dev/project/
+```
+
+- Runs in forked context (isolated from main agent)
+- Claude auto-optimizes parallelism internally
+- Returns summary only to main agent
+- No orchestration overhead
+
+### 4. Delegation Command (`commands/delegate.md`)
 
 The `/delegate` command provides intelligent task delegation with integrated planning:
 
@@ -338,7 +355,7 @@ The `/delegate` command provides intelligent task delegation with integrated pla
 6. Creates task list via TaskCreate
 7. Executes phases as directed by the plan
 
-### 4. Workflow Orchestration System Prompt (`system-prompts/workflow_orchestrator.md`)
+### 5. Workflow Orchestration System Prompt (`system-prompts/workflow_orchestrator.md`)
 
 Enables multi-step workflow detection and preparation for complex tasks. Works in conjunction with the `task-planner` skill.
 

@@ -27,13 +27,15 @@ The delegation system supports several environment variables for controlling beh
 - `CLAUDE_CODE_TASK_LIST_ID` - Share task list across sessions
 - `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS` - Control async background tasks
 
-**Debug & Control Variables (6 variables):**
+**Debug & Control Variables (8 variables):**
 - `DEBUG_DELEGATION_HOOK` - Enable debug logging
 - `DELEGATION_HOOK_DISABLE` - Emergency bypass
 - `CLAUDE_PROJECT_DIR` - Override project directory
 - `CLAUDE_MAX_CONCURRENT` - Maximum concurrent parallel agents
 - `CHECK_RUFF` - Skip Ruff validation
 - `CHECK_PYRIGHT` - Skip Pyright validation
+- `CLAUDE_SKIP_PYTHON_VALIDATION` - Skip all Python validation
+- `CLAUDE_PARENT_SESSION_ID` - Auto-set for subagents (skip hooks)
 
 **Complete Reference Table:**
 
@@ -48,6 +50,8 @@ The delegation system supports several environment variables for controlling beh
 | `CLAUDE_MAX_CONCURRENT` | Max parallel agents | `8` | Any positive integer |
 | `CHECK_RUFF` | Skip Ruff validation | `1` | `1` (check), `0` (skip) |
 | `CHECK_PYRIGHT` | Skip Pyright validation | `1` | `1` (check), `0` (skip) |
+| `CLAUDE_SKIP_PYTHON_VALIDATION` | Skip all Python validation | `0` | `0` (validate), `1` (skip) |
+| `CLAUDE_PARENT_SESSION_ID` | Auto-set for subagents | Not set | Auto-set by Claude Code |
 
 ---
 
@@ -479,6 +483,60 @@ Wave complete
 
 ---
 
+## CLAUDE_SKIP_PYTHON_VALIDATION
+
+### Purpose
+
+Skip all Python validation in the PostToolUse hook. This disables both Ruff linting and Pyright type checking.
+
+### Values
+
+- `0` (default): Python validation enabled
+- `1`: Python validation disabled
+
+### Usage
+
+```bash
+# Skip all Python validation
+export CLAUDE_SKIP_PYTHON_VALIDATION=1
+
+# Re-enable validation
+unset CLAUDE_SKIP_PYTHON_VALIDATION
+```
+
+### When to Use
+
+- **Performance-sensitive workflows** - When validation overhead is unacceptable
+- **Non-Python projects** - When working primarily with other languages
+- **Testing** - When validating the hook system itself
+
+---
+
+## CLAUDE_PARENT_SESSION_ID
+
+### Purpose
+
+Auto-set by Claude Code for subagents spawned via the Task tool. When present, the PreToolUse hook skips all tool blocking for that session.
+
+### Values
+
+- Not set (default): Main agent session, hooks apply normally
+- Set (auto): Subagent session, hooks are bypassed
+
+### How It Works
+
+When Claude Code spawns a subagent via the Task tool, it automatically sets `CLAUDE_PARENT_SESSION_ID` in the subagent's environment. The PreToolUse hook checks for this variable first and exits immediately with success if present.
+
+This ensures subagents have full tool access without needing delegation, while the main agent remains constrained by the delegation policy.
+
+### Important Notes
+
+- **Do not set manually** - This is auto-managed by Claude Code
+- **Subagent-only** - Only applies to Task-spawned subagents
+- **Security** - Allows trusted subagents to bypass main agent restrictions
+
+---
+
 ## Configuration Examples
 
 ### Development Environment
@@ -594,6 +652,8 @@ tail /tmp/delegation_hook_debug.log
 | `CLAUDE_MAX_CONCURRENT` | `8` | `export CLAUDE_MAX_CONCURRENT=4` | `unset CLAUDE_MAX_CONCURRENT` |
 | `CHECK_RUFF` | `1` | `export CHECK_RUFF=1` | `export CHECK_RUFF=0` |
 | `CHECK_PYRIGHT` | `1` | `export CHECK_PYRIGHT=1` | `export CHECK_PYRIGHT=0` |
+| `CLAUDE_SKIP_PYTHON_VALIDATION` | `0` | N/A (manual override only) | `export CLAUDE_SKIP_PYTHON_VALIDATION=1` |
+| `CLAUDE_PARENT_SESSION_ID` | Not set | Auto-set by Claude Code | N/A (auto-managed) |
 
 ### Common Commands
 

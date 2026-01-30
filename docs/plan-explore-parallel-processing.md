@@ -1,6 +1,8 @@
-# Plan: Parallel Explore Agents for Large Data Processing
+# Parallel Explore Agents for Large Data Processing
 
-## Issue
+**Status:** Implemented via `breadth-reader` skill and 3-step routing in `workflow_orchestrator.md`.
+
+## Background
 
 When a user requests a large-scope read-only task (e.g., "review all files in this repo, summarize each file"), the current system either:
 
@@ -211,23 +213,24 @@ Example Task invocation for Explore:
 - "review the code and implement auth fixes"
 - "explore the codebase and create architecture doc"
 
-### Implementation Plan
+### Implementation (Completed)
 
-1. **Create `breadth-reader` skill** with `forked: true` property
-   - Receives read/explore/review prompt
-   - Runs in isolated context (no main agent pollution)
-   - Returns summary only
+1. **`breadth-reader` skill** (`skills/breadth-reader/SKILL.md`)
+   - `context: fork` property for isolated execution
+   - Receives read/explore/review prompts
+   - Returns summary only to main agent
 
-2. **Add routing logic to main agent**
-   - Detect single-verb breadth tasks
-   - Route to forked skill instead of planner
+2. **3-step routing in `workflow_orchestrator.md`**
+   - Step 1: Write detection (skip breadth-reader if write indicators found)
+   - Step 2: Breadth task detection (single verb + broad scope)
+   - Step 3: Route decision (breadth-reader, task-planner, or direct execution)
 
-3. **Update task-planner for hybrid tasks**
-   - Detect "read + action" patterns
-   - Assign Wave 0 to forked skill
-   - Continue with regular orchestration for action phases
+3. **Direct execution for breadth+write tasks**
+   - Spawns multiple general-purpose agents in a single message
+   - Each agent handles multiple items (not 1 item per agent)
+   - Writes to `$CLAUDE_SCRATCHPAD_DIR` for session isolation
 
-### Expected Outcome
+### Outcome
 
 | Metric | Before | After |
 |--------|--------|-------|

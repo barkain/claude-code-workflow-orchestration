@@ -258,7 +258,7 @@ StatusLine reads from two state files to determine current status.
       "agent": "tech-lead-architect"
     }
   ],
-  "max_concurrent": 4
+  "max_concurrent": 8
 }
 ```
 

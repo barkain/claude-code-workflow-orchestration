@@ -159,6 +159,10 @@ def validate_python_content(content: str, file_path: str) -> tuple[bool, list[st
 
 def main() -> int:
     """Main entry point."""
+    # Skip all Python validation if user opts out
+    if os.environ.get("CLAUDE_SKIP_PYTHON_VALIDATION", "0") == "1":
+        return 0
+
     # Read hook input from stdin
     try:
         json_input = sys.stdin.read()

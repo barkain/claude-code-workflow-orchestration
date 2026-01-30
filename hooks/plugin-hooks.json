@@ -98,11 +98,6 @@
             "type": "command",
             "command": "uv run --no-project --script \"${CLAUDE_PLUGIN_ROOT}/hooks/SubagentStop/trigger_verification.py\"",
             "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "uv run --no-project --script \"${CLAUDE_PLUGIN_ROOT}/hooks/UserPromptSubmit/clear-delegation-sessions.py\"",
-            "timeout": 2
           }
         ]
       }
@@ -113,8 +108,7 @@
           {
             "type": "command",
             "command": "uv run --no-project --script \"${CLAUDE_PLUGIN_ROOT}/hooks/stop/python_stop_hook.py\"",
-            "timeout": 10,
-            "async": true
+            "timeout": 10
           }
         ]
       }

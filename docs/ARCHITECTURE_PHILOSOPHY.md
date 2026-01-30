@@ -432,9 +432,11 @@ sess_def456
       "agent": "code-cleanup-optimizer"
     }
   ],
-  "max_concurrent": 4
+  "max_concurrent": 8
 }
 ```
+
+**Configuration:** Set `CLAUDE_MAX_CONCURRENT` environment variable to override default (e.g., `export CLAUDE_MAX_CONCURRENT=4`).
 
 **Status Values:** `active`, `completed`, `failed`
 

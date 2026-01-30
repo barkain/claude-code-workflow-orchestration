@@ -4,6 +4,28 @@ argument-hint: [task description]
 allowed-tools: Task
 ---
 
+# Routing Check (FIRST)
+
+**Step 1: Write Detection** - Check FIRST before breadth routing:
+
+| Write Indicators (case-insensitive) |
+|-------------------------------------|
+| create, write, save, generate, produce, output, report, build, make |
+
+**If ANY write indicator found:** Skip breadth-reader, proceed to task-planner below.
+
+**Step 2: Breadth Task Detection** - Only if NO write indicators:
+
+| Criteria | Breadth Keywords | Scope Keywords |
+|----------|------------------|----------------|
+| Single action verb + broad scope | review, explore, summarize, scan, list, catalog, search, find | all files, entire, each, codebase, repository, every |
+
+**If breadth task detected (and no write indicators):** Use `/breadth-reader $ARGUMENTS` instead - STOP HERE.
+
+**Otherwise:** Proceed with task-planner execution below.
+
+---
+
 # Task Execution
 
 **USER TASK:** $ARGUMENTS
@@ -46,55 +68,33 @@ Task-planner already performed all analysis and optimization. Your job is execut
 
 ---
 
-## Unified Planning Architecture
-
-**OLD approach (deprecated):**
-- task-planner (analysis) -> delegation-orchestrator (routing) -> execution
-
-**NEW unified approach (current):**
-- task-planner (analysis + decomposition + agent selection + wave scheduling + routing) -> execution
-
-Task-planner now handles everything in one unified pass:
-1. Analyzes task complexity and dependencies
-2. Assigns agents using keyword matching (>=2 match threshold)
-3. Schedules waves for optimal parallel execution
-4. Returns the execution plan directly
-
-There is NO separate orchestrator step. Task-planner IS the orchestrator.
-
----
-
 ## Step 3: Execute Plan
 
 **BINDING CONTRACT RULES - NO EXCEPTIONS:**
 
 - Execute waves in order (Wave 0 -> Wave 1 -> ...)
-- For parallel waves (`parallel_execution: true`): spawn ALL phase Tasks in SINGLE message
+- For parallel waves (`parallel_execution: true`): spawn in batches of **max_concurrent** (from execution plan)
+  - **Extract max_concurrent from execution plan JSON** (task-planner reads env var and embeds value)
+  - Look for `"max_concurrent": <value>` in the JSON or **Max Concurrent** field in plan header
+  - If wave has >max_concurrent phases: spawn first batch, wait for completion, spawn next batch, repeat
+  - This prevents context exhaustion while preserving parallelism
+  - **DO NOT use Bash** - the main agent cannot run Bash commands (blocked by delegation policy)
 - For sequential waves: execute one phase at a time
 - NEVER simplify, reorder, skip, or modify the plan
-- Include phase ID in every Task invocation:
-  ```
-  Phase ID: [phase_id]
-  Agent: [agent-name]
-  [Task description]
-  ```
 
-**Context Passing Between Phases:**
+**Agent Prompt Template:** See workflow_orchestrator.md "Agent Prompt Template" section.
 
-Capture and pass between phases:
-- File paths (absolute paths only)
-- Key decisions made
-- Configurations determined
-- Issues encountered
+**Key points:**
+- Extract `output_file` from task metadata (path format: `$CLAUDE_SCRATCHPAD_DIR/{sanitized_subject}.md`)
+- Agents write full output to file, return only `DONE|{path}` (nothing else)
+- Pass context (file paths, decisions) between phases
+- Output files use descriptive names (e.g., `review_auth_module.md`) for easier identification
+- The scratchpad directory is automatically session-isolated
 
-Prepend context to next phase prompt:
-```
-CONTEXT FROM PREVIOUS PHASE:
-- Created file: /absolute/path/to/file.ext
-- Key decisions: [summary]
----
-[Phase delegation prompt]
-```
+**CRITICAL - File Writing:**
+- Agents HAVE Write tool access for /tmp/ paths
+- Agents write directly to the output_file path - do NOT delegate file writing
+- If Write is blocked, report error and stop (do not loop)
 
 **Update task status after each phase:**
 - Use TaskUpdate to mark completed phases as `completed`

@@ -119,7 +119,7 @@ The `task-planner` skill performs all planning responsibilities:
 - **PostToolUse** - Validates Python code (Ruff, Pyright); async hooks for background tasks
 - **UserPromptSubmit** - Clears delegation state per user message
 
-**Allowlist:** `AskUserQuestion`, `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet`, `SlashCommand`, `Task`
+**Allowlist:** `AskUserQuestion`, `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet`, `TaskOutput`, `SlashCommand`, `Task`
 
 **Tasks API (Replaces TodoWrite):**
 - `TaskCreate` - Create tasks with structured metadata (wave, phase_id, agent, parallel)
@@ -203,6 +203,7 @@ The `task-planner` skill uses keyword matching to intelligently assign agents to
 |----------|---------|---------|
 | `DEBUG_DELEGATION_HOOK` | `0` | Enable hook debug logging (`1` to enable) |
 | `DELEGATION_HOOK_DISABLE` | `0` | Emergency bypass (`1` to disable enforcement) |
+| `CLAUDE_MAX_CONCURRENT` | `8` | Max parallel agents per batch |
 | `CHECK_RUFF` | `1` | Skip Ruff validation (`0` to disable) |
 | `CHECK_PYRIGHT` | `1` | Skip Pyright validation (`0` to disable) |
 

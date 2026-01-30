@@ -15,6 +15,7 @@ import logging
 import os
 import subprocess
 import sys
+import tempfile
 from datetime import datetime
 from pathlib import Path
 
@@ -27,7 +28,7 @@ if sys.platform == "win32":
 DEBUG = os.environ.get("DEBUG_DELEGATION_HOOK", "0") == "1"
 if DEBUG:
     logging.basicConfig(
-        filename="/tmp/delegation_hook_debug.log",
+        filename=str(Path(tempfile.gettempdir()) / "delegation_hook_debug.log"),
         level=logging.DEBUG,
         format="%(asctime)s - python_stop_hook - %(message)s",
     )
@@ -35,6 +36,117 @@ else:
     logging.basicConfig(level=logging.WARNING)
 
 logger = logging.getLogger(__name__)
+
+
+def format_duration(seconds: float) -> str:
+    """Format duration in seconds to a human-readable string.
+
+    Args:
+        seconds: Duration in seconds.
+
+    Returns:
+        Formatted string like "45s" or "1m 23s" or "2h 5m".
+    """
+    seconds = int(seconds)
+    if seconds < 60:
+        return f"{seconds}s"
+    elif seconds < 3600:
+        minutes = seconds // 60
+        remaining_seconds = seconds % 60
+        if remaining_seconds == 0:
+            return f"{minutes}m"
+        return f"{minutes}m {remaining_seconds}s"
+    else:
+        hours = seconds // 3600
+        remaining_minutes = (seconds % 3600) // 60
+        if remaining_minutes == 0:
+            return f"{hours}h"
+        return f"{hours}h {remaining_minutes}m"
+
+
+def append_duration_to_history(state_dir: Path, duration_seconds: float) -> None:
+    """Append duration to history file for sparkline visualization.
+
+    Maintains a JSON file with the last 10 turn durations for sparkline display.
+    Uses FIFO to keep only the most recent 10 entries.
+
+    Args:
+        state_dir: Path to .claude/state directory.
+        duration_seconds: Raw duration in seconds (float).
+    """
+    history_file = state_dir / "turn_durations.json"
+    max_entries = 10
+
+    try:
+        # Load existing history
+        durations: list[float] = []
+        if history_file.exists():
+            try:
+                data = json.loads(history_file.read_text(encoding="utf-8"))
+                durations = data.get("durations", [])
+                # Ensure it's a list of numbers
+                durations = [float(d) for d in durations if isinstance(d, int | float)]
+            except (json.JSONDecodeError, ValueError):
+                durations = []
+
+        # Append new duration and keep only last N entries (FIFO)
+        durations.append(duration_seconds)
+        durations = durations[-max_entries:]
+
+        # Write updated history
+        history_file.write_text(
+            json.dumps({"durations": durations}),
+            encoding="utf-8",
+        )
+        logger.debug(f"Updated duration history: {durations}")
+
+    except OSError as e:
+        logger.debug(f"Error updating duration history: {e}")
+
+
+def calculate_and_record_turn_duration() -> None:
+    """Calculate turn duration from start timestamp and record it.
+
+    Reads the start timestamp written by UserPromptSubmit hook,
+    calculates duration, and writes the formatted duration to a file
+    for the statusline to display. Also appends raw duration to history
+    for sparkline visualization.
+    """
+    state_dir = (
+        Path(os.environ.get("CLAUDE_PROJECT_DIR", Path.cwd())) / ".claude" / "state"
+    )
+    timestamp_file = state_dir / "turn_start_timestamp.txt"
+    duration_file = state_dir / "last_turn_duration.txt"
+
+    if not timestamp_file.exists():
+        logger.debug("No turn start timestamp file found")
+        return
+
+    try:
+        start_timestamp = float(timestamp_file.read_text(encoding="utf-8").strip())
+        end_timestamp = datetime.now().timestamp()
+        duration_seconds = end_timestamp - start_timestamp
+
+        if duration_seconds < 0:
+            logger.debug(f"Invalid duration: {duration_seconds}s (negative)")
+            return
+
+        formatted_duration = format_duration(duration_seconds)
+
+        # Write formatted duration for statusline to read
+        duration_file.write_text(formatted_duration, encoding="utf-8")
+        logger.debug(
+            f"Recorded turn duration: {formatted_duration} ({duration_seconds:.1f}s)"
+        )
+
+        # Append raw duration to history for sparkline visualization
+        append_duration_to_history(state_dir, duration_seconds)
+
+        # Clean up timestamp file
+        timestamp_file.unlink()
+
+    except (ValueError, OSError) as e:
+        logger.debug(f"Error calculating turn duration: {e}")
 
 
 def check_workflow_continuation() -> bool:
@@ -62,9 +174,9 @@ def check_workflow_continuation() -> bool:
         output = {
             "decision": "block",
             "reason": "continue",
-            "systemMessage": "⚡ Workflow continuation: Proceeding to STAGE 1 execution."
+            "systemMessage": "⚡ Workflow continuation: Proceeding to STAGE 1 execution.",
         }
-        print(json.dumps(output))
+        print(json.dumps(output))  # noqa: T201
         logger.debug("Output block decision with 'continue' reason")
         return True
 
@@ -81,7 +193,7 @@ def check_workflow_continuation() -> bool:
 def run_command(cmd: list[str], cwd: str | None = None) -> tuple[int, str, str]:
     """Run a command and return (returncode, stdout, stderr)."""
     try:
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: S603
             cmd,
             capture_output=True,
             text=True,
@@ -141,7 +253,10 @@ def run_security_check(files: list[str]) -> tuple[bool, list[str]]:
 
     issues = []
     patterns = [
-        (r"(password|secret|token|key|api_key)\s*=\s*['\"][^'\"]{8,}", "Potential hardcoded credentials"),
+        (
+            r"(password|secret|token|key|api_key)\s*=\s*['\"][^'\"]{8,}",
+            "Potential hardcoded credentials",
+        ),
         (r"cursor\.execute\(.*%.*\)", "Potential SQL injection"),
         (r"(os\.system|subprocess\.call).*\+.*", "Potential command injection"),
     ]
@@ -160,37 +275,40 @@ def run_security_check(files: list[str]) -> tuple[bool, list[str]]:
 
 def print_header(title: str) -> None:
     """Print a formatted header."""
-    print(f"\n{'━' * 50}")
-    print(f"  {title}")
-    print(f"{'━' * 50}\n")
+    print(f"\n{'━' * 50}")  # noqa: T201
+    print(f"  {title}")  # noqa: T201
+    print(f"{'━' * 50}\n")  # noqa: T201
 
 
 def main() -> int:
     """Main entry point."""
+    # Calculate and record turn duration for statusline
+    calculate_and_record_turn_duration()
+
     # Check if workflow continuation is needed first
     # If so, block stop and inject "continue" - skip quality analysis
     if check_workflow_continuation():
         return 0
 
     print_header("🚀 Claude Code Enhanced Quality Analysis")
-    print("Comprehensive quality checks on staged Python files...")
+    print("Comprehensive quality checks on staged Python files...")  # noqa: T201
 
     # Check if we're in a git repository
     if not is_git_repo():
-        print("⚠️  Not in a git repository - skipping checks")
+        print("⚠️  Not in a git repository - skipping checks")  # noqa: T201
         return 0
 
     # Get staged Python files
     staged_files = get_staged_python_files()
 
     if not staged_files:
-        print("ℹ️  No staged Python files to analyze")
+        print("ℹ️  No staged Python files to analyze")  # noqa: T201
         return 0
 
-    print(f"ℹ️  Found {len(staged_files)} staged Python file(s):")
+    print(f"ℹ️  Found {len(staged_files)} staged Python file(s):")  # noqa: T201
     for file in staged_files:
-        print(f"  • {file}")
-    print()
+        print(f"  • {file}")  # noqa: T201
+    print()  # noqa: T201
 
     # Track results
     results = {}
@@ -200,21 +318,21 @@ def main() -> int:
     passed, issues = run_validation_check(staged_files)
     results["validation"] = passed
     if passed:
-        print("✅ Code validation passed")
+        print("✅ Code validation passed")  # noqa: T201
     else:
-        print("⚠️  Validation issues found:")
+        print("⚠️  Validation issues found:")  # noqa: T201
         for issue in issues[:5]:
-            print(f"  {issue}")
+            print(f"  {issue}")  # noqa: T201
 
     print_header("🔒 Security Analysis")
     passed, issues = run_security_check(staged_files)
     results["security"] = passed
     if passed:
-        print("✅ No security issues detected")
+        print("✅ No security issues detected")  # noqa: T201
     else:
-        print("⚠️  Security issues found:")
+        print("⚠️  Security issues found:")  # noqa: T201
         for issue in issues[:5]:
-            print(f"  {issue}")
+            print(f"  {issue}")  # noqa: T201
 
     # Summary
     print_header("📋 Quality Report")
@@ -224,12 +342,15 @@ def main() -> int:
 
     for check, passed in results.items():
         status = "✅ PASSED" if passed else "⚠️  ISSUES"
-        print(f"  {check.title()}: {status}")
+        print(f"  {check.title()}: {status}")  # noqa: T201
 
-    print(f"\n  Quality Score: {score}% ({passed_count}/{total_count} checks passed)")
+    print(f"\n  Quality Score: {score}% ({passed_count}/{total_count} checks passed)")  # noqa: T201
 
     # Generate report file
-    report_file = Path(f"/tmp/claude_quality_report_{datetime.now():%Y%m%d_%H%M%S}.md")
+    report_file = (
+        Path(tempfile.gettempdir())
+        / f"claude_quality_report_{datetime.now():%Y%m%d_%H%M%S}.md"
+    )
     try:
         report_content = f"""# Claude Code Quality Report
 Date: {datetime.now():%Y-%m-%d %H:%M:%S}
@@ -243,7 +364,7 @@ Quality Score: {score}%
             report_content += f"- {check.title()}: {status}\n"
 
         report_file.write_text(report_content, encoding="utf-8")
-        print(f"\n  Full report saved to: {report_file}")
+        print(f"\n  Full report saved to: {report_file}")  # noqa: T201
     except OSError:
         pass
 

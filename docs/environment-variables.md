@@ -27,12 +27,15 @@ The delegation system supports several environment variables for controlling beh
 - `CLAUDE_CODE_TASK_LIST_ID` - Share task list across sessions
 - `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS` - Control async background tasks
 
-**Debug & Control Variables (5 variables):**
+**Debug & Control Variables (8 variables):**
 - `DEBUG_DELEGATION_HOOK` - Enable debug logging
 - `DELEGATION_HOOK_DISABLE` - Emergency bypass
 - `CLAUDE_PROJECT_DIR` - Override project directory
+- `CLAUDE_MAX_CONCURRENT` - Maximum concurrent parallel agents
 - `CHECK_RUFF` - Skip Ruff validation
 - `CHECK_PYRIGHT` - Skip Pyright validation
+- `CLAUDE_SKIP_PYTHON_VALIDATION` - Skip all Python validation
+- `CLAUDE_PARENT_SESSION_ID` - Auto-set for subagents (skip hooks)
 
 **Complete Reference Table:**
 
@@ -44,8 +47,11 @@ The delegation system supports several environment variables for controlling beh
 | `DEBUG_DELEGATION_HOOK` | Enable debug logging | `0` | `0` (off), `1` (on) |
 | `DELEGATION_HOOK_DISABLE` | Emergency bypass | `0` | `0` (enforcement on), `1` (enforcement off) |
 | `CLAUDE_PROJECT_DIR` | Override project directory | `$PWD` | Any valid path |
+| `CLAUDE_MAX_CONCURRENT` | Max parallel agents | `8` | Any positive integer |
 | `CHECK_RUFF` | Skip Ruff validation | `1` | `1` (check), `0` (skip) |
 | `CHECK_PYRIGHT` | Skip Pyright validation | `1` | `1` (check), `0` (skip) |
+| `CLAUDE_SKIP_PYTHON_VALIDATION` | Skip all Python validation | `0` | `0` (validate), `1` (skip) |
+| `CLAUDE_PARENT_SESSION_ID` | Auto-set for subagents | Not set | Auto-set by Claude Code |
 
 ---
 
@@ -392,6 +398,145 @@ Remember that state files are:
 
 ---
 
+## CLAUDE_MAX_CONCURRENT
+
+### Purpose
+
+Controls the maximum number of parallel agents that can run simultaneously during wave execution. When a wave has more phases than this limit, they are executed in batches.
+
+### Values
+
+- `8` (default): Up to 8 agents run in parallel per batch
+- Custom: Any positive integer (e.g., `4` for constrained systems, `12` for powerful machines)
+
+### Usage
+
+```bash
+# Reduce concurrency for constrained systems
+export CLAUDE_MAX_CONCURRENT=4
+
+# Run workflow - waves batch at 4 agents max
+/delegate "Review all documentation"
+
+# Increase concurrency for powerful machines
+export CLAUDE_MAX_CONCURRENT=12
+
+# Reset to default
+unset CLAUDE_MAX_CONCURRENT
+```
+
+### How It Works
+
+The `task-planner` skill reads the environment variable during the planning phase using:
+
+```bash
+echo ${CLAUDE_MAX_CONCURRENT:-8}
+```
+
+This Bash command returns the env var value or defaults to `8` if not set. The task-planner then embeds this value in the execution plan JSON.
+
+**Why task-planner reads it (not main agent):**
+- The main agent CANNOT use Bash (blocked by delegation policy)
+- Task-planner CAN use Bash (it has `Bash` in its allowed-tools)
+- Task-planner embeds `max_concurrent` directly in the execution plan JSON
+- Main agent extracts the value from the JSON, NOT by running Bash
+
+**Execution flow:**
+1. Task-planner reads `CLAUDE_MAX_CONCURRENT` via Bash at start of planning
+2. Task-planner includes `max_concurrent` in execution plan JSON output
+3. Main agent extracts `max_concurrent` from the execution plan
+4. If wave has ≤ max_concurrent phases: spawn all in single message
+5. If wave has > max_concurrent phases: batch execution
+   - Spawn first batch (up to max_concurrent)
+   - Wait for batch completion
+   - Spawn next batch
+   - Repeat until all phases complete
+
+**Example - Wave with 20 phases, max_concurrent=8:**
+```
+Batch 1: Phases 1-8 spawn → Wait for completion
+Batch 2: Phases 9-16 spawn → Wait for completion
+Batch 3: Phases 17-20 spawn → Wait for completion
+Wave complete
+```
+
+### When to Use
+
+| Scenario | Recommended Value |
+|----------|-------------------|
+| Default (most systems) | `8` (default) |
+| Memory-constrained systems | `4` |
+| High-performance machines | `12` |
+| Debugging/testing | `2` |
+| Maximum parallelism | `16` (use with caution) |
+
+### Why This Matters
+
+- **Context exhaustion:** Too many concurrent agents can exhaust subagent context windows
+- **System resources:** Each agent consumes memory and CPU
+- **Workflow reliability:** Batching prevents overwhelming the system
+
+### Related
+
+- See [Concurrency Limits](../system-prompts/workflow_orchestrator.md#concurrency-limits) for detailed execution rules
+- See [Wave Optimization Rules](../skills/task-planner/SKILL.md#wave-optimization-rules) for task planning guidance
+
+---
+
+## CLAUDE_SKIP_PYTHON_VALIDATION
+
+### Purpose
+
+Skip all Python validation in the PostToolUse hook. This disables both Ruff linting and Pyright type checking.
+
+### Values
+
+- `0` (default): Python validation enabled
+- `1`: Python validation disabled
+
+### Usage
+
+```bash
+# Skip all Python validation
+export CLAUDE_SKIP_PYTHON_VALIDATION=1
+
+# Re-enable validation
+unset CLAUDE_SKIP_PYTHON_VALIDATION
+```
+
+### When to Use
+
+- **Performance-sensitive workflows** - When validation overhead is unacceptable
+- **Non-Python projects** - When working primarily with other languages
+- **Testing** - When validating the hook system itself
+
+---
+
+## CLAUDE_PARENT_SESSION_ID
+
+### Purpose
+
+Auto-set by Claude Code for subagents spawned via the Task tool. When present, the PreToolUse hook skips all tool blocking for that session.
+
+### Values
+
+- Not set (default): Main agent session, hooks apply normally
+- Set (auto): Subagent session, hooks are bypassed
+
+### How It Works
+
+When Claude Code spawns a subagent via the Task tool, it automatically sets `CLAUDE_PARENT_SESSION_ID` in the subagent's environment. The PreToolUse hook checks for this variable first and exits immediately with success if present.
+
+This ensures subagents have full tool access without needing delegation, while the main agent remains constrained by the delegation policy.
+
+### Important Notes
+
+- **Do not set manually** - This is auto-managed by Claude Code
+- **Subagent-only** - Only applies to Task-spawned subagents
+- **Security** - Allows trusted subagents to bypass main agent restrictions
+
+---
+
 ## Configuration Examples
 
 ### Development Environment
@@ -504,8 +649,11 @@ tail /tmp/delegation_hook_debug.log
 | `DEBUG_DELEGATION_HOOK` | `0` | `export DEBUG_DELEGATION_HOOK=1` | `unset DEBUG_DELEGATION_HOOK` |
 | `DELEGATION_HOOK_DISABLE` | `0` | `export DELEGATION_HOOK_DISABLE=1` | `unset DELEGATION_HOOK_DISABLE` |
 | `CLAUDE_PROJECT_DIR` | `$PWD` | `export CLAUDE_PROJECT_DIR=/path` | `unset CLAUDE_PROJECT_DIR` |
+| `CLAUDE_MAX_CONCURRENT` | `8` | `export CLAUDE_MAX_CONCURRENT=4` | `unset CLAUDE_MAX_CONCURRENT` |
 | `CHECK_RUFF` | `1` | `export CHECK_RUFF=1` | `export CHECK_RUFF=0` |
 | `CHECK_PYRIGHT` | `1` | `export CHECK_PYRIGHT=1` | `export CHECK_PYRIGHT=0` |
+| `CLAUDE_SKIP_PYTHON_VALIDATION` | `0` | N/A (manual override only) | `export CLAUDE_SKIP_PYTHON_VALIDATION=1` |
+| `CLAUDE_PARENT_SESSION_ID` | Not set | Auto-set by Claude Code | N/A (auto-managed) |
 
 ### Common Commands
 

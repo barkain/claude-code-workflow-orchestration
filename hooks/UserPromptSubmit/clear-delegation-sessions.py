@@ -19,7 +19,7 @@ from pathlib import Path
 # Debug mode
 DEBUG_HOOK = os.environ.get("DEBUG_DELEGATION_HOOK", "0") == "1"
 DEBUG_FILE = (
-    Path("/tmp/delegation_hook_debug.log")
+    Path("/tmp/delegation_hook_debug.log")  # noqa: S108
     if os.name != "nt"
     else Path(os.environ.get("TEMP", ".")) / "delegation_hook_debug.log"
 )

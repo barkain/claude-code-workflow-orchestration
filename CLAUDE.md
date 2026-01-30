@@ -119,7 +119,9 @@ The `task-planner` skill performs all planning responsibilities:
 - **PostToolUse** - Validates Python code (Ruff, Pyright); async hooks for background tasks
 - **UserPromptSubmit** - Clears delegation state per user message
 
-**Allowlist:** `AskUserQuestion`, `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet`, `SlashCommand`, `Task`
+**Allowlist:** `AskUserQuestion`, `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet`, `Skill`, `SlashCommand`, `Task`, `SubagentTask`, `AgentTask`
+
+**Note:** `TaskOutput` is prohibited to prevent context exhaustion in parallel workflows.
 
 **Tasks API (Replaces TodoWrite):**
 - `TaskCreate` - Create tasks with structured metadata (wave, phase_id, agent, parallel)
@@ -141,6 +143,8 @@ The `task-planner` skill performs all planning responsibilities:
 - Phase dependencies: Automatically detected and optimized
 - Context passing: Between phases in sequential workflows
 - Progress tracking: Task status updated via TaskUpdate after each phase/wave
+- Concurrency: Batched execution respects `CLAUDE_MAX_CONCURRENT` limit (default 8)
+- Agent output: Agents write to `$CLAUDE_SCRATCHPAD_DIR`, return only `DONE|{path}`
 
 **State Files:**
 - `.claude/state/delegated_sessions.txt` - Session registry for delegation enforcement
@@ -203,8 +207,16 @@ The `task-planner` skill uses keyword matching to intelligently assign agents to
 |----------|---------|---------|
 | `DEBUG_DELEGATION_HOOK` | `0` | Enable hook debug logging (`1` to enable) |
 | `DELEGATION_HOOK_DISABLE` | `0` | Emergency bypass (`1` to disable enforcement) |
+| `CLAUDE_MAX_CONCURRENT` | `8` | Max parallel agents per batch |
 | `CHECK_RUFF` | `1` | Skip Ruff validation (`0` to disable) |
 | `CHECK_PYRIGHT` | `1` | Skip Pyright validation (`0` to disable) |
+
+**Hook Control:**
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `CLAUDE_SKIP_PYTHON_VALIDATION` | `0` | Skip all Python validation (`1` to disable) |
+| `CLAUDE_PARENT_SESSION_ID` | Not set | Auto-set for subagents (skip hooks) |
 
 **Debug Commands:**
 
@@ -214,6 +226,7 @@ tail -f /tmp/delegation_hook_debug.log
 export DELEGATION_HOOK_DISABLE=1      # Emergency bypass
 export CHECK_RUFF=0                   # Skip Ruff validation in PostToolUse hook
 export CHECK_PYRIGHT=0                # Skip Pyright validation in PostToolUse hook
+export CLAUDE_SKIP_PYTHON_VALIDATION=1  # Skip all Python validation
 cat .claude/state/delegated_sessions.txt  # Check delegation state
 ```
 

@@ -124,16 +124,23 @@ Context Isolation ensures that each component operates with only the information
 Phase N Completion
         |
 +---------------------------------------+
-|         Context Capture               |
-|  - File paths (absolute only)         |
-|  - Key decisions made                 |
-|  - Issues encountered                 |
+|         Minimal Return                |
+|  - Agent returns: DONE|{path}         |
+|  - Output written to scratchpad       |
+|    ($CLAUDE_SCRATCHPAD_DIR)           |
+|  - NO TaskOutput polling              |
+|  - Wait for completion notification   |
 +---------------------------------------+
         |
 Tasks API Update (Phase N -> completed)
         |
-Phase N+1 Delegation with captured context
+Phase N+1 reads scratchpad file for context
 ```
+
+**PROHIBITED Operations (Context Exhaustion Prevention):**
+- `TaskOutput` - Causes context window exhaustion
+- `TaskList` polling - Use completion notifications instead
+- Agents returning full results - Return `DONE|{path}` only
 
 ### 2.2 Pillar Two: Workflow Governance
 
@@ -243,14 +250,23 @@ First hook failure blocks subsequent hooks and tool execution.
 **Environment Variables:**
 - `CLAUDE_SESSION_ID` - Current session identifier
 - `CLAUDE_TOOL_NAME` - Tool being invoked
-- `CLAUDE_TOOL_ARGUMENTS` - JSON arguments to tool
-- `CLAUDE_PARENT_SESSION_ID` - Parent session (for subagents)
+- `CLAUDE_TOOL_INPUT` - JSON arguments to tool (preferred)
+- `CLAUDE_TOOL_ARGUMENTS` - JSON arguments to tool (legacy)
+- `CLAUDE_PARENT_SESSION_ID` - Parent session (subagent detection, hooks skip when set)
 - `CLAUDE_PROJECT_DIR` - Project directory override
+- `CLAUDE_SCRATCHPAD_DIR` - Agent output directory for scratchpad files
+- `CLAUDE_MAX_CONCURRENT` - Max parallel agents per batch (default: 8)
 
 **State Files:**
-- `.claude/state/delegated_sessions.txt` - Session registry
-- `.claude/state/active_delegations.json` - Workflow execution state
+- `.claude/state/delegated_sessions.txt` - Session registry (legacy)
+- `.claude/state/active_delegations.json` - Workflow execution state (includes `delegation_active` flag)
 - `.claude/state/active_task_graph.json` - Current execution plan
+
+**Write Tool Allowed Paths:**
+- `/tmp/` - Temporary files
+- `/private/tmp/` - macOS private temp
+- `/var/folders/` - macOS user temp
+- `$CLAUDE_SCRATCHPAD_DIR` - Agent output scratchpad
 
 **Exit Codes:**
 - `0` - Success (allow operation)
@@ -271,18 +287,42 @@ tail -f /tmp/delegation_hook_debug.log
 
 ## Section 4: Agent Orchestration Behavior
 
-### 4.1 Planning and Orchestration Flow
+### 4.1 Routing and Planning Flow
 
-The system uses a planning-first approach:
+The system uses a 3-step routing check before planning:
 
 ```
 +-------------------------------------------------------------------+
-|                    STAGE 0: PLANNING                               |
+|                    STAGE 0: ROUTING CHECK                          |
++-------------------------------------------------------------------+
+                              |
++-------------------------------------------------------------------+
+| 3-Step Routing Decision:                                           |
+|                                                                    |
+| Step 1: Write Detection                                            |
+|   - Does task require file modifications (Write/Edit)?             |
+|   - YES → Continue to Step 2                                       |
+|   - NO → Route to breadth-reader skill (read-only)                 |
+|                                                                    |
+| Step 2: Breadth Task Detection                                     |
+|   - Is this a breadth task (analyze many files)?                   |
+|   - YES → Route to breadth-reader skill                            |
+|   - NO → Continue to Step 3                                        |
+|                                                                    |
+| Step 3: Route Decision                                             |
+|   - Simple task? → DIRECT EXECUTION (bypass task-planner)          |
+|   - Complex task? → Route to task-planner                          |
++-------------------------------------------------------------------+
+                              |
+                    [If routed to task-planner]
+                              |
++-------------------------------------------------------------------+
+|                    STAGE 1: PLANNING                               |
 |                    (task-planner skill)                            |
 +-------------------------------------------------------------------+
                               |
 +-------------------------------------------------------------------+
-| task-planner (invoked first for complex tasks)                     |
+| task-planner (unified analysis + planning)                         |
 |                                                                    |
 | Inputs:                                                            |
 | - User request                                                     |
@@ -293,31 +333,12 @@ The system uses a planning-first approach:
 | 2. Check for ambiguities (ask if blocking)                         |
 | 3. Explore codebase (sample, don't consume)                        |
 | 4. Decompose into atomic subtasks                                  |
+|    - Implementation tasks: N items per agent decomposition         |
 | 5. Map dependencies                                                |
 | 6. Build parallelization plan (more tasks, fewer waves)            |
 | 7. Flag risks                                                      |
 |                                                                    |
-| Output: Structured execution plan                                  |
-+-------------------------------------------------------------------+
-                              |
-+-------------------------------------------------------------------+
-|                    STAGE 1: ORCHESTRATION                          |
-|                    (delegation-orchestrator)                       |
-+-------------------------------------------------------------------+
-                              |
-+-------------------------------------------------------------------+
-| delegation-orchestrator                                            |
-|                                                                    |
-| Inputs:                                                            |
-| - Execution plan from task-planner                                 |
-| - Available agent configurations                                   |
-|                                                                    |
-| Processing:                                                        |
-| 1. Agent selection (keyword matching >= 2)                         |
-| 2. Wave scheduling                                                 |
-| 3. Context template construction                                   |
-|                                                                    |
-| Output: Agent assignments, delegation prompts                      |
+| Output: Structured execution plan with TaskCreate calls            |
 +-------------------------------------------------------------------+
                               |
 +-------------------------------------------------------------------+
@@ -327,13 +348,18 @@ The system uses a planning-first approach:
 | Main Claude (with workflow_orchestrator system prompt)             |
 |                                                                    |
 | Processing:                                                        |
-| 1. Create Tasks API task list                                      |
-| 2. Execute Wave N phases (spawn via Task)                          |
-| 3. Wait for wave sync                                              |
-| 4. Capture context from completed phases                           |
-| 5. Execute Wave N+1 with context                                   |
-| 6. Final verification wave                                         |
-| 7. Provide summary                                                 |
+| 1. Execute Wave N phases (spawn via Task)                          |
+|    - Batched if phases > CLAUDE_MAX_CONCURRENT                     |
+| 2. Wait for completion notifications (NO TaskOutput/TaskList poll) |
+| 3. Read scratchpad files for context                               |
+| 4. Execute Wave N+1 with context                                   |
+| 5. Final verification wave                                         |
+| 6. Provide summary                                                 |
+|                                                                    |
+| Agent Return Protocol:                                             |
+| - Agents write output to $CLAUDE_SCRATCHPAD_DIR                    |
+| - Agents return: DONE|{path} (minimal response only)               |
+| - TaskOutput is PROHIBITED (context exhaustion)                    |
 +-------------------------------------------------------------------+
 ```
 
@@ -360,7 +386,7 @@ return max(candidates, key=lambda a: a.match_count)
 
 | Agent | Keywords | Tool Access | Use Case |
 |-------|----------|-------------|----------|
-| delegation-orchestrator | delegate, orchestrate, route task | Tasks API, AskUserQuestion | Meta-agent for routing |
+| breadth-reader (skill) | analyze, explore, read-only | Read, Glob, Grep | Breadth tasks (many files) |
 | codebase-context-analyzer | analyze, understand, explore, architecture | Read, Glob, Grep, Bash | Code exploration |
 | tech-lead-architect | design, approach, research, best practices | Read, Write, Edit, Glob, Grep, Bash | Solution design |
 | task-completion-verifier | verify, validate, test, check, review | Read, Bash, Glob, Grep | QA and validation |
@@ -423,6 +449,7 @@ sess_def456
   "version": "2.0",
   "workflow_id": "wf_20250111_143022",
   "execution_mode": "parallel",
+  "delegation_active": true,
   "active_delegations": [
     {
       "delegation_id": "deleg_001",
@@ -432,9 +459,13 @@ sess_def456
       "agent": "code-cleanup-optimizer"
     }
   ],
-  "max_concurrent": 4
+  "max_concurrent": 8
 }
 ```
+
+**Configuration:** Set `CLAUDE_MAX_CONCURRENT` environment variable to override default (e.g., `export CLAUDE_MAX_CONCURRENT=4`).
+
+**Batched Execution:** When a wave has more parallel phases than `max_concurrent`, phases are executed in batches to prevent context exhaustion.
 
 **Status Values:** `active`, `completed`, `failed`
 
@@ -574,16 +605,20 @@ Delegation privileges automatically decay:
 +-------------------------------------------------------------------------+
 |                           ORCHESTRATION LAYER                            |
 |  +-------------------------------------------------------------------+  |
-|  |                    task-planner (skill)                           |  |
-|  |  Intent Parsing -> Codebase Exploration -> Wave Planning          |  |
+|  |                    3-Step Routing Check                           |  |
+|  |  Write Detection -> Breadth Task -> Route Decision                |  |
 |  +-------------------------------------------------------------------+  |
 |  +-------------------------------------------------------------------+  |
-|  |                    delegation-orchestrator                        |  |
-|  |  Agent Selection -> Wave Scheduling -> Context Templates          |  |
+|  |                    task-planner (skill, unified)                  |  |
+|  |  Intent Parsing -> Decomposition -> Agent Selection -> Waves      |  |
+|  +-------------------------------------------------------------------+  |
+|  +-------------------------------------------------------------------+  |
+|  |                    breadth-reader (skill)                         |  |
+|  |  Read-only analysis for breadth tasks (many files)                |  |
 |  +-------------------------------------------------------------------+  |
 |  +-------------------------------------------------------------------+  |
 |  |                    workflow_orchestrator (system prompt)          |  |
-|  |  Task List -> Phase Delegation -> Context Passing -> Verification |  |
+|  |  Batched Execution -> Scratchpad Context -> Verification          |  |
 |  +-------------------------------------------------------------------+  |
 +-------------------------------------------------------------------------+
                                       |
@@ -608,9 +643,11 @@ Delegation privileges automatically decay:
 +-------------------------------------------------------------------------+
 |                              STATE LAYER                                 |
 |  .claude/state/                                                          |
-|    delegated_sessions.txt    (session registry)                         |
-|    active_delegations.json   (parallel execution)                       |
+|    delegated_sessions.txt    (session registry, legacy)                 |
+|    active_delegations.json   (parallel exec, delegation_active flag)    |
 |    active_task_graph.json    (execution plan)                           |
+|  $CLAUDE_SCRATCHPAD_DIR/                                                 |
+|    {phase_id}.md             (agent output scratchpad files)            |
 +-------------------------------------------------------------------------+
 ```
 

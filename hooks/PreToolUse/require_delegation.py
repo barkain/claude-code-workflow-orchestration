@@ -19,6 +19,13 @@ import re
 import sys
 from pathlib import Path
 
+# P0 FIX: Skip hook entirely for subagents
+# Subagents have CLAUDE_PARENT_SESSION_ID set, main agent does not
+parent_session_id = os.environ.get("CLAUDE_PARENT_SESSION_ID", "")
+if parent_session_id:
+    # This is a subagent spawned via Task tool - allow all tools
+    sys.exit(0)
+
 # Force UTF-8 output on Windows (fixes emoji encoding errors)
 if sys.platform == "win32":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -27,7 +34,7 @@ if sys.platform == "win32":
 # Debug mode
 DEBUG_HOOK = os.environ.get("DEBUG_DELEGATION_HOOK", "0") == "1"
 DEBUG_FILE = (
-    Path("/tmp/delegation_hook_debug.log")
+    Path("/tmp/delegation_hook_debug.log")  # noqa: S108
     if os.name != "nt"
     else Path(os.environ.get("TEMP", ".")) / "delegation_hook_debug.log"
 )
@@ -70,21 +77,21 @@ ALLOWED_TOOLS = {
 def block_tool(tool_name: str) -> int:
     """Block a tool and print the error message."""
     if not tool_name:
-        print("🚫 Tool blocked by delegation policy", file=sys.stderr)
-        print("Tool: <unknown - failed to parse>", file=sys.stderr)
-        print("", file=sys.stderr)
-        print("⚠️ STOP: Do NOT try alternative tools.", file=sys.stderr)
-        print("✅ REQUIRED: Use /delegate command immediately:", file=sys.stderr)
-        print("   /delegate <full task description>", file=sys.stderr)
-        print("", file=sys.stderr)
-        print("Debug: export DEBUG_DELEGATION_HOOK=1", file=sys.stderr)
+        print("🚫 Tool blocked by delegation policy", file=sys.stderr)  # noqa: T201
+        print("Tool: <unknown - failed to parse>", file=sys.stderr)  # noqa: T201
+        print("", file=sys.stderr)  # noqa: T201
+        print("⚠️ STOP: Do NOT try alternative tools.", file=sys.stderr)  # noqa: T201
+        print("✅ REQUIRED: Use /delegate command immediately:", file=sys.stderr)  # noqa: T201
+        print("   /delegate <full task description>", file=sys.stderr)  # noqa: T201
+        print("", file=sys.stderr)  # noqa: T201
+        print("Debug: export DEBUG_DELEGATION_HOOK=1", file=sys.stderr)  # noqa: T201
     else:
-        print("🚫 Tool blocked by delegation policy", file=sys.stderr)
-        print(f"Tool: {tool_name}", file=sys.stderr)
-        print("", file=sys.stderr)
-        print("⚠️ STOP: Do NOT try alternative tools.", file=sys.stderr)
-        print("✅ REQUIRED: Use /delegate command immediately:", file=sys.stderr)
-        print("   /delegate <full task description>", file=sys.stderr)
+        print("🚫 Tool blocked by delegation policy", file=sys.stderr)  # noqa: T201
+        print(f"Tool: {tool_name}", file=sys.stderr)  # noqa: T201
+        print("", file=sys.stderr)  # noqa: T201
+        print("⚠️ STOP: Do NOT try alternative tools.", file=sys.stderr)  # noqa: T201
+        print("✅ REQUIRED: Use /delegate command immediately:", file=sys.stderr)  # noqa: T201
+        print("   /delegate <full task description>", file=sys.stderr)  # noqa: T201
     return 2
 
 
@@ -93,14 +100,10 @@ def main() -> int:
     debug_log("=== PreToolUse Hook START ===")
 
     state_dir = get_state_dir()
-    delegated_sessions_file = state_dir / "delegated_sessions.txt"
-    delegation_flag = state_dir / "delegation_active"
-    flag_file = state_dir / "delegated.once"
     delegation_disabled_file = state_dir / "delegation_disabled"
 
     debug_log(f"State dir: {state_dir}")
     debug_log(f"delegation_disabled exists: {delegation_disabled_file.exists()}")
-    debug_log(f"delegation_active exists: {delegation_flag.exists()}")
 
     # Quick bypass for emergencies
     if os.environ.get("DELEGATION_HOOK_DISABLE", "0") == "1":
@@ -122,24 +125,26 @@ def main() -> int:
         # If we can't read stdin, block by default for safety
         return block_tool("")
 
-    # Parse JSON to extract tool_name and session_id
+    # Parse JSON to extract tool_name
     tool_name = ""
-    session_id = ""
+    data: dict[str, object] = {}
     try:
         data = json.loads(stdin_data) if stdin_data else {}
-        tool_name = data.get("tool_name", "")
-        session_id = data.get("session_id", "")
+        tool_name = str(data.get("tool_name", ""))
     except json.JSONDecodeError:
         # Fallback: try to extract with simple string parsing
         tool_match = re.search(r'"tool_name"\s*:\s*"([^"]*)"', stdin_data)
         if tool_match:
             tool_name = tool_match.group(1)
-        session_match = re.search(r'"session_id"\s*:\s*"([^"]*)"', stdin_data)
-        if session_match:
-            session_id = session_match.group(1)
 
     debug_log(f"Extracted TOOL_NAME: '{tool_name}'")
-    debug_log(f"Extracted SESSION_ID: '{session_id}'")
+
+    # Check delegation_active flag for subagent session inheritance
+    # This allows Skill subagents (which don't have CLAUDE_PARENT_SESSION_ID) to use tools
+    delegation_flag = state_dir / "delegation_active"
+    if delegation_flag.exists():
+        debug_log("ALLOWED: Delegation active flag (subagent session inheritance)")
+        return 0
 
     # Check allowlist (case-insensitive)
     if tool_name:
@@ -147,32 +152,11 @@ def main() -> int:
         for allowed in ALLOWED_TOOLS:
             if tool_name_lower == allowed.lower():
                 debug_log(f"ALLOWED: Matched '{allowed}'")
-
-                # If this is a Task or SlashCommand/Skill tool, mark session as delegated
-                if tool_name in {"Task", "SubagentTask", "AgentTask", "SlashCommand", "Skill"}:
-                    if session_id:
-                        # Register session
-                        existing = set()
-                        if delegated_sessions_file.exists():
-                            try:
-                                existing = set(delegated_sessions_file.read_text().strip().split("\n"))
-                            except OSError:
-                                pass
-                        if session_id not in existing:
-                            try:
-                                with delegated_sessions_file.open("a", encoding="utf-8") as f:
-                                    f.write(f"{session_id}\n")
-                                debug_log(f"REGISTERED: Session '{session_id}' for delegation")
-                            except OSError as e:
-                                debug_log(f"Failed to register session: {e}")
-
-                        # Set delegation flag for subagent session inheritance
-                        try:
-                            delegation_flag.touch()
-                            debug_log("FLAG: Created delegation_active for subagent inheritance")
-                        except OSError as e:
-                            debug_log(f"Failed to create delegation flag: {e}")
-
+                # Create delegation_active flag for subagent session inheritance
+                # This enables Skill subagents to use tools after delegation is invoked
+                if tool_name in {"Skill", "Task", "SlashCommand", "SubagentTask", "AgentTask"}:
+                    delegation_flag.touch()
+                    debug_log(f"FLAG: Created delegation_active for {tool_name} subagent inheritance")
                 return 0
 
         # Pattern allow (delegation-related)
@@ -180,29 +164,24 @@ def main() -> int:
             debug_log("ALLOWED: Delegation pattern")
             return 0
 
-    # Check delegation flag file (one-time use)
-    if flag_file.exists():
-        debug_log("ALLOWED: Delegation flag found")
-        try:
-            flag_file.unlink()
-        except OSError:
-            pass
-        return 0
+        # Allow Write to scratchpad/temp paths (subagent outputs)
+        if tool_name == "Write":
+            # Get the file path from tool input
+            tool_input = data.get("tool_input", {})
+            if isinstance(tool_input, dict):
+                file_path = str(tool_input.get("file_path", ""))
+            else:
+                file_path = ""
 
-    # Check delegation active flag (subagent session inheritance)
-    if delegation_flag.exists():
-        debug_log("ALLOWED: Delegation active flag exists (subagent session inheritance)")
-        return 0
-
-    # Check if current session is delegated
-    if delegated_sessions_file.exists() and session_id:
-        try:
-            sessions = set(delegated_sessions_file.read_text().strip().split("\n"))
-            if session_id in sessions:
-                debug_log(f"ALLOWED: Session '{session_id}' is delegated")
+            # Allow writes to temp/scratchpad directories
+            allowed_prefixes = (
+                "/tmp/",  # noqa: S108
+                "/private/tmp/",  # noqa: S108
+                "/var/folders/",  # macOS temp  # noqa: S108
+            )
+            if file_path.startswith(allowed_prefixes):
+                debug_log(f"ALLOWED: Write to temp/scratchpad path: {file_path}")
                 return 0
-        except OSError as e:
-            debug_log(f"Failed to read sessions file: {e}")
 
     # Block the tool
     debug_log(f"BLOCKED: Tool '{tool_name}'")
@@ -217,6 +196,6 @@ if __name__ == "__main__":
     except Exception as e:
         # Any uncaught exception should block the tool for safety
         debug_log(f"UNCAUGHT EXCEPTION: {e}")
-        print(f"🚫 Hook error: {e}", file=sys.stderr)
-        print("Tool blocked due to hook error.", file=sys.stderr)
+        print(f"🚫 Hook error: {e}", file=sys.stderr)  # noqa: T201
+        print("Tool blocked due to hook error.", file=sys.stderr)  # noqa: T201
         sys.exit(2)

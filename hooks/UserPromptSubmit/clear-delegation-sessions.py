@@ -175,6 +175,23 @@ def main() -> int:
         except OSError as e:
             debug_log(f"WARNING: Failed to clear active delegations file: {e}")
 
+    # 2.5. Clear Agent Teams state files (team mode flag and config)
+    team_mode_file = state_dir / "team_mode_active"
+    if team_mode_file.exists():
+        try:
+            team_mode_file.unlink()
+            debug_log(f"SUCCESS: Cleared team_mode_active flag: {team_mode_file}")
+        except OSError as e:
+            debug_log(f"WARNING: Failed to clear team_mode_active flag: {e}")
+
+    team_config_file = state_dir / "team_config.json"
+    if team_config_file.exists():
+        try:
+            team_config_file.unlink()
+            debug_log(f"SUCCESS: Cleared team_config.json: {team_config_file}")
+        except OSError as e:
+            debug_log(f"WARNING: Failed to clear team_config.json: {e}")
+
     # 3. Rotate gate invocations log if needed
     rotate_log(gate_log_file)
 

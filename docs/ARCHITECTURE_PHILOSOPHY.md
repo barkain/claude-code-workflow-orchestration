@@ -11,7 +11,8 @@
 3. [Section 3: Hook System Behavior](#section-3-hook-system-behavior)
 4. [Section 4: Agent Orchestration Behavior](#section-4-agent-orchestration-behavior)
 5. [Section 5: State Management](#section-5-state-management)
-6. [Section 6: Emergent Properties](#section-6-emergent-properties)
+6. [Section 6: Dual-Mode Execution Philosophy](#section-6-dual-mode-execution-philosophy)
+7. [Section 7: Emergent Properties](#section-7-emergent-properties)
 
 ---
 
@@ -75,6 +76,8 @@ Each specialized agent has a restricted tool set that matches its domain:
 
 ### 1.4 Architectural Boundaries
 
+**Subagent Mode (Default):**
+
 ```
 +-------------------------------------------------------------------+
 |                    USER PROMPT BOUNDARY                            |
@@ -92,14 +95,45 @@ Each specialized agent has a restricted tool set that matches its domain:
 +-------------------------------------------------------------------+
 |                    DELEGATION BOUNDARY                             |
 |  Session registered -> Tool access granted                         |
-|  Specialized agent spawned via Task tool                           |
+|  Specialized agent spawned via Task tool (isolated)                |
 +-------------------------------------------------------------------+
                               |
 +-------------------------------------------------------------------+
 |                    SPECIALIZED AGENT                               |
 |  Tools restricted to agent's declared capabilities                 |
 |  Cannot spawn nested delegations (prevents recursion)              |
+|  Returns: DONE|{path} (no inter-agent communication)               |
 +-------------------------------------------------------------------+
+```
+
+**Team Mode (Experimental, `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`):**
+
+```
++-------------------------------------------------------------------+
+|                    USER PROMPT BOUNDARY                            |
+|  (Delegation state cleared, team state cleaned up)                 |
++-------------------------------------------------------------------+
+                              |
++-------------------------------------------------------------------+
+|                    MAIN CLAUDE SESSION (Team Lead)                 |
+|  Allowlist: Tasks API, AskUserQuestion, Task, TeamCreate,          |
+|             SendMessage, SlashCommand                              |
++-------------------------------------------------------------------+
+                              |
+                    TeamCreate(team_name="...")
+                              |
++-------------------------------------------------------------------+
+|                    TEAM BOUNDARY                                    |
+|  Task(team_name="...") spawns teammates (shared context)           |
+|  Teammates communicate via SendMessage                             |
++-------------------------------------------------------------------+
+                         /    |    \
++------------------+ +------------------+ +------------------+
+| TEAMMATE A       | | TEAMMATE B       | | TEAMMATE C       |
+| [agent config]   | | [agent config]   | | [agent config]   |
+| Shared task list | | Shared task list | | Shared task list |
+| SendMessage <--> | | SendMessage <--> | | SendMessage <--> |
++------------------+ +------------------+ +------------------+
 ```
 
 ---
@@ -118,7 +152,7 @@ Context Isolation ensures that each component operates with only the information
 - **Agent Isolation**: Each specialized agent runs in its own subagent context
 - **State Isolation**: No global mutable state persists across user prompts
 
-**Context Passing Protocol**
+**Context Passing Protocol (Subagent Mode)**
 
 ```
 Phase N Completion
@@ -135,6 +169,25 @@ Phase N Completion
 Tasks API Update (Phase N -> completed)
         |
 Phase N+1 reads scratchpad file for context
+```
+
+**Context Passing Protocol (Team Mode)**
+
+```
+Phase N Completion
+        |
++---------------------------------------+
+|         Teammate Return               |
+|  - Agent writes output to scratchpad  |
+|  - Agent messages teammates directly  |
+|    via SendMessage (peer-to-peer)     |
+|  - Shared task list for coordination  |
+|  - Lead receives completion message   |
++---------------------------------------+
+        |
+Lead syncs: TaskUpdate (Phase N -> completed)
+        |
+Next wave teammates spawned with context
 ```
 
 **PROHIBITED Operations (Context Exhaustion Prevention):**
@@ -211,8 +264,11 @@ The system implements hooks across 6 lifecycle events:
 3. PreToolUse (matcher: *)
    - Trigger: Before EVERY tool invocation
    - Hooks:
-     - validate_task_graph_compliance.sh - Check phase ordering
-     - require_delegation.sh - Enforce allowlist, register sessions
+     - validate_task_graph_compliance.py - Check phase ordering
+       (bypassed when team mode is active)
+     - require_delegation.py - Enforce allowlist, register sessions
+       (auto-provisions team_mode_active state file when
+        CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 and team tool used)
    - Output: Allow or block tool execution
 
 4. PostToolUse
@@ -261,6 +317,8 @@ First hook failure blocks subsequent hooks and tool execution.
 - `.claude/state/delegated_sessions.txt` - Session registry (legacy)
 - `.claude/state/active_delegations.json` - Workflow execution state (includes `delegation_active` flag)
 - `.claude/state/active_task_graph.json` - Current execution plan
+- `.claude/state/team_mode_active` - Signals hooks that Agent Teams mode is active (team mode only)
+- `.claude/state/team_config.json` - Active team configuration: name, teammates, role mappings (team mode only)
 
 **Write Tool Allowed Paths:**
 - `/tmp/` - Temporary files
@@ -410,6 +468,31 @@ return max(candidates, key=lambda a: a.match_count)
 - Both phases affect the same system state
 - Dependencies unclear (conservative fallback)
 
+### 4.5 Subagent vs Team Mode Selection
+
+The task-planner evaluates a `team_mode_score` to decide the execution mechanism.
+
+**Prerequisites:** `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` must be set. Otherwise, subagent mode is always used.
+
+**Scoring Factors:**
+
+| Factor | Points | Condition |
+|--------|--------|-----------|
+| Phase count | +2 | > 8 phases |
+| Complexity tier | +2 | Tier 3 (score > 15) |
+| Cross-phase data flow | +3 | Phase B reads and makes decisions based on Phase A output |
+| Review-fix cycles | +3 | Plan includes review/verify then fix/refactor on same artifact |
+| Iterative refinement | +2 | Plan includes success criterion with retry loops |
+| User keyword | +5 | User says "collaborate", "team", "work together" |
+| Breadth task | -5 | Same operation across multiple items |
+| Phase count <= 3 | -3 | Simple workflow |
+
+**Decision:** Score >= 5 selects team mode. Score < 5 selects subagent mode.
+
+**The ONE parameter difference:**
+- `Task(team_name="project-team", ...)` = **teammate** (shared context, SendMessage, shared task list)
+- `Task(...)` = **isolated subagent** (no communication, no coordination)
+
 ---
 
 ## Section 5: State Management
@@ -422,6 +505,8 @@ return max(candidates, key=lambda a: a.match_count)
     delegated_sessions.txt     # Session registry
     active_delegations.json    # Parallel execution tracking
     active_task_graph.json     # Current execution plan
+    team_mode_active           # Signals hooks that Agent Teams mode is active
+    team_config.json           # Active team configuration (name, teammates, roles)
 ```
 
 ### 5.2 Session Registry
@@ -496,9 +581,121 @@ sess_def456
 
 ---
 
-## Section 6: Emergent Properties
+## Section 6: Dual-Mode Execution Philosophy
 
-### 6.1 Self-Organizing Workflow
+### 6.1 Why Two Modes?
+
+The framework supports two execution mechanisms because workflows have fundamentally different coordination needs:
+
+| Characteristic | Subagent Mode | Team Mode |
+|----------------|---------------|-----------|
+| Communication | None (isolated) | Peer-to-peer via SendMessage |
+| Context sharing | Scratchpad files only | Shared task list + messaging |
+| Coordination | Wave-based (lead controls) | Self-organizing (teammates coordinate) |
+| Overhead | Minimal (no team setup) | Higher (team creation, messaging protocol) |
+| Best for | Independent parallel work | Collaborative, iterative work |
+
+**Subagent mode** is the right default. Most workflows consist of independent tasks that can be parallelized without inter-agent communication. The wave system handles dependencies naturally: Wave N+1 starts after Wave N completes, with context passed via scratchpad files.
+
+**Team mode** becomes valuable when the work is inherently collaborative -- when agents need to react to each other's findings, negotiate design decisions, or iterate on shared artifacts. Forcing these patterns through sequential wave execution adds unnecessary latency and loses the benefits of real-time coordination.
+
+### 6.2 Design Trade-offs
+
+**Subagent mode advantages:**
+- Context efficiency: Each agent's full transcript stays isolated; main agent sees only `DONE|{path}`
+- Deterministic execution: Wave ordering provides predictable behavior
+- Simpler state management: No team lifecycle, no messaging protocol
+- Easier debugging: Each agent's output is self-contained in a scratchpad file
+
+**Team mode advantages:**
+- Real-time coordination: Teammates can message each other without waiting for wave completion
+- Adaptive execution: Teammates can self-organize based on discovered complexity
+- Shared awareness: All teammates see the shared task list, enabling dynamic work claiming
+- Review-fix cycles: A reviewer can immediately notify an implementer, who fixes without wave overhead
+
+**Team mode costs:**
+- Lead context pressure: Team messages flow through the lead agent's context
+- Non-deterministic execution: Teammate ordering depends on runtime conditions
+- More complex state: `team_mode_active`, `team_config.json`, shutdown protocol
+- Recovery complexity: Failed teammates require explicit shutdown and cleanup
+
+### 6.3 The Conservative Selection Principle
+
+The `team_mode_score` algorithm is deliberately conservative. The threshold (>= 5) requires strong signals before activating team mode:
+
+- A simple "collaborate" keyword (+5) grants immediate access, respecting user intent
+- Without user intent, the workflow itself must demonstrate need: complex (Tier 3: +2), many phases (>8: +2), cross-phase data flow (+3), or review-fix cycles (+3)
+- Counter-signals actively suppress team mode: breadth tasks (-5), simple workflows (-3)
+- The env var `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` acts as a hard gate -- without it, team mode is never considered
+
+This ensures team mode activates only when its coordination benefits outweigh its overhead costs.
+
+### 6.4 Two Team Workflow Patterns
+
+**Simple team (single AGENT TEAM phase):**
+- Use case: Multi-perspective exploration (e.g., "analyze from different angles")
+- Structure: One phase with `phase_type: "team"` and a `teammates` array
+- Each teammate entry becomes a separate `Task(team_name=...)` invocation
+- Teammates explore in parallel, then a synthesis phase aggregates findings
+
+**Complex team (multiple phases across waves):**
+- Use case: Collaborative implementation (e.g., "implement project collaboratively")
+- Structure: Standard multi-wave plan with individual phases, but `execution_mode: "team"` at the plan level
+- Every phase executes as a teammate via `Task(team_name=...)` instead of isolated `Task(...)`
+- Teammates share context and can message each other within the same wave
+
+The key insight: the plan structure (phases, waves, dependencies) remains identical between modes. Only the execution mechanism changes -- one parameter (`team_name`) on every `Task` call.
+
+### 6.5 Team Lifecycle
+
+```
+User Request
+    |
+task-planner evaluates team_mode_score
+    |
+Score >= 5 + AGENT_TEAMS env var set?
+├── NO → Subagent mode (standard pipeline)
+└── YES → Team mode:
+         |
+    Step 0: Create team — TeamCreate(team_name="workflow-{timestamp}")
+         |
+    Step 1: For each wave:
+         |   Spawn teammates via Task(team_name=...) in parallel
+         |   Wait for completion notifications
+         |
+    Step 2: Monitor (teammates self-coordinate via SendMessage)
+         |
+    Step 3: Shutdown (SendMessage shutdown_request to each teammate)
+         |
+    Step 4: Cleanup
+         |   - TaskUpdate for completed phases
+         |   - Remove .claude/state/team_mode_active
+         |   - Remove .claude/state/team_config.json
+         |   - Report final status
+```
+
+### 6.6 Agent COMMUNICATION MODE
+
+All 8 specialized agents include a conditional COMMUNICATION MODE section in their system prompts:
+
+- **As a teammate** (Agent Teams active): Write output to scratchpad, send brief completion messages to teammates, proactively message teammates when discovering cross-cutting issues
+- **As a subagent** (default): Return exactly `DONE|{output_file_path}` -- no summaries, no explanations, only the path
+
+This dual behavior is encoded in each agent's `.md` configuration file, ensuring the same agent can operate in either mode without modification.
+
+### 6.7 Hook Enforcement in Team Mode
+
+The PreToolUse hook adapts its behavior when team mode is active:
+
+- **`validate_task_graph_compliance.py`**: Bypassed entirely. Team mode handles dependencies through teammate coordination rather than strict wave ordering
+- **`require_delegation.py`**: Auto-provisions the `team_mode_active` state file when `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is set and a team tool (TeamCreate, SendMessage, or Task with team_name) is invoked. Also adds Agent Teams tools (TeamCreate, SendMessage) to the allowlist
+- **Pattern matching**: Any tool name containing "team" or "teammate" (case-insensitive) is allowed as a safety net
+
+---
+
+## Section 7: Emergent Properties
+
+### 7.1 Self-Organizing Workflow
 
 **Automatic Verification Injection**
 
@@ -525,7 +722,7 @@ Wave 1: [Task E, Task F]                 <- Start after Wave 0
 Wave 2: [Verification]                   <- Final verification
 ```
 
-### 6.2 Fail-Safe Behaviors
+### 7.2 Fail-Safe Behaviors
 
 **Privilege Decay**
 
@@ -542,7 +739,7 @@ Delegation privileges automatically decay:
 | Atomicity uncertain | Non-atomic (decompose further) |
 | Dependency analysis incomplete | Add dependency |
 
-### 6.3 Observability
+### 7.3 Observability
 
 **StatusLine (Real-time)**
 ```
@@ -565,7 +762,7 @@ Delegation privileges automatically decay:
 [14:30:23] SESSION=sess_abc TOOL=SlashCommand STATUS=allowed REASON=allowlist
 ```
 
-### 6.4 Resilience Properties
+### 7.4 Resilience Properties
 
 - **Idempotency**: State operations are safe to repeat
 - **Crash Recovery**: State files persist, stale sessions cleaned automatically
@@ -583,7 +780,7 @@ Delegation privileges automatically decay:
 +-------------------------------------------------------------------------+
 |                              USER INTERFACE                              |
 |  Commands: /delegate, /ask, /bypass, /add-statusline                    |
-|  Skills: task-planner                                                   |
+|  Skills: task-planner, breadth-reader                                   |
 |  StatusLine: [MODE] Active: N Wave W | Last: Event                      |
 +-------------------------------------------------------------------------+
                                       |
@@ -620,6 +817,11 @@ Delegation privileges automatically decay:
 |  |                    workflow_orchestrator (system prompt)          |  |
 |  |  Batched Execution -> Scratchpad Context -> Verification          |  |
 |  +-------------------------------------------------------------------+  |
+|  +-------------------------------------------------------------------+  |
+|  |                    Execution Mode Selection                       |  |
+|  |  Subagent (default): Task() -> isolated agents                    |  |
+|  |  Team (experimental): TeamCreate + Task(team_name) -> teammates   |  |
+|  +-------------------------------------------------------------------+  |
 +-------------------------------------------------------------------------+
                                       |
                                       v
@@ -646,6 +848,8 @@ Delegation privileges automatically decay:
 |    delegated_sessions.txt    (session registry, legacy)                 |
 |    active_delegations.json   (parallel exec, delegation_active flag)    |
 |    active_task_graph.json    (execution plan)                           |
+|    team_mode_active          (team mode signal, auto-created by hook)   |
+|    team_config.json          (team name, teammates, role mappings)      |
 |  $CLAUDE_SCRATCHPAD_DIR/                                                 |
 |    {phase_id}.md             (agent output scratchpad files)            |
 +-------------------------------------------------------------------------+

@@ -6,6 +6,12 @@ See the delegation system in action:
 
 <img src="./assets/workflow-demo.gif" alt="Workflow Demo" width="800">
 
+## 🆕 What's New
+
+🤝 **Agent Teams Integration** — Native dual-mode execution: workflows automatically select between isolated subagents and collaborative Agent Teams (via `TeamCreate` + `Task(team_name=...)` + `SendMessage`) based on task complexity scoring. Teammates communicate in real-time, share task lists, and self-coordinate. Enable with `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`.
+
+⚡ **Statusline Performance** — Cold start optimized from ~28s to <0.1s through merged API calls and non-blocking background cache refresh.
+
 ## Overview
 
 This system uses Claude Code's hook mechanism to create a delegation-enforced workflow architecture that routes tasks to specialized agents for expert-level execution.
@@ -16,7 +22,8 @@ This system uses Claude Code's hook mechanism to create a delegation-enforced wo
 - **8 Specialized Agents** - Each agent has domain expertise (code cleanup, testing, architecture, DevOps, etc.)
 - **Unified Task Planner** - Single `task-planner` skill handles planning, agent selection, and execution orchestration
 - **Intelligent Multi-Step Workflows** - Sequential execution for dependent phases, parallel for independent phases
-- **Isolated Subagent Sessions** - Each delegation spawns independent session with custom system prompts
+- **Dual-Mode Execution** - Isolated subagent sessions (default) or collaborative Agent Teams with real-time inter-agent communication (experimental)
+- **Agent Teams Integration** - Native `TeamCreate` + `Task(team_name=...)` + `SendMessage` for peer-to-peer collaboration, shared task lists, and coordinated multi-agent workflows
 - **Tasks API Integration** - Native task tracking via TaskCreate, TaskUpdate, TaskList, TaskGet with structured metadata
 - **Structured Task Metadata** - Wave assignments, phase IDs, agent assignments, and dependencies encoded in task metadata
 - **Async Hook Support** - Non-blocking background tasks for reminders and cleanup operations
@@ -40,11 +47,11 @@ The system uses a two-stage execution pipeline:
 **Stage 1: Execution**
 - **Single-Step Tasks:** Hook blocks tools → Delegates to specialized agent → Agent executes → Results returned
 - **Multi-Step Workflows:**
-  - **Sequential:** Dependent phases execute one at a time, passing context forward
-  - **Parallel:** Independent phases execute concurrently in waves for time efficiency
+  - **Subagent mode (default):** Isolated parallel Task instances per wave. Agents return `DONE|{path}`. Context-efficient, optimal for most workflows.
+  - **Team mode (experimental):** Native Agent Teams via `TeamCreate` + `Task(team_name=...)`. Teammates share context, communicate via `SendMessage`, and self-coordinate through shared task lists. Requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`.
 - Results consolidated and summary provided
 
-**Execution Mode Selection:** The task-planner intelligently chooses between sequential (context preservation, dependencies) and parallel (time savings, independence) based on phase dependency analysis.
+**Execution Mode Selection:** The task-planner calculates a `team_mode_score` to choose between subagent mode (isolated, context-efficient) and team mode (collaborative, real-time communication). For subagent mode, it further selects sequential (context preservation, dependencies) or parallel (time savings, independence) based on phase dependency analysis.
 
 
 ## Quick Start
@@ -173,21 +180,18 @@ and then prompt claude with:
 
    ![img_delegate.png](assets/img_delegate.png)
 
-
 2. Once the task-planner returns, a task dependency graph is rendered and the user request is decomposed into parallel atomic subtasks:
 
     ![img_dependancy_graph.png](assets/img_dependancy_graph.png)
 
-
 3. Then, the sequential workflow with parallel subtasks can be initiated:
    - wave 0:
-   
+
    ![img_wave0.png](assets/img_wave0.png)
 
    - wave 1:
-   
-   ![img_wave1.png](assets/img_wave1.png)
 
+   ![img_wave1.png](assets/img_wave1.png)
 
 4. Claude's native todo list is also getting updated in each step:
 
@@ -216,6 +220,11 @@ The system supports several environment variables for configuration and debuggin
 CLAUDE_CODE_ENABLE_TASKS=true              # Enable Tasks API (default: true)
 CLAUDE_CODE_TASK_LIST_ID=list_id           # Share task list across sessions
 CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1     # Disable async background tasks
+```
+
+**Agent Teams (Experimental):**
+```bash
+CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1     # Enable Agent Teams dual-mode execution
 ```
 
 **Debug & Control:**
@@ -395,6 +404,106 @@ The `task-planner` skill handles both planning and execution orchestration:
 6. **Parallel Mode:** Independent phases grouped into waves and executed concurrently
 7. Wave synchronization ensures proper completion order
 8. Results consolidated with absolute file paths and summary provided
+
+## Agent Teams (Experimental)
+
+The framework supports a second execution mode that uses Claude Code's native Agent Teams feature for real-time inter-agent collaboration. When enabled, agents can communicate with each other via `SendMessage`, share task lists, and self-coordinate -- rather than running as isolated subagents.
+
+### Enabling Agent Teams
+
+Set the environment variable before starting Claude Code:
+
+```bash
+export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
+```
+
+No other configuration is required. The task-planner automatically evaluates whether a given task benefits from team-based execution.
+
+### How Mode Selection Works
+
+During planning, the task-planner calculates a `team_mode_score` based on task characteristics:
+
+| Factor                                | Points | Condition                                              |
+|---------------------------------------|--------|--------------------------------------------------------|
+| Phase count > 8                       | +2     | Large workflows benefit from coordination               |
+| Tier 3 complexity                     | +2     | Complex tasks need real-time collaboration              |
+| Cross-phase data flow                 | +3     | Phases that share data benefit from messaging           |
+| Review-fix cycles                     | +3     | Iterative feedback loops need communication             |
+| Iterative refinement                  | +2     | Back-and-forth patterns suit team mode                  |
+| User keyword ("collaborate", "team")  | +5     | Explicit user intent                                    |
+| Breadth task                          | -5     | Simple exploration is better as subagents               |
+| Phase count <= 3                      | -3     | Small workflows don't need team overhead                |
+
+A score of **5 or higher** (with `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`) triggers team mode. Otherwise, subagent mode is used.
+
+### Subagent Mode vs Team Mode
+
+| Aspect            | Subagent Mode (default)                 | Team Mode (experimental)                    |
+|-------------------|-----------------------------------------|---------------------------------------------|
+| Execution         | Isolated `Task(...)` per phase          | `Task(team_name=...)` per phase             |
+| Communication     | None (agents are isolated)              | `SendMessage` for peer-to-peer messaging    |
+| Task list         | Framework-managed via TaskCreate/Update | Shared task list, teammates self-claim     |
+| Coordination      | Main agent orchestrates waves           | Teammates self-coordinate                   |
+| Context sharing   | Via output files (`DONE\|{path}`)       | Shared context + messaging                  |
+| Best for          | Most workflows, context-efficient       | Complex collaborative tasks, review cycles  |
+
+The key difference is **one parameter**: `Task(team_name="x")` makes a teammate; `Task()` makes an isolated subagent.
+
+### Two Team Workflow Patterns
+
+**Simple team** -- a single AGENT TEAM phase with multiple teammates exploring in parallel. Used for multi-perspective exploration tasks.
+
+```text
+> explore the authentication system from different angles
+```
+
+This creates one team phase where each teammate explores a different perspective (e.g., security, performance, architecture), then results are synthesized.
+
+**Complex team** -- multiple individual phases across waves, all executed as teammates with `Task(team_name=...)`. Used for collaborative implementation tasks.
+
+```text
+> implement the payment service. tasks should be collaborative
+```
+
+All phases run as teammates sharing context and messaging, even though each has a distinct assignment.
+
+### Example Prompts That Trigger Team Mode
+
+```text
+> explore the codebase from different angles
+> design the API with a team of specialists
+> implement the feature collaboratively
+> use a team to review and refactor the auth module
+> brainstorm together on the CLI design
+```
+
+### User Approval
+
+Before creating a team, the framework presents the team plan and asks for confirmation:
+- Team name, execution mode, number of phases, wave structure
+- If declined, execution falls back to subagent mode automatically
+
+### State Files
+
+Team mode creates two additional state files (automatically cleaned up on completion or next user prompt):
+
+| File                               | Purpose                                                              |
+|------------------------------------|----------------------------------------------------------------------|
+| `.claude/state/team_mode_active`   | Signals hooks that team mode is active                               |
+| `.claude/state/team_config.json`   | Active team configuration (name, teammates, role mappings)           |
+
+### Known Limitations
+
+| Limitation                      | Details                                                      |
+|---------------------------------|--------------------------------------------------------------|
+| No session resumption           | `/resume` and `/rewind` don't restore teammates              |
+| Task status can lag             | Teammates may fail to mark tasks completed                   |
+| Shutdown can be slow            | Teammates finish current request before stopping             |
+| One team per session            | Cannot create multiple teams in one session                  |
+| No nested teams                 | Teammates cannot spawn their own teams                       |
+| Lead is fixed                   | Cannot promote a teammate or transfer leadership             |
+| Permissions set at spawn        | Teammates inherit lead's permission mode                     |
+| Split panes need tmux/iTerm2    | Not supported in VS Code terminal or Windows Terminal        |
 
 ## Contributing
 

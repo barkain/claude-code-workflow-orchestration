@@ -13,6 +13,7 @@
 4. [Hook Reference](#hook-reference)
 5. [Debugging Checklists](#debugging-checklists)
 6. [Common Patterns](#common-patterns)
+7. [Team Mode Quick Reference](#team-mode-quick-reference)
 
 ---
 
@@ -90,6 +91,34 @@ Are phases dependent?
         └── NO → Default to SEQUENTIAL (conservative)
 ```
 
+### Subagent vs Team Mode?
+
+```
+Is CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 set?
+├── NO → SUBAGENT MODE (always)
+│
+└── YES → Calculate team_mode_score:
+          │
+          Start at 0, add/subtract:
+          │
+          Phase count > 8?              → +2
+          Tier 3 complexity (score > 15)?→ +2
+          Cross-phase data flow?         → +3
+          Review-fix cycles?             → +3
+          Iterative refinement?          → +2
+          User says "team/collaborate"?  → +5
+          Breadth task?                  → -5
+          Phase count <= 3?              → -3
+          │
+          Score >= 5?
+          ├── YES → TEAM MODE
+          │         TeamCreate + Task(team_name=...) for all phases
+          │         Teammates communicate via SendMessage
+          │
+          └── NO  → SUBAGENT MODE
+                    Task() for each phase (isolated, no communication)
+```
+
 ### Is Task Atomic?
 
 ```
@@ -140,6 +169,8 @@ ALL criteria met?
 | dependency-manager | Y | Y | Y | Y | - | - | - |
 
 **Legend:** Y = Has access, - = No access
+
+**Team Mode:** All agents include a conditional COMMUNICATION MODE. As teammates, they send completion messages via SendMessage and proactively notify peers of cross-cutting issues. As subagents, they return only `DONE|{path}`.
 
 ### Agent Selection Keywords
 
@@ -266,6 +297,70 @@ echo '{"version":"2.0","execution_mode":"sequential","active_delegations":[]}' >
 }
 ```
 
+### team_mode_active (Team Mode)
+
+**Location:** `.claude/state/team_mode_active`
+
+**Format:** Empty marker file (presence = team mode active)
+
+**Lifecycle:**
+1. Auto-created by PreToolUse hook when `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` and a team tool is invoked
+2. Can also be created by task-planner or lead agent during Step 1
+3. Cleared by UserPromptSubmit hook or during team cleanup (Step 5)
+
+**Operations:**
+```bash
+# Check if team mode is active
+test -f .claude/state/team_mode_active && echo "ACTIVE" || echo "INACTIVE"
+
+# Manually activate (emergency)
+touch .claude/state/team_mode_active
+
+# Manually deactivate
+rm -f .claude/state/team_mode_active
+```
+
+### team_config.json (Team Mode)
+
+**Location:** `.claude/state/team_config.json`
+
+**Schema:**
+```json
+{
+  "team_name": "workflow-20250206_143022",
+  "lead_mode": "delegate",
+  "plan_approval": true,
+  "max_teammates": 4,
+  "teammate_roles": [
+    {
+      "role_name": "implementer",
+      "agent_config": "code-cleanup-optimizer",
+      "phase_ids": ["phase_0_0", "phase_0_1"]
+    },
+    {
+      "role_name": "reviewer",
+      "agent_config": "task-completion-verifier",
+      "phase_ids": ["phase_2_0"]
+    }
+  ]
+}
+```
+
+**Operations:**
+```bash
+# View team configuration
+cat .claude/state/team_config.json | jq .
+
+# Check team name
+cat .claude/state/team_config.json | jq -r '.team_name'
+
+# List teammate roles
+cat .claude/state/team_config.json | jq '.teammate_roles[].role_name'
+
+# Reset team state
+rm -f .claude/state/team_mode_active .claude/state/team_config.json
+```
+
 ---
 
 ## Hook Reference
@@ -287,7 +382,7 @@ echo '{"version":"2.0","execution_mode":"sequential","active_delegations":[]}' >
 | Hook | Trigger | Key Actions | Async | Timeout |
 |------|---------|-------------|-------|---------|
 | SessionStart | startup, resume, clear, compact | Inject workflow_orchestrator.md | - | 20s |
-| UserPromptSubmit | Before user message | Clear delegated_sessions.txt | - | 2s |
+| UserPromptSubmit | Before user message | Clear delegation + team state | - | 2s |
 | PreToolUse (*) | Before every tool | Validate task graph, check allowlist | - | 5s each |
 | PostToolUse (Write/Edit) | After Python file changes | Ruff + Pyright validation | - | default |
 | PostToolUse (Task) | After Task tool | Depth validation, wave update, DAG viz | - | 5-10s each |
@@ -307,6 +402,11 @@ echo '{"version":"2.0","execution_mode":"sequential","active_delegations":[]}' >
 - `SlashCommand` - Triggers session registration
 - `Task`/`SubagentTask`/`AgentTask` - Delegation mechanism
 - `Skill` - Skill invocation
+
+**Conditionally Allowed (Agent Teams, requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`):**
+- `TeamCreate` - Create a named agent team
+- `SendMessage` - Inter-teammate communication
+- Any tool name containing "team" or "teammate" (case-insensitive safety net)
 
 **Blocked Until Delegated:**
 - Read, Write, Edit, MultiEdit
@@ -368,6 +468,24 @@ echo '{"version":"2.0","execution_mode":"sequential","active_delegations":[]}' >
 - [ ] Are phases modifying different files?
 - [ ] Check `active_delegations.json` for execution_mode
 - [ ] Orchestrator may default to sequential (conservative)
+
+### Team Mode Not Activating
+
+- [ ] Is `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` set? Check `echo $CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`
+- [ ] Does the task meet `team_mode_score >= 5`? Check task-planner output for score breakdown
+- [ ] Does `team_mode_active` exist? Check `ls -la .claude/state/team_mode_active`
+- [ ] Does `team_config.json` exist? Check `cat .claude/state/team_config.json | jq .`
+- [ ] Is TeamCreate available? Try manual invocation
+- [ ] Try adding team keywords: "collaborate", "team", "work together"
+- [ ] Check if task-planner fell back to subagent mode (score < 5)
+
+### Team Mode Failing Mid-Workflow
+
+- [ ] Are teammates running? Check for active Task processes
+- [ ] Is `team_config.json` valid? Check `cat .claude/state/team_config.json | jq .`
+- [ ] Teammate stuck? Try `SendMessage` with shutdown_request
+- [ ] Reset team state: `rm -f .claude/state/team_mode_active .claude/state/team_config.json`
+- [ ] Fall back to subagent mode: re-run without `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`
 
 ### Python Validation Failing
 
@@ -442,6 +560,9 @@ echo '{"version":"2.0","execution_mode":"sequential","active_delegations":[]}' >
 
 # Remove task graph
 rm -f .claude/state/active_task_graph.json
+
+# Clear team state (if team mode was active)
+rm -f .claude/state/team_mode_active .claude/state/team_config.json
 ```
 
 ### Monitor Workflow
@@ -499,6 +620,12 @@ score = file_count*2 + lines/50 + concerns*1.5 + ext_deps + (arch_decisions ? 3 
 | `CLAUDE_CODE_TASK_LIST_ID` | Per-session | Share task list across sessions |
 | `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS` | Not set | Disable async background tasks (reminders, cleanup) |
 
+**Agent Teams:**
+
+| Variable | Default | Enable | Purpose |
+|----------|---------|--------|---------|
+| `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` | `0` | `=1` | Enable dual-mode execution (team mode scoring and tools) |
+
 **Debug & Control:**
 
 | Variable | Default | Enable | Purpose |
@@ -515,9 +642,99 @@ score = file_count*2 + lines/50 + concerns*1.5 + ext_deps + (arch_decisions ? 3 
 
 ---
 
+## Team Mode Quick Reference
+
+### Subagent vs Team Mode Comparison
+
+| Aspect | Subagent Mode (Default) | Team Mode (Experimental) |
+|--------|------------------------|--------------------------|
+| Activation | Always available | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` + score >= 5 |
+| Spawn mechanism | `Task(...)` | `Task(team_name="...", ...)` |
+| Communication | None (isolated) | `SendMessage` (peer-to-peer) |
+| Task list | Per-agent (isolated) | Shared across team |
+| Context passing | Scratchpad files between waves | Scratchpad + real-time messaging |
+| Coordination | Wave-based (lead controls) | Self-organizing (teammates coordinate) |
+| Hook behavior | Full task graph validation | Graph validation bypassed |
+| State files | Standard set | Standard + `team_mode_active` + `team_config.json` |
+| Best for | Independent parallel tasks | Collaborative, iterative work |
+
+### Communication Patterns
+
+| Pattern | API | Cost | Use Case |
+|---------|-----|------|----------|
+| Point-to-point | `SendMessage(type: "message", recipient: "<name>")` | 1 delivery | Default. Status updates, questions, handoffs. |
+| Broadcast | `SendMessage(type: "broadcast")` | N deliveries (1 per teammate) | Critical team-wide announcements only (e.g., "blocking issue found"). |
+
+**Prefer point-to-point messaging.** Broadcast costs scale linearly with team size (N teammates = N separate message deliveries). Only broadcast when every teammate must act immediately.
+
+### Team Mode Lifecycle Quick Reference
+
+```
+1. task-planner calculates team_mode_score
+2. Score >= 5 → execution_mode: "team" in plan
+3. Lead asks user for confirmation (AskUserQuestion)
+4. TeamCreate(team_name="workflow-{timestamp}")
+5. For each wave: Task(team_name=...) per phase (parallel in same message)
+6. Wait for completion notifications
+7. SendMessage shutdown_request to each teammate
+8. TaskUpdate for completed phases
+9. rm .claude/state/team_mode_active .claude/state/team_config.json
+```
+
+### Two Team Workflow Patterns
+
+| Pattern | When | Plan Structure | Example |
+|---------|------|----------------|---------|
+| **Simple team** | Multi-perspective exploration | Single phase with `phase_type: "team"` + `teammates` array | "Analyze auth from security, performance, and UX angles" |
+| **Complex team** | Collaborative implementation | Multiple phases across waves, `execution_mode: "team"` at plan level | "Build notification system collaboratively" |
+
+### team_mode_score Quick Calculator
+
+| Factor | Points | Check |
+|--------|--------|-------|
+| Phase count > 8 | +2 | Count total phases in plan |
+| Tier 3 complexity | +2 | Complexity score > 15 |
+| Cross-phase data flow | +3 | Phase B reads + decides based on Phase A output |
+| Review-fix cycles | +3 | Review then fix/refactor on same artifact |
+| Iterative refinement | +2 | Success criterion with retry loops |
+| User keyword | +5 | "collaborate", "team", "work together" |
+| Breadth task | -5 | Same operation across multiple items |
+| Phase count <= 3 | -3 | Simple workflow |
+| **Threshold** | **>= 5** | **Team mode activates** |
+
+### Team Mode Commands
+
+```bash
+# Enable team mode capability
+export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
+
+# Check team state
+test -f .claude/state/team_mode_active && echo "Team mode ACTIVE" || echo "Team mode INACTIVE"
+cat .claude/state/team_config.json | jq .
+
+# Emergency cleanup (if team gets stuck)
+rm -f .claude/state/team_mode_active .claude/state/team_config.json
+
+# Disable team mode capability
+unset CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS
+```
+
+### Known Limitations
+
+1. **No session resumption** -- `/resume` and `/rewind` do not restore in-process teammates. A resumed session starts without team state.
+2. **Task status can lag** -- Teammates may fail to mark tasks completed, blocking dependents. The bridge pattern mitigates but does not eliminate this.
+3. **Shutdown can be slow** -- Teammates finish their current request before honoring shutdown. Long-running agents delay cleanup.
+4. **One team per session** -- Only one team can exist per Claude Code session. A second `TeamCreate` call is not supported.
+5. **No nested teams** -- Teammates cannot spawn their own teams. Only the lead agent can create a team.
+6. **Lead is fixed** -- No teammate promotion or leadership transfer. The lead is set at team creation and cannot change.
+7. **Permissions set at spawn** -- All teammates inherit the lead's permission mode at creation. Per-teammate permissions are not supported.
+8. **Split panes require tmux or iTerm2** -- Split-pane visualization does not work in VS Code terminal, Windows Terminal, or Ghostty.
+
+---
+
 ## Related Documentation
 
-- [Architecture Philosophy](./ARCHITECTURE_PHILOSOPHY.md) - Comprehensive design documentation
+- [Architecture Philosophy](./ARCHITECTURE_PHILOSOPHY.md) - Comprehensive design documentation (includes Dual-Mode Execution Philosophy)
 - [Hook Debugging Guide](./hook-debugging.md) - Detailed hook troubleshooting
 - [Environment Variables](./environment-variables.md) - Full configuration reference
 - [StatusLine System](./statusline-system.md) - Status display documentation

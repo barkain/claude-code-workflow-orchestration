@@ -9,6 +9,7 @@
 
 - [Overview](#overview)
 - [Tasks API Configuration](#tasks-api-configuration)
+- [Agent Teams Configuration](#agent-teams-configuration)
 - [Debug & Control Variables](#debug--control-variables)
 - [DEBUG_DELEGATION_HOOK](#debug_delegation_hook)
 - [DELEGATION_HOOK_DISABLE](#delegation_hook_disable)
@@ -27,6 +28,9 @@ The delegation system supports several environment variables for controlling beh
 - `CLAUDE_CODE_TASK_LIST_ID` - Share task list across sessions
 - `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS` - Control async background tasks
 
+**Agent Teams Configuration (1 variable):**
+- `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` - Enable Agent Teams dual-mode execution
+
 **Debug & Control Variables (8 variables):**
 - `DEBUG_DELEGATION_HOOK` - Enable debug logging
 - `DELEGATION_HOOK_DISABLE` - Emergency bypass
@@ -44,6 +48,7 @@ The delegation system supports several environment variables for controlling beh
 | `CLAUDE_CODE_ENABLE_TASKS` | Enable Tasks API | `true` | `true`, `false` |
 | `CLAUDE_CODE_TASK_LIST_ID` | Share task list | Per-session | Any list ID |
 | `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS` | Disable async hooks | Not set | Set to `1` to disable |
+| `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` | Enable Agent Teams dual-mode | `0` | `0` (off), `1` (on) |
 | `DEBUG_DELEGATION_HOOK` | Enable debug logging | `0` | `0` (off), `1` (on) |
 | `DELEGATION_HOOK_DISABLE` | Emergency bypass | `0` | `0` (enforcement on), `1` (enforcement off) |
 | `CLAUDE_PROJECT_DIR` | Override project directory | `$PWD` | Any valid path |
@@ -147,6 +152,69 @@ unset CLAUDE_CODE_DISABLE_BACKGROUND_TASKS
 **When to Use:**
 - **Default (enabled)** - Recommended for normal workflows
 - **Disabled** - Testing, performance-sensitive environments, or when background operations interfere
+
+---
+
+## Agent Teams Configuration
+
+### CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS
+
+**Purpose:** Enable Agent Teams dual-mode execution. When set, the PreToolUse hook allows Agent Teams tools (`TeamCreate`, `SendMessage`) and auto-creates the `.claude/state/team_mode_active` state file on first team tool use. The task-planner skill uses this variable to score whether a workflow should use team mode vs subagent mode.
+
+**Values:**
+- `0` (default): Agent Teams disabled. Team tools are blocked by PreToolUse hook with a message instructing the user to set this variable.
+- `1`: Agent Teams enabled. Team tools are allowed, and the `team_mode_active` state file is auto-provisioned.
+
+**Usage:**
+
+```bash
+# Enable Agent Teams mode
+export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
+
+# Run a collaborative workflow (task-planner may select team mode)
+/delegate "Build auth module with API and tests collaboratively"
+
+# Disable Agent Teams mode
+export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=0
+# Or unset
+unset CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS
+```
+
+**How It Works:**
+
+The PreToolUse hook (`require_delegation.py`) gates Agent Teams tools behind this variable:
+
+1. **Env var set to `1` + team tool invoked:** Tool is allowed. If `.claude/state/team_mode_active` does not exist, the hook auto-creates it so downstream hooks (e.g., `validate_task_graph_compliance.py`) can detect team mode.
+2. **Env var NOT set or `0` + team tool invoked:** Tool is blocked with an error message instructing the user to set the variable.
+
+**Tool Gating:**
+
+| Tool | Matching Method | Description |
+|------|----------------|-------------|
+| `TeamCreate` | Explicit set membership | Create a team |
+| `SendMessage` | Explicit set membership | Inter-agent communication |
+| Any tool with "team" in name | Pattern match (case-insensitive) | Safety net for variations |
+| Any tool with "teammate" in name | Pattern match (case-insensitive) | Safety net for variations |
+
+**State Files Created:**
+
+- `.claude/state/team_mode_active` -- Auto-created by PreToolUse hook on first team tool use. Cleared by UserPromptSubmit hook on each new user prompt.
+- `.claude/state/team_config.json` -- Created at team bootstrap by the main agent. Cleared by UserPromptSubmit hook.
+
+**Hook Interactions:**
+
+| Hook | Behavior When Team Mode Active |
+|------|-------------------------------|
+| `require_delegation.py` (PreToolUse) | Allows team tools, auto-creates `team_mode_active` |
+| `validate_task_graph_compliance.py` (PreToolUse) | Skips task graph validation entirely |
+| `clear-delegation-sessions.py` (UserPromptSubmit) | Cleans up `team_mode_active` and `team_config.json` |
+
+**When to Use:**
+
+- **Collaborative workflows** -- Tasks requiring peer-to-peer agent communication
+- **Complex multi-phase projects** -- 8+ phases with cross-phase data dependencies
+- **Review-fix cycles** -- Iterative refinement where agents need to coordinate
+- **Default (disabled)** -- Recommended for most workflows; subagent mode is more context-efficient
 
 ---
 
@@ -642,6 +710,12 @@ tail /tmp/delegation_hook_debug.log
 | `CLAUDE_CODE_TASK_LIST_ID` | Per-session | `export CLAUDE_CODE_TASK_LIST_ID=id` | `unset CLAUDE_CODE_TASK_LIST_ID` |
 | `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS` | Not set | `export CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` | `unset CLAUDE_CODE_DISABLE_BACKGROUND_TASKS` |
 
+**Agent Teams:**
+
+| Variable | Default | Enable | Disable |
+|----------|---------|--------|---------|
+| `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` | `0` | `export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` | `unset CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` |
+
 **Debug & Control:**
 
 | Variable | Default | Enable | Disable |
@@ -662,6 +736,7 @@ tail /tmp/delegation_hook_debug.log
 echo "TASKS_ENABLED: $CLAUDE_CODE_ENABLE_TASKS"
 echo "TASK_LIST_ID: $CLAUDE_CODE_TASK_LIST_ID"
 echo "BACKGROUND_DISABLED: $CLAUDE_CODE_DISABLE_BACKGROUND_TASKS"
+echo "AGENT_TEAMS: $CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"
 echo "DEBUG: $DEBUG_DELEGATION_HOOK"
 echo "DISABLE: $DELEGATION_HOOK_DISABLE"
 echo "PROJECT_DIR: $CLAUDE_PROJECT_DIR"
@@ -670,6 +745,7 @@ echo "PROJECT_DIR: $CLAUDE_PROJECT_DIR"
 unset CLAUDE_CODE_ENABLE_TASKS
 unset CLAUDE_CODE_TASK_LIST_ID
 unset CLAUDE_CODE_DISABLE_BACKGROUND_TASKS
+unset CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS
 unset DEBUG_DELEGATION_HOOK
 unset DELEGATION_HOOK_DISABLE
 unset CLAUDE_PROJECT_DIR
@@ -678,6 +754,9 @@ unset CLAUDE_PROJECT_DIR
 export CLAUDE_CODE_ENABLE_TASKS=true       # Enable Tasks API
 export CLAUDE_CODE_TASK_LIST_ID=shared     # Share task list
 export CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1  # Disable async hooks
+
+# Agent Teams
+export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1  # Enable team mode
 
 # Debug mode
 export DEBUG_DELEGATION_HOOK=1 && tail -f /tmp/delegation_hook_debug.log

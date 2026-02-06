@@ -19,8 +19,9 @@ from datetime import datetime
 from pathlib import Path
 
 # Cache configuration
-COST_CACHE_TTL_SECONDS = 60  # Cache costs for 60 seconds
+COST_CACHE_TTL_SECONDS = 300  # Cache costs for 5 minutes (cost data changes slowly)
 COST_CACHE_FILE = Path(tempfile.gettempdir()) / "statusline_cost_cache.json"
+COST_REFRESH_LOCK = Path(tempfile.gettempdir()) / "statusline_cost_refresh.lock"  # noqa: S108
 
 # Force UTF-8 output on Windows (fixes emoji encoding errors)
 if sys.platform == "win32":
@@ -312,56 +313,24 @@ def is_cache_valid(cache: dict, cwd: str) -> bool:
     return age < COST_CACHE_TTL_SECONDS and cache_cwd == cwd
 
 
-def fetch_daily_cost_raw() -> str:
-    """Fetch daily cost from ccusage (slow, uncached).
+def fetch_costs_raw(cwd: str) -> tuple[str, str]:
+    """Fetch daily and session costs from a single ccusage call.
 
-    Returns:
-        Formatted cost string like "$X.XX".
-    """
-    today = datetime.now().strftime("%Y%m%d")
-
-    # Try bunx (bun) first, then npx
-    for cmd in [["bunx", "ccusage@latest"], ["npx", "ccusage@latest"]]:
-        try:
-            result = subprocess.run(  # noqa: S603, S607
-                [*cmd, "daily", "--json", "--since", today],
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                data = json.loads(result.stdout)
-                cost = data.get("totals", {}).get("totalCost", 0)
-                return f"${cost:.2f}"
-        except (
-            subprocess.TimeoutExpired,
-            FileNotFoundError,
-            json.JSONDecodeError,
-            OSError,
-        ):
-            continue
-
-    return "$0.00"
-
-
-def fetch_session_cost_raw(cwd: str) -> str:
-    """Fetch session cost from ccusage (slow, uncached).
+    Uses the `-i` flag which returns per-project breakdown that also includes
+    daily totals, allowing both values to be extracted from one response.
 
     Args:
         cwd: Current working directory, used to identify the project.
 
     Returns:
-        Formatted cost string like "$X.XX".
+        Tuple of (daily_cost, session_cost) formatted strings like "$X.XX".
     """
-    if not cwd:
-        return "$0.00"
-
     today = datetime.now().strftime("%Y%m%d")
 
     # Convert cwd to project name format (replace / with -)
-    project_name = cwd.replace("/", "-").replace("\\", "-")
+    project_name = cwd.replace("/", "-").replace("\\", "-") if cwd else ""
 
-    # Try bunx (bun) first, then npx
+    # Try bunx (bun) first, then npx - single call with -i flag gets both values
     for cmd in [["bunx", "ccusage@latest"], ["npx", "ccusage@latest"]]:
         try:
             result = subprocess.run(  # noqa: S603, S607
@@ -372,19 +341,24 @@ def fetch_session_cost_raw(cwd: str) -> str:
             )
             if result.returncode == 0 and result.stdout.strip():
                 data = json.loads(result.stdout)
-                projects = data.get("projects", {})
 
-                # Look up cost for this project
-                if project_name in projects:
-                    project_data = projects[project_name]
-                    if project_data and len(project_data) > 0:
-                        # Sum costs for all entries today (usually just one)
-                        total_cost = sum(
-                            entry.get("totalCost", 0) for entry in project_data
-                        )
-                        return f"${total_cost:.2f}"
+                # Extract daily total from the same response
+                daily_cost_val = data.get("totals", {}).get("totalCost", 0)
+                daily_cost = f"${daily_cost_val:.2f}"
 
-                return "$0.00"
+                # Extract session/project cost
+                session_cost = "$0.00"
+                if project_name:
+                    projects = data.get("projects", {})
+                    if project_name in projects:
+                        project_data = projects[project_name]
+                        if project_data and len(project_data) > 0:
+                            total_cost = sum(
+                                entry.get("totalCost", 0) for entry in project_data
+                            )
+                            session_cost = f"${total_cost:.2f}"
+
+                return daily_cost, session_cost
         except (
             subprocess.TimeoutExpired,
             FileNotFoundError,
@@ -393,14 +367,120 @@ def fetch_session_cost_raw(cwd: str) -> str:
         ):
             continue
 
-    return "$0.00"
+    return "$0.00", "$0.00"
+
+
+def _is_refresh_locked() -> bool:
+    """Check if a background refresh is already running.
+
+    Uses a lock file with a 60-second staleness check to prevent concurrent
+    refreshes while not permanently blocking if a refresh process dies.
+
+    Returns:
+        True if a refresh is currently in progress, False otherwise.
+    """
+    try:
+        if COST_REFRESH_LOCK.exists():
+            lock_age = time.time() - COST_REFRESH_LOCK.stat().st_mtime
+            # Consider lock stale after 60 seconds (refresh should finish in ~15s)
+            if lock_age < 60:
+                return True
+            # Stale lock, remove it
+            COST_REFRESH_LOCK.unlink(missing_ok=True)
+    except OSError:
+        pass
+    return False
+
+
+def spawn_background_refresh(cwd: str) -> None:
+    """Spawn a background process to refresh the cost cache.
+
+    Uses subprocess.Popen to run a small Python script that:
+    1. Creates a lock file to prevent concurrent refreshes
+    2. Runs the ccusage command
+    3. Parses the result and writes to the cache file
+    4. Removes the lock file
+
+    Args:
+        cwd: Current working directory for session cost lookup.
+    """
+    if _is_refresh_locked():
+        debug_log("Background refresh already running, skipping")
+        return
+
+    debug_log("Spawning background refresh process")
+
+    # Build the inline Python script for background execution
+    refresh_script = f"""
+import json, subprocess, time, sys
+from pathlib import Path
+from datetime import datetime
+
+lock_file = Path({str(COST_REFRESH_LOCK)!r})
+cache_file = Path({str(COST_CACHE_FILE)!r})
+cwd = {cwd!r}
+
+try:
+    # Create lock file
+    lock_file.write_text(str(time.time()))
+
+    today = datetime.now().strftime("%Y%m%d")
+    project_name = cwd.replace("/", "-").replace("\\\\", "-") if cwd else ""
+
+    daily_cost = "$0.00"
+    session_cost = "$0.00"
+
+    for cmd in [["bunx", "ccusage@latest"], ["npx", "ccusage@latest"]]:
+        try:
+            result = subprocess.run(
+                [*cmd, "daily", "--json", "--since", today, "-i"],
+                capture_output=True, text=True, timeout=30,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                data = json.loads(result.stdout)
+                daily_cost_val = data.get("totals", {{}}).get("totalCost", 0)
+                daily_cost = f"${{daily_cost_val:.2f}}"
+                if project_name:
+                    projects = data.get("projects", {{}})
+                    if project_name in projects:
+                        project_data = projects[project_name]
+                        if project_data and len(project_data) > 0:
+                            total_cost = sum(e.get("totalCost", 0) for e in project_data)
+                            session_cost = f"${{total_cost:.2f}}"
+                break
+        except Exception:
+            continue
+
+    cache = {{
+        "daily_cost": daily_cost,
+        "session_cost": session_cost,
+        "timestamp": time.time(),
+        "cwd": cwd,
+    }}
+    cache_file.write_text(json.dumps(cache))
+finally:
+    lock_file.unlink(missing_ok=True)
+"""
+
+    try:
+        subprocess.Popen(  # noqa: S603
+            [sys.executable, "-c", refresh_script],  # noqa: S603
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+    except OSError as e:
+        debug_log(f"Failed to spawn background refresh: {e}")
 
 
 def get_costs_cached(cwd: str) -> tuple[str, str]:
-    """Get daily and session costs with caching.
+    """Get daily and session costs with non-blocking cache refresh.
 
-    Uses a file-based cache to avoid slow ccusage calls on every statusline refresh.
-    Cache TTL is 60 seconds.
+    Returns cached values immediately. If the cache is expired, returns stale
+    values (or "$..." placeholders on first run) and spawns a background process
+    to refresh the cache. This ensures the statusline always returns in <0.1s.
+
+    Cache TTL is 300 seconds.
 
     Args:
         cwd: Current working directory for session cost lookup.
@@ -416,16 +496,22 @@ def get_costs_cached(cwd: str) -> tuple[str, str]:
         )
         return cache.get("daily_cost", "$0.00"), cache.get("session_cost", "$0.00")
 
-    # Cache is stale or missing, fetch fresh values
-    debug_log("Cache miss, fetching fresh costs...")
-    daily_cost = fetch_daily_cost_raw()
-    session_cost = fetch_session_cost_raw(cwd)
+    # Cache is stale or missing - return immediately with stale/placeholder values
+    if cache:
+        stale_daily = cache.get("daily_cost", "$...")
+        stale_session = cache.get("session_cost", "$...")
+        debug_log(
+            f"Cache expired, returning stale values: daily={stale_daily}, session={stale_session}"
+        )
+    else:
+        stale_daily = "$..."
+        stale_session = "$..."
+        debug_log("No cache exists, returning placeholders")
 
-    # Save to cache
-    save_cost_cache(daily_cost, session_cost, cwd)
-    debug_log(f"Cached new costs: daily={daily_cost}, session={session_cost}")
+    # Spawn background refresh (fire and forget)
+    spawn_background_refresh(cwd)
 
-    return daily_cost, session_cost
+    return stale_daily, stale_session
 
 
 def get_claude_version() -> str:

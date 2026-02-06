@@ -2,7 +2,8 @@
 **/.DS_Store
 
 /.complexipy_cache/
-/__pycache__/
+__pycache__/
+*.pyc
 .coverage
 
 # Remotion animation build artifacts

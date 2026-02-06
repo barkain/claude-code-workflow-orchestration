@@ -23,7 +23,17 @@ from pathlib import Path
 # Subagents have CLAUDE_PARENT_SESSION_ID set, main agent does not
 parent_session_id = os.environ.get("CLAUDE_PARENT_SESSION_ID", "")
 if parent_session_id:
-    # This is a subagent spawned via Task tool - allow all tools
+    # Subagent - allow all tools EXCEPT TeamCreate (no nested teams)
+    try:
+        stdin_data = sys.stdin.read()
+        data = json.loads(stdin_data) if stdin_data else {}
+        tool_name = str(data.get("tool_name", ""))
+        if tool_name == "TeamCreate":
+            print("Nested teams not supported. Teammates cannot create teams.", file=sys.stderr)  # noqa: T201
+            sys.exit(2)
+    except Exception as exc:  # noqa: BLE001
+        # Can't parse stdin; allow tool to avoid breaking subagents
+        print(f"Warning: subagent TeamCreate guard failed to parse stdin: {exc}", file=sys.stderr)  # noqa: T201
     sys.exit(0)
 
 # Force UTF-8 output on Windows (fixes emoji encoding errors)
@@ -71,6 +81,14 @@ ALLOWED_TOOLS = {
     "Task",  # Allow delegation Task tool
     "SubagentTask",
     "AgentTask",
+}
+
+# Agent Teams tools - gated behind env var, NOT unconditionally allowed
+# Note: Teammates are spawned via Task tool with team_name parameter (already in ALLOWED_TOOLS)
+# The pattern match on "team"/"teammate" below catches additional variations
+AGENT_TEAMS_TOOLS = {
+    "TeamCreate",      # Create a team
+    "SendMessage",     # Inter-agent communication
 }
 
 
@@ -163,6 +181,49 @@ def main() -> int:
         if "delegate" in tool_name_lower or "delegation" in tool_name_lower or tool_name.startswith("Task."):
             debug_log("ALLOWED: Delegation pattern")
             return 0
+
+        # Agent Teams tools - gated behind experimental env var
+        # When env var is set, allow team tools and auto-provision state file
+        if os.environ.get("CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS", "0") == "1":
+            # Check explicit set membership or pattern match
+            is_team_tool = (
+                tool_name in AGENT_TEAMS_TOOLS
+                or "team" in tool_name_lower
+                or "teammate" in tool_name_lower
+            )
+            if is_team_tool:
+                # Auto-create team_mode_active state file on first team tool use
+                # so other hooks (e.g. validate_task_graph_compliance) still work
+                team_state_file = state_dir / "team_mode_active"
+                if not team_state_file.exists():
+                    try:
+                        state_dir.mkdir(parents=True, exist_ok=True)
+                        team_state_file.touch()
+                        debug_log(f"AUTO-CREATED: {team_state_file} on first team tool use")
+                    except OSError as e:
+                        debug_log(f"WARNING: Failed to create {team_state_file}: {e}")
+                debug_log(f"ALLOWED: Agent Teams tool '{tool_name}' (env var enabled)")
+                return 0
+        else:
+            # Env var not set - block team tools with clear message
+            is_team_tool = (
+                tool_name in AGENT_TEAMS_TOOLS
+                or "team" in tool_name_lower
+                or "teammate" in tool_name_lower
+            )
+            if is_team_tool:
+                debug_log(f"BLOCKED: Agent Teams tool '{tool_name}' (env var not set)")
+                print(  # noqa: T201
+                    "Team tool blocked: CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS is not set to '1'.",
+                    file=sys.stderr,
+                )
+                print(f"Tool: {tool_name}", file=sys.stderr)  # noqa: T201
+                print("", file=sys.stderr)  # noqa: T201
+                print(  # noqa: T201
+                    "Set CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 to enable Agent Teams.",
+                    file=sys.stderr,
+                )
+                return 2
 
         # Allow Write to scratchpad/temp paths (subagent outputs)
         if tool_name == "Write":

@@ -28,6 +28,7 @@ The **StatusLine** is a dynamic status display system that provides real-time vi
 - **Active delegation count** - Tracks running subagents
 - **Wave information** - Shows current wave in parallel workflows
 - **Recent events** - Displays last workflow events
+- **Non-blocking cost tracking** - Background cache refresh for sub-100ms response times
 
 ### Visibility
 
@@ -40,23 +41,20 @@ StatusLine is displayed:
 
 ## Script Location
 
-**Primary Script:** `src/scripts/statusline.sh`
+**Primary Script:** `scripts/statusline.py`
 
-**Installed Location:** `~/.claude/scripts/statusline.sh`
+**Runtime:** Python 3.12+ (cross-platform: Windows, macOS, Linux)
 
 ### Installation
 
-The statusline script is installed during system setup:
+The statusline script is installed during system setup and configured via the `statusLine` field in `settings.json`:
 
 ```bash
-# Copy scripts to Claude directory
-cp -r src/scripts ~/.claude/
-
-# Make executable
-chmod +x ~/.claude/scripts/statusline.sh
-
 # Verify installation
-ls -la ~/.claude/scripts/statusline.sh
+ls -la scripts/statusline.py
+
+# Test manually (reads JSON from stdin)
+echo '{}' | python3 scripts/statusline.py
 ```
 
 ### Script Functions
@@ -359,6 +357,83 @@ watch -n 1 ~/.claude/scripts/statusline.sh
 [PAR] Active: 0 | Last: Wave 1 sync complete
 [SEQ] Active: 0 | Last: Workflow complete
 ```
+
+---
+
+## Performance Optimization
+
+The statusline cost tracking was optimized from a cold-start latency of ~28 seconds to ~0.078 seconds (360x improvement). This section documents the optimization strategy.
+
+### Problem: Blocking Cost Fetches
+
+The original implementation made two sequential `bunx ccusage` calls (one for daily cost, one for session cost) on every statusline refresh. Each call took ~14 seconds (package resolution + execution), resulting in a ~28-second cold start that blocked the statusline display.
+
+### Solution: Non-Blocking Background Cache Refresh
+
+The optimization applies three techniques:
+
+**1. Merged API calls**
+
+Two separate `bunx ccusage` invocations were merged into a single call using the `-i` flag, which returns per-project breakdown including daily totals. Both daily and session costs are extracted from one response.
+
+```python
+# Before: 2 sequential calls (~28s total)
+# bunx ccusage daily --json --since $TODAY        # daily cost
+# bunx ccusage daily --json --since $TODAY -p .   # session cost
+
+# After: 1 call (~14s, but only in background)
+# bunx ccusage daily --json --since $TODAY -i     # both values
+```
+
+**2. Background cache refresh via `subprocess.Popen`**
+
+When the cache is expired, the statusline returns immediately with stale values (or `$...` placeholders on first run) and spawns a background process to refresh the cache. The background process uses `start_new_session=True` to fully detach from the parent.
+
+```
+Statusline call:
+  1. Check cache file → valid? → return cached values (< 0.001s)
+  2. Cache expired? → return stale values immediately
+  3. Spawn background Python process (fire-and-forget)
+  4. Background process: fetch costs → write cache file → exit
+  5. Next statusline call picks up fresh cache
+```
+
+**3. Extended cache TTL**
+
+`COST_CACHE_TTL_SECONDS` was increased from 60 to 300 seconds. Cost data changes slowly (per-session, not per-turn), making a 5-minute TTL appropriate.
+
+**4. Lock file for concurrent refresh prevention**
+
+A lock file (`statusline_cost_refresh.lock`) prevents multiple background refresh processes from running simultaneously. The lock is considered stale after 60 seconds.
+
+### Performance Characteristics
+
+| Scenario | Latency | Behavior |
+|----------|---------|----------|
+| Warm cache (< 300s old) | < 0.001s | Return cached values directly |
+| Stale cache (> 300s old) | ~0.078s | Return stale values, spawn background refresh |
+| Cold start (no cache) | ~0.078s | Return `$...` placeholders, spawn background refresh |
+| Background refresh | ~14s | Runs in detached process, writes to cache file |
+
+### Cache Files
+
+| File | Location | Purpose |
+|------|----------|---------|
+| `statusline_cost_cache.json` | System temp dir | Cached daily and session costs with timestamp |
+| `statusline_cost_refresh.lock` | System temp dir | Prevents concurrent background refreshes |
+
+### Cache Schema
+
+```json
+{
+  "daily_cost": "$12.34",
+  "session_cost": "$3.45",
+  "timestamp": 1736611822.5,
+  "cwd": "/Users/user/project"
+}
+```
+
+The `cwd` field is used for cache invalidation when switching between projects.
 
 ---
 

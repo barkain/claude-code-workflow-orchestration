@@ -173,6 +173,60 @@
 ```
 active_task_graph.json:  "HOW to execute" (dependencies, ordering)
 workflow.json:           "WHAT is happening" (current status, deliverables)
+team_mode_active:        "WHICH mode" (subagent vs team execution)
+team_config.json:        "WHO is involved" (team name, teammates, role mappings)
+```
+
+### 5.1.1 Agent Teams State Files
+
+The Agent Teams dual-mode execution introduces two additional state files:
+
+**`.claude/state/team_mode_active`**
+
+| Property | Value |
+|----------|-------|
+| Format | Empty marker file (presence = active) |
+| Created by | PreToolUse hook (`require_delegation.py`) on first team tool use |
+| Cleared by | UserPromptSubmit hook (`clear-delegation-sessions.py`) on each new user prompt |
+| Read by | `validate_task_graph_compliance.py` (skips validation when present) |
+| Requires | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` environment variable |
+
+**Purpose:** Signals hooks that Agent Teams mode is active for the current workflow. When present, task graph compliance validation is bypassed because the team's built-in dependency system handles wave ordering.
+
+**Lifecycle:**
+```
+User prompt submitted
+  -> UserPromptSubmit hook clears team_mode_active (if exists)
+  -> Workflow starts, task-planner selects team mode
+  -> Main agent calls TeamCreate (team tool)
+  -> PreToolUse hook auto-creates team_mode_active
+  -> Subsequent Task invocations skip task graph validation
+  -> User submits next prompt
+  -> UserPromptSubmit hook clears team_mode_active
+```
+
+**`.claude/state/team_config.json`**
+
+| Property | Value |
+|----------|-------|
+| Format | JSON (team name, teammates, role mappings) |
+| Created by | Main agent during team bootstrap (Stage 1) |
+| Cleared by | UserPromptSubmit hook on each new user prompt |
+| Read by | Main agent for team coordination |
+| Requires | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` environment variable |
+
+**Purpose:** Stores active team configuration including the team name, list of teammates, and agent-to-role mappings. Used by the main agent to track which teammates are active and coordinate task assignment.
+
+**Example schema:**
+```json
+{
+  "team_name": "auth-module-team",
+  "teammates": [
+    {"name": "backend-dev", "agent": "tech-lead-architect", "role": "API design"},
+    {"name": "tester", "agent": "task-completion-verifier", "role": "Test coverage"}
+  ],
+  "created_at": "2025-02-06T14:30:22Z"
+}
 ```
 
 ### 5.2 With Hooks

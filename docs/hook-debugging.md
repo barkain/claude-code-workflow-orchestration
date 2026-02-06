@@ -143,6 +143,15 @@ cat .claude/state/delegated_sessions.txt  # Should be empty
 | File permissions | `chmod 644 .claude/state/delegated_sessions.txt` |
 | CLAUDE_PROJECT_DIR mismatch | Verify `echo $CLAUDE_PROJECT_DIR` |
 
+### Agent Teams State Cleanup
+
+The UserPromptSubmit hook also cleans up Agent Teams state files on each new user prompt:
+
+- `.claude/state/team_mode_active` -- Deleted if present
+- `.claude/state/team_config.json` -- Deleted if present
+
+This ensures team state does not persist across user interactions, matching the same lifecycle as other delegation state files.
+
 ### Security Note
 
 This hook is critical for security - it prevents privilege persistence across user prompts. Each new user message starts with a clean delegation state.
@@ -212,6 +221,70 @@ The following tools are always allowed without delegation:
 - `Task`/`SubagentTask`/`AgentTask` - Triggers session registration
 
 All other tools are BLOCKED unless session is registered.
+
+### Agent Teams Tool Gating
+
+Agent Teams tools (`TeamCreate`, `SendMessage`) are **not** in the unconditional allowlist. They are gated behind the `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` environment variable.
+
+**When env var is set to `1`:**
+
+1. PreToolUse hook checks if the tool name is in the explicit set (`TeamCreate`, `SendMessage`) or matches the pattern (`"team"` or `"teammate"` in tool name, case-insensitive).
+2. If matched, the tool is **allowed**.
+3. On first team tool use, the hook **auto-creates** `.claude/state/team_mode_active` if it does not already exist. This state file signals downstream hooks (e.g., `validate_task_graph_compliance.py`) to skip task graph validation, since team mode handles dependencies through its own system.
+
+**When env var is NOT set or `0`:**
+
+1. Same matching logic applies.
+2. If matched, the tool is **blocked** with an error message:
+   ```
+   Team tool blocked: CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS is not set to '1'.
+   Tool: TeamCreate
+
+   Set CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 to enable Agent Teams.
+   ```
+
+**Debugging Agent Teams tool gating:**
+
+```bash
+# Enable debug logging
+export DEBUG_DELEGATION_HOOK=1
+
+# Attempt a team tool without env var (should block)
+# Check log for "BLOCKED: Agent Teams tool" entry
+tail /tmp/delegation_hook_debug.log
+
+# Enable Agent Teams
+export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
+
+# Attempt again (should allow + auto-create state file)
+# Check log for "ALLOWED: Agent Teams tool" and "AUTO-CREATED" entries
+tail /tmp/delegation_hook_debug.log
+
+# Verify state file was auto-created
+ls -la .claude/state/team_mode_active
+```
+
+### Problem: Task graph validation fails in team mode
+
+**Symptom:** `validate_task_graph_compliance.py` blocks Task invocations during team mode execution.
+
+**Diagnosis:**
+
+```bash
+# Check if team_mode_active state file exists
+ls -la .claude/state/team_mode_active
+
+# If missing, team tools haven't been used yet (auto-provisioning hasn't fired)
+# Or UserPromptSubmit hook cleared it between prompts
+```
+
+**Solution:**
+
+The `team_mode_active` state file is auto-created by the PreToolUse hook on first team tool use. If it was cleared prematurely (e.g., by a new user prompt), the team tool invocation will recreate it. No manual intervention needed.
+
+If the file is persistently missing during an active team workflow, verify:
+1. The PreToolUse hook has write access to `.claude/state/`
+2. `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is set in the environment
 
 ---
 

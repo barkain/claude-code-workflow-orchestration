@@ -20,6 +20,14 @@ MAX_STDIN_SIZE = 1048576
 
 def main() -> int:
     """Main entry point."""
+    # Check if team mode is active -- skip validation entirely
+    # In team mode, the lead does not invoke Task tools for phase execution;
+    # wave ordering is enforced by the team's built-in dependency system
+    state_dir = Path(os.environ.get("CLAUDE_PROJECT_DIR", Path.cwd())) / ".claude" / "state"
+    team_mode_file = state_dir / "team_mode_active"
+    if team_mode_file.exists():
+        return 0  # Skip validation in team mode -- team handles dependencies
+
     # Read stdin with size limit
     try:
         stdin_json = sys.stdin.read(MAX_STDIN_SIZE)

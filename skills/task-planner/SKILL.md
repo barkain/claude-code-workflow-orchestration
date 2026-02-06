@@ -29,9 +29,11 @@ Analyze the user's request and return a complete execution plan including agent 
 
 8. **Assign waves** — Group independent tasks into parallel waves.
 
-9. **Flag risks** — Complexity, missing tests, potential breaks.
+9. **File conflict check** — Cross-reference target files across tasks in the same wave (see below).
 
-10. **Populate Tasks** — Create task entries using TaskCreate with structured metadata for execution.
+10. **Flag risks** — Complexity, missing tests, potential breaks.
+
+11. **Populate Tasks** — Create task entries using TaskCreate with structured metadata for execution.
 
 ---
 
@@ -65,6 +67,8 @@ Output the following structured plan:
 **Status**: Ready
 
 **Goal**: `<one sentence>`
+
+**Execution Mode**: `subagent` | `team`
 
 **Max Concurrent**: `<value from CLAUDE_MAX_CONCURRENT env var, default 8>`
 
@@ -214,6 +218,219 @@ To detect mode: Check if running as a plugin by looking for `workflow-orchestrat
 2. Count matches per agent; select agent with >=2 matches (highest wins)
 3. Ties: first in table order; <2 matches: general-purpose
 
+---
+
+## Execution Mode Selection (Dual-Mode: Subagent vs Team)
+
+After decomposing subtasks and assigning agents, evaluate execution mode.
+
+### Prerequisites
+
+1. Check env via Bash: `echo ${CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS:-0}`
+2. If not `1`, always use `"subagent"` mode (skip remaining checks)
+
+### team_mode_score Calculation
+
+| Factor | Points | Condition |
+|--------|--------|-----------|
+| Phase count | +2 | > 8 phases |
+| Complexity tier | +2 | Tier 3 (score > 15) |
+| Cross-phase data flow | +3 | Phase B reads files created by Phase A AND needs to make decisions based on content |
+| Review-fix cycles | +3 | Plan includes review/verify then fix/refactor on same artifact |
+| Iterative refinement | +2 | Plan includes success_criterion with retry loops |
+| User keyword | +5 | User says "collaborate", "team", "work together" |
+| Breadth task | -5 | Same operation across multiple items (e.g., "review all files") |
+| Phase count <= 3 | -3 | Simple workflow |
+
+### Decision
+
+- `team_mode_score >= 5`: `execution_mode = "team"`
+- `team_mode_score < 5`: `execution_mode = "subagent"`
+
+### What execution_mode: "team" means
+
+When `execution_mode` is set to `"team"`, the workflow orchestrator will:
+- Create a native agent team via `TeamCreate`
+- Execute ALL phases (across all waves) using `Task(team_name=...)` instead of isolated `Task(...)`
+- This means ALL agents can communicate via `SendMessage` and coordinate through shared task list
+- The plan structure (phases, waves, dependencies) stays the same -- only the execution mechanism changes
+
+You do NOT need to create a single `phase_type: "team"` phase for complex workflows. The plan can have multiple individual phases across multiple waves. Setting `execution_mode: "team"` at the plan level is sufficient -- the orchestrator handles the rest.
+
+Reserve `phase_type: "team"` for simple multi-perspective exploration tasks where the plan IS a single team phase (e.g., "explore from 3 angles").
+
+### Execution Plan JSON Extension
+
+When `execution_mode` is `"subagent"`, omit `team_config` -- execution proceeds exactly as today.
+
+When `execution_mode` is `"team"`, include `team_config` in the execution plan output:
+
+```json
+{
+  "execution_mode": "team",
+  "team_config": {
+    "team_name": "workflow-{timestamp}",
+    "lead_mode": "delegate",
+    "plan_approval": true,
+    "max_teammates": 4,
+    "teammate_roles": [
+      {
+        "role_name": "implementer",
+        "agent_config": "code-cleanup-optimizer",
+        "phase_ids": ["phase_0_0", "phase_0_1", "phase_1_0"]
+      },
+      {
+        "role_name": "reviewer",
+        "agent_config": "task-completion-verifier",
+        "phase_ids": ["phase_2_0"]
+      }
+    ]
+  }
+}
+```
+
+### team_config Fields
+
+| Field | Description |
+|-------|-------------|
+| `team_name` | Unique team identifier: `workflow-{YYYYMMDD_HHMMSS}`. Used with `TeamCreate(team_name=...)` and `Task(team_name=...)`. |
+| `lead_mode` | Always `"delegate"` (coordination-only, aligns with delegation enforcement) |
+| `plan_approval` | `true` to require lead approval of teammate plans before implementation (see Plan Approval Cycle below) |
+| `max_teammates` | Max concurrent teammates (default 4, conservative to manage lead context) |
+| `teammate_roles[]` | Array of role definitions mapping agents to phases |
+| `teammate_roles[].role_name` | Descriptive role (e.g., "implementer", "reviewer", "architect") |
+| `teammate_roles[].agent_config` | Agent name for system prompt (e.g., "code-cleanup-optimizer") |
+| `teammate_roles[].phase_ids` | Array of phase IDs this teammate handles |
+
+**Bootstrapping:** The main agent creates the team via `TeamCreate(team_name=...)`, then spawns each teammate via `Task(team_name=..., subagent_type=..., prompt=...)`. The `team_name` parameter on Task is what makes it a teammate (shared context, SendMessage) vs an isolated subagent.
+
+### Plan Approval Cycle
+
+Plan approval is activated via the **spawn prompt** (natural language instruction), not a Task tool parameter. When `plan_approval: true` in team_config, the task-planner should include the plan-before-implementing instruction in the teammate prompt template.
+
+When spawning teammates, add this instruction to each teammate's prompt:
+> "Before implementing, first explore the codebase and create a detailed plan. Submit your plan for approval before making any changes."
+
+This activates native plan mode behavior. The full approval cycle:
+
+1. Teammate explores in read-only mode and designs their implementation approach
+2. Teammate calls `ExitPlanMode`, which sends a `plan_approval_request` message to the lead
+3. Lead receives a JSON message with `type: "plan_approval_request"` containing a `requestId` and the proposed plan
+4. Lead reviews the plan
+5. Lead responds via `SendMessage` with `type: "plan_approval_response"`:
+   - **Approve:** `SendMessage(type: "plan_approval_response", request_id: "<requestId>", recipient: "<teammate>", approve: true)` -- teammate exits plan mode and proceeds to implementation
+   - **Reject:** `SendMessage(type: "plan_approval_response", request_id: "<requestId>", recipient: "<teammate>", approve: false, content: "<feedback>")` -- teammate revises their plan based on feedback and re-submits via `ExitPlanMode`
+6. The cycle repeats until the plan is approved
+
+When `plan_approval` is `false` or omitted, do NOT include the plan instruction in the spawn prompt -- teammates proceed directly to implementation.
+
+### Execution Mode in Execution Plan Output
+
+Add to the plan header:
+
+```
+**Execution Mode**: `subagent` | `team`
+**Team Mode Score**: `<score>` (breakdown: <factors>)
+```
+
+When team mode is selected, also output:
+
+```
+**Team Config**:
+- Team name: `<name>`
+- Max teammates: `<count>`
+- Roles: `<role1> (<agent>), <role2> (<agent>)`
+```
+
+---
+
+## Handling Explicit Team Requests
+
+When the user explicitly requests team/collaboration (e.g., "use a team", "have agents collaborate", "devil's advocate review"):
+
+### Role-to-Agent Mapping
+
+| User Role | Agent |
+|-----------|-------|
+| architect, designer | tech-lead-architect |
+| critic, devil's advocate, challenger | task-completion-verifier |
+| researcher, analyst, explorer | codebase-context-analyzer |
+| reviewer, code reviewer | code-reviewer |
+| other / unspecified | general-purpose (with `custom_prompt` describing the role) |
+
+### Synthesis Phase
+
+Always include a **synthesis/aggregation phase** in the final wave (Wave N) that collects outputs from all team-member phases and produces a unified result. Assign this to `general-purpose` or `tech-lead-architect` depending on context. The synthesis phase is a **regular subagent phase** (not a team phase).
+
+### Team Phase Creation (execution_mode: "team")
+
+When `execution_mode` is `"team"`, create a **SINGLE phase per team wave** with `phase_type: "team"` in metadata. Do NOT create one task per teammate -- the entire team is ONE task.
+
+The phase metadata includes:
+- `phase_type: "team"` -- marks this as a native team phase
+- `agent: "native-team"` -- signals team execution (not a regular agent)
+- `teammates` array -- each entry has `name`, `role`, `agent`, and optional `custom_prompt`
+- `output_files` array -- one output file per teammate
+
+**Note:** The PreToolUse hook automatically creates `.claude/state/team_mode_active` on the first team tool use (e.g., `TeamCreate`) when `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is set. No manual state file creation is needed.
+
+**Native team bootstrapping:** The main agent executes `TeamCreate(team_name=...)` to create the team, then spawns each teammate via `Task(team_name=..., subagent_type=..., prompt=...)`. The `team_name` parameter on Task is what makes it a teammate (shared context, `SendMessage` for inter-agent communication) vs an isolated subagent (no `team_name` = no communication).
+
+**Example TaskCreate for a team phase:**
+
+```
+TaskCreate:
+  subject: "Agent Team: Multi-perspective exploration"
+  description: "Spawn native Agent Team with 3 teammates exploring TODO CLI design. Bootstrap via TeamCreate then Task(team_name=...) for each teammate."
+  activeForm: "Running Agent Team exploration"
+  metadata: {
+    wave: 0,
+    phase_id: "phase_0_team",
+    phase_type: "team",
+    agent: "native-team",
+    team_name: "workflow-20250211_143022",
+    teammates: [
+      { name: "ux-researcher", role: "UX & developer experience", agent: "general-purpose" },
+      { name: "architect", role: "System design & trade-offs", agent: "tech-lead-architect" },
+      { name: "devils-advocate", role: "Critical analysis & failure modes", agent: "task-completion-verifier" }
+    ],
+    output_files: [
+      "$CLAUDE_SCRATCHPAD_DIR/ux_research.md",
+      "$CLAUDE_SCRATCHPAD_DIR/architecture.md",
+      "$CLAUDE_SCRATCHPAD_DIR/devils_advocate.md"
+    ]
+  }
+```
+
+**Example TaskCreate for the synthesis phase (next wave):**
+
+```
+TaskCreate:
+  subject: "Synthesize team exploration results"
+  description: "Read outputs from all teammates and produce unified recommendations"
+  activeForm: "Synthesizing team results"
+  metadata: {
+    wave: 1,
+    phase_id: "phase_1_synthesis",
+    agent: "general-purpose",
+    parallel: false,
+    output_file: "$CLAUDE_SCRATCHPAD_DIR/synthesis.md"
+  }
+```
+
+Then set up dependencies:
+```
+TaskUpdate:
+  taskId: "<synthesis_task_id>"
+  addBlockedBy: ["<team_phase_task_id>"]
+```
+
+### Subagent Fallback (execution_mode: "subagent")
+
+When `execution_mode` is `"subagent"` (either because `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is not `1`, or because `team_mode_score < 5`), decompose into **individual parallel phases** as normal. The role-to-agent mapping still applies -- each teammate becomes a separate TaskCreate in the same wave, executed as standard parallel subagents. The synthesis phase remains as a separate task in the next wave.
+
+---
+
 **Explore Agent Constraint (CRITICAL):**
 - Explore is READ-ONLY — it CANNOT write files (no Write, Edit, NotebookEdit tools)
 - NEVER assign Explore if task has `output_file` in metadata
@@ -340,6 +557,17 @@ The difference is GROUPING strategy, not atomicity definition.
 **Principle:** More tasks, fewer waves. Parallel by default. Bounded input (≤5 files/10K lines per task).
 
 **Target:** 4+ tasks per wave, <6 total waves. A 10-task workflow → 2-3 waves.
+
+---
+
+### File Conflict Check (Same-Wave Tasks)
+
+Before finalizing wave assignments, cross-reference target files across tasks in the same wave:
+- If two tasks in the same wave modify the same file → move one to the next wave (make sequential)
+- If two tasks read the same file but only one writes → OK (parallel safe)
+- If uncertain about file overlap → default to sequential (conservative)
+
+This is especially critical in team mode where teammates execute concurrently with shared filesystem access.
 
 ---
 

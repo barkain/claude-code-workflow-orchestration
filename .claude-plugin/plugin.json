@@ -1,6 +1,6 @@
 {
   "name": "workflow-orchestrator",
-  "version": "1.0.0",
+  "version": "1.9.0",
   "description": "Delegation system with workflow orchestration, specialized agents, and parallel execution for Claude Code",
   "author": {
     "name": "Nadav Barkai"

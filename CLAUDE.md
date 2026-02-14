@@ -60,7 +60,7 @@ CI workflow exists (`.github/workflows/ci.yml`) but tests are currently disabled
 ## Available Commands
 
 ```bash
-/delegate <task>           # Plan and execute task via task-planner
+/delegate <task>           # Plan and execute task via native plan mode
 /ask <question>            # Read-only question answering (forked context)
 /bypass                    # Toggle delegation enforcement on/off (persists until toggled)
 /add-statusline            # Enable workflow status display
@@ -83,11 +83,12 @@ In plugin mode, agent/skill names use prefix `workflow-orchestrator:` (e.g., `wo
 User prompt
   → UserPromptSubmit hook (clear state, record turn timestamp, clear team state)
   → SessionStart hooks (inject workflow_orchestrator.md + output style)
-  → workflow_orchestrator detects multi-step → invokes task-planner skill (forked context)
-  → task-planner: explores codebase, decomposes, assigns agents, creates tasks via TaskCreate
-  → task-planner: evaluates execution_mode (subagent vs team via team_mode_score)
-  → PostToolUse hook (remind_skill_continuation.py): creates workflow_continuation_needed.json
-  → Stop hook: detects state file, blocks stop, injects "continue" message
+  → workflow_orchestrator detects multi-step → enters native plan mode (EnterPlanMode)
+  → plan mode: main agent explores codebase, decomposes, assigns agents, creates tasks via TaskCreate
+  → plan mode: evaluates execution_mode (subagent vs team via team_mode_score)
+  → plan mode: exits via ExitPlanMode (requires lead approval)
+  → PostToolUse hook (remind_skill_continuation.py): creates workflow_continuation_needed.json on ExitPlanMode
+  → After ExitPlanMode approval, main agent continues to Stage 1
   → Main agent: Stage 1 — parses execution plan JSON, renders dependency graph
   → SUBAGENT MODE (default):
     → For each wave: spawn agents via Task tool (run_in_background: true)
@@ -109,7 +110,7 @@ User prompt
 | Event | Scripts | Purpose |
 |-------|---------|---------|
 | **PreToolUse** (`*`) | `require_delegation.py`, `validate_task_graph_compliance.py` | Block non-allowed tools; validate Task invocations against active task graph |
-| **PostToolUse** | `python_posttooluse_hook.py` (Edit/Write/MultiEdit), `remind_skill_continuation.py` (Skill), `validate_task_graph_depth.py` + `remind_todo_after_task.py` (Task) | Python validation (Ruff, Pyright, security), workflow continuation state, depth-3 enforcement, task reminders |
+| **PostToolUse** | `python_posttooluse_hook.py` (Edit/Write/MultiEdit), `remind_skill_continuation.py` (ExitPlanMode\|Skill\|SlashCommand), `validate_task_graph_depth.py` + `remind_todo_after_task.py` (Task) | Python validation (Ruff, Pyright, security), workflow continuation state (triggers on ExitPlanMode for plan mode flows), depth-3 enforcement, task reminders |
 | **UserPromptSubmit** | `clear-delegation-sessions.py` | Clear delegation state, record turn start timestamp, clear team state (`team_mode_active`, `team_config.json`), rotate logs |
 | **SessionStart** (`startup\|resume\|clear\|compact`) | `inject_workflow_orchestrator.py`, `inject-output-style.py` | Inject system prompt + output style |
 | **SubagentStop** (`*`) | `remind_todo_update.py` (async), `trigger_verification.py` | Remind to update tasks, suggest verification |
@@ -119,7 +120,7 @@ Hook config source of truth: `hooks/plugin-hooks.json` (not settings.json). All 
 
 ### Tool Allowlist
 
-Main agent can only use: `AskUserQuestion`, `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet`, `Skill`, `SlashCommand`, `Task`, `SubagentTask`, `AgentTask`
+Main agent can only use: `AskUserQuestion`, `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet`, `Skill`, `SlashCommand`, `Task`, `SubagentTask`, `AgentTask`, `EnterPlanMode`, `ExitPlanMode`
 
 Special cases:
 - `Write` tool allowed for temp/scratchpad paths only (`/tmp/`, `/private/tmp/`, `/var/folders/`)
@@ -142,7 +143,7 @@ Special cases:
 
 ### Skills (forked context)
 
-- **task-planner** (`skills/task-planner/SKILL.md`): Core planning engine. Explores codebase, scores complexity (formula: `action_verbs*2 + connectors*2 + domain + scope + risk`), tier classification (Tier 1: depth 1, Tier 2: depth 2, Tier 3: depth 3), agent assignment, wave scheduling, task creation.
+- **task-planner** (`skills/task-planner/SKILL.md`): Legacy planning skill, retained for reference/backward compatibility. The core planning logic (complexity scoring, tier classification, agent assignment, wave scheduling, task creation) has been absorbed into `system-prompts/workflow_orchestrator.md` and now executes as native plan mode (EnterPlanMode/ExitPlanMode) directly in the main agent context rather than a forked skill context.
 - **breadth-reader** (`skills/breadth-reader/SKILL.md`): Lightweight read-only breadth tasks. Spawns `Explore` subagents (Haiku). Returns summary only.
 
 ### Specialized Agents (8)
@@ -162,7 +163,7 @@ All 8 agents include a conditional COMMUNICATION MODE section: when running as a
 
 ### Dual-Mode Execution (Subagent vs Team)
 
-The framework supports two execution modes, selected at planning time by the task-planner skill:
+The framework supports two execution modes, selected at planning time during native plan mode:
 
 **Subagent mode** (default): Current pipeline. Main agent spawns Task tool instances per wave. Agents return `DONE|{path}`. Context-efficient, optimal for most workflows.
 
@@ -172,7 +173,7 @@ Two team workflow patterns:
 - **Team mode (simple):** Single AGENT TEAM phase with `phase_type: "team"` and `teammates` array -- used for multi-perspective exploration (e.g., "explore from different angles")
 - **Team mode (complex):** Multiple individual phases across waves, all executed as teammates via `Task(team_name=...)` -- used for collaborative implementation (e.g., "implement project, tasks should be collaborative"). The plan has `execution_mode: "team"` at the top level; no individual phase needs `phase_type: "team"`
 
-**Mode selection** uses `team_mode_score` (calculated by task-planner):
+**Mode selection** uses `team_mode_score` (calculated during plan mode):
 - Phase count >8: +2, Tier 3 complexity: +2, cross-phase data flow: +3
 - Review-fix cycles: +3, iterative refinement: +2, user keyword "collaborate"/"team": +5
 - Breadth task: -5, phase count <=3: -3
@@ -184,7 +185,7 @@ Two team workflow patterns:
 - Agents use conditional COMMUNICATION MODE (teammate messaging vs `DONE|{path}`)
 - State files: `.claude/state/team_mode_active`, `.claude/state/team_config.json`
 
-Agent selection uses keyword matching (≥2 matches threshold, highest count wins). Falls back to general-purpose if 0-1 matches. See `skills/task-planner/SKILL.md` for keyword lists.
+Agent selection uses keyword matching (≥2 matches threshold, highest count wins). Falls back to general-purpose if 0-1 matches. See `system-prompts/workflow_orchestrator.md` for keyword lists.
 
 Agent config format: YAML frontmatter (`name`, `description`, optional `tools`/`model`/`color`) + markdown system prompt body. All agents enforce `DONE|{output_file}` return format.
 
@@ -197,11 +198,11 @@ Agent config format: YAML frontmatter (`name`, `description`, optional `tools`/`
 | `.claude/state/delegation_disabled` | Bypass flag | Until `/bypass` toggle |
 | `.claude/state/active_delegations.json` | Parallel wave tracking | Per-workflow |
 | `.claude/state/active_task_graph.json` | Task graph for validation | Per-workflow |
-| `.claude/state/workflow_continuation_needed.json` | Signal stop hook to auto-continue | Per-skill invocation |
+| `.claude/state/workflow_continuation_needed.json` | Signal stop hook to auto-continue | Per-plan-mode exit (ExitPlanMode) |
 | `.claude/state/turn_start_timestamp.txt` | Turn timing start | Per-user-prompt |
 | `.claude/state/last_turn_duration.txt` | Formatted duration | Per-turn |
 | `.claude/state/turn_durations.json` | Last 10 durations (sparkline) | Rolling |
-| `.claude/state/team_mode_active` | Signals hooks that Agent Teams mode is active | Auto-created by PreToolUse on first team tool use or by task-planner; cleared by UserPromptSubmit or Stage 1 cleanup |
+| `.claude/state/team_mode_active` | Signals hooks that Agent Teams mode is active | Auto-created by PreToolUse on first team tool use or during plan mode; cleared by UserPromptSubmit or Stage 1 cleanup |
 | `.claude/state/team_config.json` | Active team configuration (name, teammates, role mappings) | Created at team bootstrap, cleared by UserPromptSubmit |
 | `.claude/state/validation/` | Validation state + gate log | Auto-cleaned after 24h |
 
@@ -263,7 +264,7 @@ cat .claude/state/delegation_disabled    # bypass active?
 ```
 
 **Multi-step not detected:**
-Ensure SessionStart hooks are installed (inject_workflow_orchestrator.py). Use connectors in prompts: "and then", "with", "including".
+Ensure SessionStart hooks are installed (inject_workflow_orchestrator.py) so that workflow_orchestrator.md is injected and native plan mode (EnterPlanMode/ExitPlanMode) is available. Use connectors in prompts: "and then", "with", "including".
 
 **TeamCreate blocked:**
 ```bash
@@ -273,7 +274,7 @@ export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
 The PreToolUse hook blocks all team tools (`TeamCreate`, `SendMessage`, pattern `*team*`/`*teammate*`) unless this env var is set. The hook prints a specific error message indicating the env var is missing.
 
 **Team mode not activating despite keywords:**
-Ensure `team_mode_score >= 5`. Simple tasks (<=3 phases) get -3, breadth tasks get -5. Add explicit keywords like "collaborate" or "team" (+5) to trigger team mode. Check `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is set -- without it, task-planner always selects `"subagent"` mode regardless of score.
+Ensure `team_mode_score >= 5`. Simple tasks (<=3 phases) get -3, breadth tasks get -5. Add explicit keywords like "collaborate" or "team" (+5) to trigger team mode. Check `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is set -- without it, plan mode always selects `"subagent"` mode regardless of score.
 
 **Team state files stale after crash:**
 ```bash

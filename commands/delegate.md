@@ -1,5 +1,5 @@
 ---
-description: Execute task-planner output by delegating phases to specialized agents
+description: Execute plan mode output by delegating phases to specialized agents
 argument-hint: [task description]
 allowed-tools: Task
 ---
@@ -12,7 +12,7 @@ allowed-tools: Task
 |-------------------------------------|
 | create, write, save, generate, produce, output, report, build, make |
 
-**If ANY write indicator found:** Skip breadth-reader, proceed to task-planner below.
+**If ANY write indicator found:** Skip breadth-reader, proceed to plan mode below.
 
 **Step 2: Breadth Task Detection** - Only if NO write indicators:
 
@@ -22,7 +22,7 @@ allowed-tools: Task
 
 **If breadth task detected (and no write indicators):** Use `/breadth-reader $ARGUMENTS` instead - STOP HERE.
 
-**Otherwise:** Proceed with task-planner execution below.
+**Otherwise:** Proceed with plan mode execution below.
 
 ---
 
@@ -34,29 +34,29 @@ allowed-tools: Task
 
 ## Process Overview
 
-This command executes the plan that was created by task-planner in Stage 0 (workflow_orchestrator).
+This command executes the plan that was created by native plan mode (EnterPlanMode/ExitPlanMode) in Stage 0 (workflow_orchestrator).
 
-**Important:** Task-planner has ALREADY run before this command is invoked. Do NOT invoke task-planner again - the plan already exists in the task list (use TaskList to view) and the execution plan JSON.
+**Important:** Plan mode has ALREADY run before this command is invoked. Do NOT enter plan mode again - the plan already exists in the task list (use TaskList to view) and the execution plan JSON.
 
 **Your role: Execute the plan exactly as specified. Never deviate from wave order, phase assignments, or dependencies.**
 
 ---
 
-## Step 1: Use Task-Planner Output from Stage 0
+## Step 1: Use Plan Mode Output from Stage 0
 
-The task-planner skill already ran in Stage 0 and produced:
+Plan mode already ran in Stage 0 and produced:
 - Tasks created via TaskCreate with structured metadata (use TaskList to view)
 - Subtask table with agent assignments and dependencies
 - Wave breakdown (each task listed individually)
 - JSON execution plan (your binding contract)
 
-**DO NOT invoke task-planner again.** The planning is complete. Proceed directly to parsing and executing the existing plan.
+**DO NOT enter plan mode again.** The planning is complete. Proceed directly to parsing and executing the existing plan.
 
 ---
 
 ## Step 2: Parse Execution Plan
 
-Extract the JSON execution plan from the task-planner output. This JSON is your **BINDING CONTRACT** and must be followed exactly.
+Extract the JSON execution plan from the plan mode output. This JSON is your **BINDING CONTRACT** and must be followed exactly.
 
 Look for the `Execution Plan JSON` code fence containing:
 - `waves[]` - ordered list of execution waves (Wave 0 -> Wave 1 -> ...)
@@ -64,7 +64,7 @@ Look for the `Execution Plan JSON` code fence containing:
 - `dependency_graph` - which phases depend on which other phases
 - `parallel_execution` flag - whether phases in a wave run concurrently or sequentially
 
-Task-planner already performed all analysis and optimization. Your job is execution, not re-planning.
+Plan mode already performed all analysis and optimization. Your job is execution, not re-planning.
 
 ---
 
@@ -74,7 +74,7 @@ Task-planner already performed all analysis and optimization. Your job is execut
 
 - Execute waves in order (Wave 0 -> Wave 1 -> ...)
 - For parallel waves (`parallel_execution: true`): spawn in batches of **max_concurrent** (from execution plan)
-  - **Extract max_concurrent from execution plan JSON** (task-planner reads env var and embeds value)
+  - **Extract max_concurrent from execution plan JSON** (plan mode reads env var and embeds value)
   - Look for `"max_concurrent": <value>` in the JSON or **Max Concurrent** field in plan header
   - If wave has >max_concurrent phases: spawn first batch, wait for completion, spawn next batch, repeat
   - This prevents context exhaustion while preserving parallelism
@@ -115,7 +115,7 @@ Provide completion summary:
 
 ## Error Handling
 
-- If task-planner asks for clarification: relay to user, wait for response
+- If plan mode identifies ambiguities: relay to user, wait for response
 - If phase fails: stop workflow, report failure, ask user whether to retry or abort
 - If plan seems impractical: use `/ask` to notify user, wait for decision
 
@@ -128,4 +128,4 @@ Provide completion summary:
 3. Execute waves in order
 4. Report results
 
-Task-planner already ran in Stage 0. Execute the plan exactly as specified.
+Plan mode already ran in Stage 0. Execute the plan exactly as specified.

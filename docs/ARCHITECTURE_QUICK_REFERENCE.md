@@ -35,7 +35,7 @@ Is the task blocked by PreToolUse hook?
                    ├── YES → Use breadth-reader skill
                    │
                    └── NO → Step 3: Is task simple?
-                            ├── YES → DIRECT EXECUTION (bypass task-planner)
+                            ├── YES → DIRECT EXECUTION (bypass plan mode)
                             │
                             └── NO → Use /delegate for complex tasks
 ```
@@ -305,7 +305,7 @@ echo '{"version":"2.0","execution_mode":"sequential","active_delegations":[]}' >
 
 **Lifecycle:**
 1. Auto-created by PreToolUse hook when `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` and a team tool is invoked
-2. Can also be created by task-planner or lead agent during Step 1
+2. Can also be created by plan mode or lead agent during Step 1
 3. Cleared by UserPromptSubmit hook or during team cleanup (Step 5)
 
 **Operations:**
@@ -446,11 +446,11 @@ rm -f .claude/state/team_mode_active .claude/state/team_config.json
 
 ### Delegation Failing
 
-- [ ] Is task-planner skill present? Check `~/.claude/skills/task-planner/`
+- [ ] Is plan mode available? Check that EnterPlanMode/ExitPlanMode tools are accessible
 - [ ] Are agent files present? Check `ls ~/.claude/agents/`
 - [ ] Is settings.json configured? Check `cat ~/.claude/settings.json | jq '.hooks'`
 - [ ] Reinstall if needed: `cp -r agents hooks skills ~/.claude/`
-- [ ] Check routing: Simple tasks use DIRECT EXECUTION (bypass task-planner)
+- [ ] Check routing: Simple tasks use DIRECT EXECUTION (bypass plan mode)
 
 ### Multi-Step Not Detected
 
@@ -472,12 +472,12 @@ rm -f .claude/state/team_mode_active .claude/state/team_config.json
 ### Team Mode Not Activating
 
 - [ ] Is `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` set? Check `echo $CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`
-- [ ] Does the task meet `team_mode_score >= 5`? Check task-planner output for score breakdown
+- [ ] Does the task meet `team_mode_score >= 5`? Check plan mode output for score breakdown
 - [ ] Does `team_mode_active` exist? Check `ls -la .claude/state/team_mode_active`
 - [ ] Does `team_config.json` exist? Check `cat .claude/state/team_config.json | jq .`
 - [ ] Is TeamCreate available? Try manual invocation
 - [ ] Try adding team keywords: "collaborate", "team", "work together"
-- [ ] Check if task-planner fell back to subagent mode (score < 5)
+- [ ] Check if plan mode fell back to subagent mode (score < 5)
 
 ### Team Mode Failing Mid-Workflow
 
@@ -670,7 +670,7 @@ score = file_count*2 + lines/50 + concerns*1.5 + ext_deps + (arch_decisions ? 3 
 ### Team Mode Lifecycle Quick Reference
 
 ```
-1. task-planner calculates team_mode_score
+1. Plan mode calculates team_mode_score
 2. Score >= 5 → execution_mode: "team" in plan
 3. Lead asks user for confirmation (AskUserQuestion)
 4. TeamCreate(team_name="workflow-{timestamp}")

@@ -20,7 +20,7 @@ This system uses Claude Code's hook mechanism to create a delegation-enforced wo
 
 - **Enforced Delegation** - PreToolUse hooks block direct tool usage, forcing delegation to specialized agents
 - **8 Specialized Agents** - Each agent has domain expertise (code cleanup, testing, architecture, DevOps, etc.)
-- **Unified Task Planner** - Single `task-planner` skill handles planning, agent selection, and execution orchestration
+- **Native Plan Mode** - Built-in plan mode (EnterPlanMode/ExitPlanMode) handles planning, agent selection, and execution orchestration
 - **Intelligent Multi-Step Workflows** - Sequential execution for dependent phases, parallel for independent phases
 - **Dual-Mode Execution** - Isolated subagent sessions (default) or collaborative Agent Teams with real-time inter-agent communication (experimental)
 - **Agent Teams Integration** - Native `TeamCreate` + `Task(team_name=...)` + `SendMessage` for peer-to-peer collaboration, shared task lists, and coordinated multi-agent workflows
@@ -36,7 +36,7 @@ This system uses Claude Code's hook mechanism to create a delegation-enforced wo
 
 The system uses a two-stage execution pipeline:
 
-**Stage 0: Planning & Analysis (task-planner skill)**
+**Stage 0: Planning & Analysis (native plan mode)**
 - Analyzes task complexity (single-step vs multi-step)
 - Decomposes complex tasks into atomic phases
 - Performs dependency analysis to determine execution mode
@@ -51,7 +51,7 @@ The system uses a two-stage execution pipeline:
   - **Team mode (experimental):** Native Agent Teams via `TeamCreate` + `Task(team_name=...)`. Teammates share context, communicate via `SendMessage`, and self-coordinate through shared task lists. Requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`.
 - Results consolidated and summary provided
 
-**Execution Mode Selection:** The task-planner calculates a `team_mode_score` to choose between subagent mode (isolated, context-efficient) and team mode (collaborative, real-time communication). For subagent mode, it further selects sequential (context preservation, dependencies) or parallel (time savings, independence) based on phase dependency analysis.
+**Execution Mode Selection:** Plan mode calculates a `team_mode_score` to choose between subagent mode (isolated, context-efficient) and team mode (collaborative, real-time communication). For subagent mode, it further selects sequential (context preservation, dependencies) or parallel (time savings, independence) based on phase dependency analysis.
 
 
 ## Quick Start
@@ -171,7 +171,7 @@ and then prompt claude with:
 ```
 
 **What happens:**
-1. First, the `task-planner` skill is invoked to:
+1. First, the main agent enters native plan mode (EnterPlanMode) to:
    - Analyze task complexity (single-step vs multi-step)
    - Decompose into atomic subtasks
    - Assign specialized agents via keyword matching
@@ -180,7 +180,7 @@ and then prompt claude with:
 
    ![img_delegate.png](assets/img_delegate.png)
 
-2. Once the task-planner returns, a task dependency graph is rendered and the user request is decomposed into parallel atomic subtasks:
+2. Once plan mode completes (ExitPlanMode), a task dependency graph is rendered and the user request is decomposed into parallel atomic subtasks:
 
     ![img_dependancy_graph.png](assets/img_dependancy_graph.png)
 
@@ -332,7 +332,7 @@ Blocks most tools and forces delegation to specialized agents. Cross-platform Py
 - **documentation-expert** - Documentation creation and maintenance
 - **dependency-manager** - Dependency management and updates
 
-**Note:** The `delegation-orchestrator` agent has been deprecated. Its orchestration and routing functionality is now provided by the unified `task-planner` skill, which handles both planning and execution orchestration in a single pass.
+**Note:** The `delegation-orchestrator` agent has been deprecated. Its orchestration and routing functionality is now provided by native plan mode (EnterPlanMode/ExitPlanMode), which handles both planning and execution orchestration directly within the main agent.
 
 ### 3. Breadth Reader Skill (`skills/breadth-reader/`)
 
@@ -356,17 +356,17 @@ The `/delegate` command provides intelligent task delegation with integrated pla
 ```
 
 **How it works:**
-1. Invokes the `task-planner` skill (unified orchestration engine)
-2. Task-planner analyzes task complexity and decomposes into phases
+1. Enters native plan mode (EnterPlanMode) for unified planning and orchestration
+2. Plan mode analyzes task complexity and decomposes into phases
 3. Performs dependency analysis to determine execution mode (sequential or parallel)
 4. Assigns specialized agents via keyword matching (>=2 match threshold)
 5. Creates wave assignments and execution plan
 6. Creates task list via TaskCreate
-7. Executes phases as directed by the plan
+7. Exits plan mode (ExitPlanMode) and executes phases as directed by the plan
 
 ### 5. Workflow Orchestration System Prompt (`system-prompts/workflow_orchestrator.md`)
 
-Enables multi-step workflow detection and preparation for complex tasks. Works in conjunction with the `task-planner` skill.
+Enables multi-step workflow detection and preparation for complex tasks. Works in conjunction with native plan mode (EnterPlanMode/ExitPlanMode).
 
 **Activate via:**
 Simply start a Claude code session
@@ -380,7 +380,7 @@ claude
 - Multiple verbs: "create X and test Y"
 
 **Unified Planning & Execution:**
-The `task-planner` skill handles both planning and execution orchestration:
+Native plan mode (EnterPlanMode/ExitPlanMode) handles both planning and execution orchestration:
 
 1. **Task Decomposition** - Breaks complex tasks into atomic phases
 2. **Dependency Analysis** - Analyzes phase dependencies to determine optimal execution mode
@@ -397,7 +397,7 @@ The `task-planner` skill handles both planning and execution orchestration:
 
 **Complete workflow process:**
 1. User submits multi-step task (detected by workflow_orchestrator patterns)
-2. task-planner skill invoked to decompose and plan execution
+2. Native plan mode entered (EnterPlanMode) to decompose and plan execution
 3. Task list created via TaskCreate with all phases
 4. Phase dependencies analyzed to determine execution mode
 5. **Sequential Mode:** Phases execute one at a time with context passing
@@ -417,11 +417,11 @@ Set the environment variable before starting Claude Code:
 export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
 ```
 
-No other configuration is required. The task-planner automatically evaluates whether a given task benefits from team-based execution.
+No other configuration is required. Plan mode automatically evaluates whether a given task benefits from team-based execution.
 
 ### How Mode Selection Works
 
-During planning, the task-planner calculates a `team_mode_score` based on task characteristics:
+During planning, plan mode calculates a `team_mode_score` based on task characteristics:
 
 | Factor                                | Points | Condition                                              |
 |---------------------------------------|--------|--------------------------------------------------------|

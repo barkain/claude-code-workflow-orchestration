@@ -3,9 +3,12 @@
 # requires-python = ">=3.12"
 # ///
 """
-Remind Claude to continue after task-planner skill.
+Remind Claude to continue after task-planner skill or ExitPlanMode.
 
 Creates a state file that the Stop hook checks to auto-continue workflow.
+Triggers on:
+  - PostToolUse for Skill tool when skill contains "task-planner"
+  - PostToolUse for ExitPlanMode tool (plan mode completion)
 This is a workaround for plugin mode where additionalContext isn't applied.
 """
 import io
@@ -33,42 +36,57 @@ else:
 
 logger = logging.getLogger(__name__)
 
+CONTINUATION_CONTEXT = (
+    "⚡ IMMEDIATELY PROCEED TO STAGE 1: EXECUTION. "
+    "Parse the execution plan and begin delegating phases. DO NOT STOP."
+)
+
+
+def _create_continuation_state(reason: str) -> None:
+    """Create state file and emit additionalContext for workflow continuation."""
+    state_dir = Path(".claude/state")
+    state_dir.mkdir(parents=True, exist_ok=True)
+    state_file = state_dir / "workflow_continuation_needed.json"
+    state_file.write_text(json.dumps({
+        "reason": reason,
+        "action": "continue workflow execution",
+    }))
+    logger.debug("Created state file: %s (reason: %s)", state_file, reason)
+
+    # Also output additionalContext (may work in some contexts)
+    output = {
+        "hookSpecificOutput": {
+            "hookEventName": "PostToolUse",
+            "additionalContext": CONTINUATION_CONTEXT,
+        }
+    }
+    print(json.dumps(output))
+
 
 def main() -> None:
     try:
         data = json.loads(sys.stdin.read())
+        tool_name = data.get("tool_name", "")
         skill = data.get("tool_input", {}).get("skill", "")
 
-        logger.debug(f"Skill: {skill}")
+        logger.debug("tool_name=%s, skill=%s", tool_name, skill)
 
-        # Check if task-planner skill was invoked
+        # Case 1: task-planner skill invoked (backward compat for skill mode)
         if "task-planner" in skill:
-            # Always create state file when task-planner is invoked
             # The tool_result is empty for Skill tools in PostToolUse hooks
             # so we can't check for "Ready" status here
             logger.debug("task-planner detected, creating continuation state file")
+            _create_continuation_state("task-planner skill completed")
+            return
 
-            # Create state file to signal Stop hook to auto-continue
-            state_dir = Path(".claude/state")
-            state_dir.mkdir(parents=True, exist_ok=True)
-            state_file = state_dir / "workflow_continuation_needed.json"
-            state_file.write_text(json.dumps({
-                "reason": "task-planner skill completed",
-                "action": "continue workflow execution"
-            }))
-            logger.debug(f"Created state file: {state_file}")
-
-            # Also output additionalContext (may work in some contexts)
-            output = {
-                "hookSpecificOutput": {
-                    "hookEventName": "PostToolUse",
-                    "additionalContext": "⚡ IMMEDIATELY PROCEED TO STAGE 1: EXECUTION. Parse the execution plan JSON and begin delegating phases. DO NOT STOP."
-                }
-            }
-            print(json.dumps(output))
+        # Case 2: ExitPlanMode tool invoked (plan mode completion)
+        if tool_name == "ExitPlanMode":
+            logger.debug("ExitPlanMode detected, creating continuation state file")
+            _create_continuation_state("plan mode completed")
+            return
 
     except (json.JSONDecodeError, KeyError, TypeError) as e:
-        logger.debug(f"Error: {e}")
+        logger.debug("Error: %s", e)
 
 
 if __name__ == "__main__":

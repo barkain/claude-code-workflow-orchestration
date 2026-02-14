@@ -2,7 +2,7 @@
 """
 Stop Hook: Workflow Continuation + Code Quality Analysis (cross-platform)
 
-1. Checks if workflow continuation is needed (after task-planner completes)
+1. Checks if workflow continuation is needed (after plan mode completes via ExitPlanMode)
    - If so, blocks stop and injects "continue" as user message
 2. Runs code quality checks on staged Python files (informational only)
 

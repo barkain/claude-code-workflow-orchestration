@@ -13,7 +13,7 @@ Both paths fail on large data sources.
 
 ### Root Cause
 
-The task-planner has no awareness of:
+The planning phase (plan mode) has no awareness of:
 - **Explore** as a built-in subagent (Haiku model, read-only, cheap & fast)
 - **Data topology** (directory structure, file count, file sizes) as an input to decomposition
 - **Aggregation** as a required final phase for distributed read-only work
@@ -41,7 +41,7 @@ Key properties making Explore ideal for this:
 
 ## Solution
 
-Teach the task-planner to detect large-scope read-only tasks, map the data topology, and decompose into parallel Explore agents with an aggregation phase.
+Teach the plan mode planning instructions to detect large-scope read-only tasks, map the data topology, and decompose into parallel Explore agents with an aggregation phase.
 
 ### Example
 
@@ -52,7 +52,7 @@ Current behavior:
   → 1 Explore agent → reads everything → hits context → auto-compacts → loses detail
 
 Proposed behavior:
-  → task-planner runs quick Explore to map topology
+  → plan mode runs quick Explore to map topology
   → finds 6 directories, 30+ files
   → decomposes:
 
@@ -70,7 +70,7 @@ Proposed behavior:
 
 ### Topology-Aware Partitioning
 
-The task-planner maps file count and sizes during its exploration step, then partitions:
+The plan mode maps file count and sizes during its exploration step, then partitions:
 
 | File Size | Grouping Strategy |
 |-----------|-------------------|
@@ -95,7 +95,7 @@ The distinction: **depth** tasks go to specialized agents, **breadth** tasks go 
 
 ## Changes Required
 
-### 1. `skills/task-planner/SKILL.md`
+### 1. `system-prompts/workflow_orchestrator.md` (Planning Instructions section)
 
 **Add Explore to Available Specialized Agents table:**
 
@@ -223,7 +223,7 @@ Example Task invocation for Explore:
 2. **3-step routing in `workflow_orchestrator.md`**
    - Step 1: Write detection (skip breadth-reader if write indicators found)
    - Step 2: Breadth task detection (single verb + broad scope)
-   - Step 3: Route decision (breadth-reader, task-planner, or direct execution)
+   - Step 3: Route decision (breadth-reader, plan mode, or direct execution)
 
 3. **Direct execution for breadth+write tasks**
    - Spawns multiple general-purpose agents in a single message

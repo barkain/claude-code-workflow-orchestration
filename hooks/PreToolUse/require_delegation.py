@@ -81,6 +81,8 @@ ALLOWED_TOOLS = {
     "Task",  # Allow delegation Task tool
     "SubagentTask",
     "AgentTask",
+    "EnterPlanMode",
+    "ExitPlanMode",
 }
 
 # Agent Teams tools - gated behind env var, NOT unconditionally allowed

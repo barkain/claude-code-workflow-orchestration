@@ -247,11 +247,11 @@ User prompt submitted
     "PostToolUse": [
       {
         "matcher": "*.py",
-        "hooks": [{"type": "command", "command": "~/.claude/hooks/PostToolUse/python_posttooluse_hook.sh"}]
+        "hooks": [{"type": "command", "command": "$HOME/.claude/hooks/PostToolUse/python_posttooluse_hook.sh"}]
       },
       {
         "matcher": "*Task*",
-        "hooks": [{"type": "command", "command": "~/.claude/hooks/PostToolUse/workflow_sync.sh"}]
+        "hooks": [{"type": "command", "command": "$HOME/.claude/hooks/PostToolUse/workflow_sync.sh"}]
       }
     ]
   }

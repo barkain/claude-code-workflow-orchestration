@@ -462,7 +462,7 @@ generate_settings_json() {
     case "$scope" in
         plugin)  path_prefix='${CLAUDE_PLUGIN_ROOT}' ;;
         project) path_prefix='./.claude' ;;
-        user)    path_prefix='~/.claude' ;;
+        user)    path_prefix='$HOME/.claude' ;;
         *)
             print_error "Invalid scope: $scope"
             return 1

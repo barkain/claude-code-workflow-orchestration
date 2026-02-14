@@ -29,7 +29,7 @@
         ]
       },
       {
-        "matcher": "ExitPlanMode|Skill|SlashCommand",
+        "matcher": "^(ExitPlanMode|Skill|SlashCommand)$",
         "hooks": [
           {
             "type": "command",

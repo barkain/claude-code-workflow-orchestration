@@ -377,8 +377,8 @@ While in plan mode, the main agent performs all analysis and orchestration dutie
 
 When in plan mode (after EnterPlanMode), follow these steps in order:
 
-### Step 1: Read Environment Configuration
-Run `echo ${CLAUDE_MAX_CONCURRENT:-8}` via Bash to capture the max concurrent agents limit. This value will be included in the execution plan.
+### Step 1: Note Environment Configuration
+The `max_concurrent` agents limit is configured via `CLAUDE_MAX_CONCURRENT` environment variable (default: 8). Use this default unless the user specifies otherwise. This value will be included in the execution plan you generate.
 
 ### Step 2: Parse Intent
 What does the user actually want? What's the success criteria?

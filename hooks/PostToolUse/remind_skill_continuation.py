@@ -50,7 +50,7 @@ def _create_continuation_state(reason: str) -> None:
     state_file.write_text(json.dumps({
         "reason": reason,
         "action": "continue workflow execution",
-    }))
+    }, ensure_ascii=False))
     logger.debug("Created state file: %s (reason: %s)", state_file, reason)
 
     # Also output additionalContext (may work in some contexts)
@@ -60,30 +60,30 @@ def _create_continuation_state(reason: str) -> None:
             "additionalContext": CONTINUATION_CONTEXT,
         }
     }
-    print(json.dumps(output))
+    print(json.dumps(output, ensure_ascii=False))
 
 
 def main() -> None:
     try:
         data = json.loads(sys.stdin.read())
         tool_name = data.get("tool_name", "")
-        skill = data.get("tool_input", {}).get("skill", "")
 
-        logger.debug("tool_name=%s, skill=%s", tool_name, skill)
+        logger.debug("tool_name=%s", tool_name)
 
-        # Case 1: task-planner skill invoked (backward compat for skill mode)
-        if "task-planner" in skill:
-            # The tool_result is empty for Skill tools in PostToolUse hooks
-            # so we can't check for "Ready" status here
-            logger.debug("task-planner detected, creating continuation state file")
-            _create_continuation_state("task-planner skill completed")
-            return
-
-        # Case 2: ExitPlanMode tool invoked (plan mode completion)
+        # Case 1: ExitPlanMode tool invoked (plan mode completion)
         if tool_name == "ExitPlanMode":
             logger.debug("ExitPlanMode detected, creating continuation state file")
             _create_continuation_state("plan mode completed")
             return
+
+        # Case 2: task-planner skill invoked (backward compat for skill mode)
+        if tool_name == "Skill":
+            skill = data.get("tool_input", {}).get("skill", "")
+            logger.debug("Skill tool detected, skill=%s", skill)
+            if "task-planner" in skill:
+                logger.debug("task-planner detected, creating continuation state file")
+                _create_continuation_state("task-planner skill completed")
+                return
 
     except (json.JSONDecodeError, KeyError, TypeError) as e:
         logger.debug("Error: %s", e)

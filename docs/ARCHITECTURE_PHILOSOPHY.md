@@ -50,7 +50,7 @@ Each specialized agent has a restricted tool set that matches its domain:
 | Implementation (optimizer, devops) | Read, Write, Edit, Glob, Grep, Bash | Can modify but cannot spawn sub-delegations |
 | Meta-Agents (orchestrator, decomposer) | Read, Task, Tasks API | Coordinates but doesn't execute directly |
 | Verification (verifier, validator) | Read, Bash, Glob, Grep | Validates without modifying (maintains objectivity) |
-| Planning (task-planner) | Read, Glob, Grep, Bash, WebFetch, AskUserQuestion | Analyzes and plans but never implements |
+| Planning (native plan mode) | EnterPlanMode, ExitPlanMode, Read, Glob, Grep, Bash | Main agent plans directly via plan mode |
 
 ### 1.3 Core Design Principles
 
@@ -368,19 +368,19 @@ The system uses a 3-step routing check before planning:
 |   - NO → Continue to Step 3                                        |
 |                                                                    |
 | Step 3: Route Decision                                             |
-|   - Simple task? → DIRECT EXECUTION (bypass task-planner)          |
-|   - Complex task? → Route to task-planner                          |
+|   - Simple task? → DIRECT EXECUTION (bypass planning)              |
+|   - Complex task? → Enter plan mode (EnterPlanMode)                |
 +-------------------------------------------------------------------+
                               |
-                    [If routed to task-planner]
+                    [If routed to plan mode]
                               |
 +-------------------------------------------------------------------+
 |                    STAGE 1: PLANNING                               |
-|                    (task-planner skill)                            |
+|                    (native plan mode)                              |
 +-------------------------------------------------------------------+
                               |
 +-------------------------------------------------------------------+
-| task-planner (unified analysis + planning)                         |
+| Plan mode (unified analysis + planning)                            |
 |                                                                    |
 | Inputs:                                                            |
 | - User request                                                     |
@@ -470,7 +470,7 @@ return max(candidates, key=lambda a: a.match_count)
 
 ### 4.5 Subagent vs Team Mode Selection
 
-The task-planner evaluates a `team_mode_score` to decide the execution mechanism.
+The planning phase evaluates a `team_mode_score` to decide the execution mechanism.
 
 **Prerequisites:** `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` must be set. Otherwise, subagent mode is always used.
 
@@ -651,7 +651,7 @@ The key insight: the plan structure (phases, waves, dependencies) remains identi
 ```
 User Request
     |
-task-planner evaluates team_mode_score
+Plan mode evaluates team_mode_score
     |
 Score >= 5 + AGENT_TEAMS env var set?
 ├── NO → Subagent mode (standard pipeline)
@@ -780,7 +780,7 @@ Delegation privileges automatically decay:
 +-------------------------------------------------------------------------+
 |                              USER INTERFACE                              |
 |  Commands: /delegate, /ask, /bypass, /add-statusline                    |
-|  Skills: task-planner, breadth-reader                                   |
+|  Skills: breadth-reader | Planning: native plan mode                     |
 |  StatusLine: [MODE] Active: N Wave W | Last: Event                      |
 +-------------------------------------------------------------------------+
                                       |
@@ -806,7 +806,7 @@ Delegation privileges automatically decay:
 |  |  Write Detection -> Breadth Task -> Route Decision                |  |
 |  +-------------------------------------------------------------------+  |
 |  +-------------------------------------------------------------------+  |
-|  |                    task-planner (skill, unified)                  |  |
+|  |                    Plan Mode (native, unified)                   |  |
 |  |  Intent Parsing -> Decomposition -> Agent Selection -> Waves      |  |
 |  +-------------------------------------------------------------------+  |
 |  +-------------------------------------------------------------------+  |

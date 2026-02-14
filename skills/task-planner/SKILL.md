@@ -5,6 +5,8 @@ context: fork
 allowed-tools: Read, Grep, Glob, Bash, WebFetch, AskUserQuestion, TaskCreate, TaskUpdate, TaskList, TaskGet
 ---
 
+> **DEPRECATED:** This skill is retained for backward compatibility only. The planning logic (complexity scoring, tier classification, agent assignment, wave scheduling, task creation) has been moved to native plan mode in `system-prompts/workflow_orchestrator.md` (see "Planning Instructions" section). The main agent now enters plan mode via `EnterPlanMode` instead of invoking this skill.
+
 # Task Planner
 
 Analyze the user's request and return a complete execution plan including agent assignments and wave scheduling.

@@ -1,5 +1,5 @@
 ---
-allowed-tools: AskUserQuestion, Task
+allowed-tools: AskUserQuestion, Agent
 model: haiku
 ---
 
@@ -14,10 +14,10 @@ Toggle delegation enforcement on/off for this session.
    - Option 1: "Disable delegation (allow all tools)" - description: "Creates bypass flag, tools will not be blocked"
    - Option 2: "Enable delegation (enforce hooks)" - description: "Removes bypass flag, normal enforcement applies"
 
-2. Based on user selection, use Task tool to perform the action:
+2. Based on user selection, use Agent tool to perform the action:
 
    **If user selected "Disable delegation":**
-   Use Task with general-purpose agent and haiku model:
+   Use Agent with general-purpose agent and haiku model:
    ```
    Create the bypass flag file by running:
    mkdir -p .claude/state && touch .claude/state/delegation_disabled
@@ -26,7 +26,7 @@ Toggle delegation enforcement on/off for this session.
    ```
 
    **If user selected "Enable delegation":**
-   Use Task with general-purpose agent and haiku model:
+   Use Agent with general-purpose agent and haiku model:
    ```
    Remove the bypass flag file by running:
    rm -f .claude/state/delegation_disabled

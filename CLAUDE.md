@@ -91,13 +91,13 @@ User prompt
   → After ExitPlanMode approval, main agent continues to Stage 1
   → Main agent: Stage 1 — parses execution plan JSON, renders dependency graph
   → SUBAGENT MODE (default):
-    → For each wave: spawn agents via Task tool (run_in_background: true)
+    → For each wave: spawn agents via Agent tool (run_in_background: true)
     → Agents write to $CLAUDE_SCRATCHPAD_DIR, return DONE|{path}
     → SubagentStop hooks: remind task update, suggest verification
     → Main agent: TaskUpdate to mark completed, proceed to next wave
   → TEAM MODE (experimental, CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1):
     → Create .claude/state/team_mode_active + team_config.json
-    → TeamCreate(team_name=...), then Task(team_name=...) for each teammate with agent configs
+    → TeamCreate(team_name=...), then Agent(team_name=...) for each teammate with agent configs
     → Create shared tasks with dependencies, bridge to framework Tasks API
     → Teammates self-claim tasks, self-coordinate via messaging
     → Lead syncs team completions to TaskUpdate (bridge pattern)
@@ -109,8 +109,8 @@ User prompt
 
 | Event | Scripts | Purpose |
 |-------|---------|---------|
-| **PreToolUse** (`*`) | `require_delegation.py`, `validate_task_graph_compliance.py` | Block non-allowed tools; validate Task invocations against active task graph |
-| **PostToolUse** | `python_posttooluse_hook.py` (Edit/Write/MultiEdit), `remind_skill_continuation.py` (ExitPlanMode\|Skill\|SlashCommand), `validate_task_graph_depth.py` + `remind_todo_after_task.py` (Task) | Python validation (Ruff, Pyright, security), workflow continuation state (triggers on ExitPlanMode for plan mode flows), depth-3 enforcement, task reminders |
+| **PreToolUse** (`*`) | `require_delegation.py`, `validate_task_graph_compliance.py` | Block non-allowed tools; validate Agent/Task invocations against active task graph |
+| **PostToolUse** | `python_posttooluse_hook.py` (Edit/Write/MultiEdit), `remind_skill_continuation.py` (ExitPlanMode\|Skill\|SlashCommand), `validate_task_graph_depth.py` + `remind_todo_after_task.py` (Agent/Task) | Python validation (Ruff, Pyright, security), workflow continuation state (triggers on ExitPlanMode for plan mode flows), depth-3 enforcement, task reminders |
 | **UserPromptSubmit** | `clear-delegation-sessions.py` | Clear delegation state, record turn start timestamp, clear team state (`team_mode_active`, `team_config.json`), rotate logs |
 | **SessionStart** (`startup\|resume\|clear\|compact`) | `inject_workflow_orchestrator.py`, `inject-output-style.py` | Inject system prompt + output style |
 | **SubagentStop** (`*`) | `remind_todo_update.py` (async), `trigger_verification.py` | Remind to update tasks, suggest verification |
@@ -120,7 +120,7 @@ Hook config source of truth: `hooks/plugin-hooks.json` (not settings.json). All 
 
 ### Tool Allowlist
 
-Main agent can only use: `AskUserQuestion`, `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet`, `Skill`, `SlashCommand`, `Task`, `SubagentTask`, `AgentTask`, `EnterPlanMode`, `ExitPlanMode`
+Main agent can only use: `AskUserQuestion`, `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet`, `Skill`, `SlashCommand`, `Agent`, `Task`, `SubagentTask`, `AgentTask`, `EnterPlanMode`, `ExitPlanMode`
 
 Special cases:
 - `Write` tool allowed for temp/scratchpad paths only (`/tmp/`, `/private/tmp/`, `/var/folders/`)
@@ -129,7 +129,7 @@ Special cases:
 
 **Agent Teams tools** (conditional, requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`):
 - Explicit: `TeamCreate`, `SendMessage`
-- Teammates are spawned via `Task` tool with `team_name` parameter (Task is already in the main allowlist)
+- Teammates are spawned via `Agent` tool with `team_name` parameter (Agent is already in the main allowlist)
 - Pattern match: Any tool name containing `"team"` or `"teammate"` (case-insensitive) as safety net
 
 ### Bypass Mechanisms
@@ -139,7 +139,7 @@ Special cases:
 | Env var | `DELEGATION_HOOK_DISABLE=1` | Session-wide |
 | `/bypass` command | Creates `.claude/state/delegation_disabled` | Persists until toggled |
 | Subagent auto-bypass | `CLAUDE_PARENT_SESSION_ID` set | Automatic for subagents |
-| Delegation active flag | `.claude/state/delegation_active` created on Skill/Task use | Per-delegation |
+| Delegation active flag | `.claude/state/delegation_active` created on Skill/Agent/Task use | Per-delegation |
 
 ### Skills (forked context)
 
@@ -165,13 +165,13 @@ All 8 agents include a conditional COMMUNICATION MODE section: when running as a
 
 The framework supports two execution modes, selected at planning time during native plan mode:
 
-**Subagent mode** (default): Current pipeline. Main agent spawns Task tool instances per wave. Agents return `DONE|{path}`. Context-efficient, optimal for most workflows.
+**Subagent mode** (default): Current pipeline. Main agent spawns Agent tool instances per wave. Agents return `DONE|{path}`. Context-efficient, optimal for most workflows.
 
-**Team mode** (experimental): Uses Claude Code's Agent Teams feature. Lead agent calls `TeamCreate(team_name=...)`, then spawns teammates via `Task(team_name=..., subagent_type=..., prompt=...)`. The `team_name` parameter makes Task invocations teammates (shared context, `SendMessage`) vs isolated subagents. Teammates self-claim tasks, communicate peer-to-peer. Bridge pattern syncs team task completions to framework Tasks API. Teammates use `SendMessage(type: "message")` for point-to-point communication and `SendMessage(type: "broadcast")` for team-wide announcements. Broadcast sends N separate messages (one per teammate) so prefer point-to-point messaging; reserve broadcast for critical announcements only.
+**Team mode** (experimental): Uses Claude Code's Agent Teams feature. Lead agent calls `TeamCreate(team_name=...)`, then spawns teammates via `Agent(team_name=..., subagent_type=..., prompt=...)`. The `team_name` parameter makes Agent invocations teammates (shared context, `SendMessage`) vs isolated subagents. Teammates self-claim tasks, communicate peer-to-peer. Bridge pattern syncs team task completions to framework Tasks API. Teammates use `SendMessage(type: "message")` for point-to-point communication and `SendMessage(type: "broadcast")` for team-wide announcements. Broadcast sends N separate messages (one per teammate) so prefer point-to-point messaging; reserve broadcast for critical announcements only.
 
 Two team workflow patterns:
 - **Team mode (simple):** Single AGENT TEAM phase with `phase_type: "team"` and `teammates` array -- used for multi-perspective exploration (e.g., "explore from different angles")
-- **Team mode (complex):** Multiple individual phases across waves, all executed as teammates via `Task(team_name=...)` -- used for collaborative implementation (e.g., "implement project, tasks should be collaborative"). The plan has `execution_mode: "team"` at the top level; no individual phase needs `phase_type: "team"`
+- **Team mode (complex):** Multiple individual phases across waves, all executed as teammates via `Agent(team_name=...)` -- used for collaborative implementation (e.g., "implement project, tasks should be collaborative"). The plan has `execution_mode: "team"` at the top level; no individual phase needs `phase_type: "team"`
 
 **Mode selection** uses `team_mode_score` (calculated during plan mode):
 - Phase count >8: +2, Tier 3 complexity: +2, cross-phase data flow: +3
@@ -181,7 +181,7 @@ Two team workflow patterns:
 
 **When team mode is active:**
 - `validate_task_graph_compliance.py` hook is bypassed (team handles dependencies)
-- Agent Teams tools are added to the allowlist (TeamCreate, SendMessage; teammates via Task with team_name param)
+- Agent Teams tools are added to the allowlist (TeamCreate, SendMessage; teammates via Agent with team_name param)
 - Agents use conditional COMMUNICATION MODE (teammate messaging vs `DONE|{path}`)
 - State files: `.claude/state/team_mode_active`, `.claude/state/team_config.json`
 
@@ -286,7 +286,7 @@ These are normally cleaned up by the UserPromptSubmit hook on each new user prom
 Only one team can exist in a Claude Code session. Do not call `TeamCreate` a second time. If you need a fresh team, start a new session.
 
 **No nested teams:**
-Teammates cannot create their own teams. `TeamCreate` is restricted to the lead agent. If a teammate needs sub-coordination, use subagent `Task()` calls (without `team_name`) instead.
+Teammates cannot create their own teams. `TeamCreate` is restricted to the lead agent. If a teammate needs sub-coordination, use subagent `Agent()` calls (without `team_name`) instead.
 
 **Shutdown can be slow:**
 Teammates finish their current request before honoring a `shutdown_request`. For long-running agents, expect a delay. If a teammate appears stuck, check its task status and send another `shutdown_request` after the current request completes.

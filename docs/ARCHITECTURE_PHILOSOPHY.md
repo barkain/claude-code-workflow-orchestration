@@ -48,7 +48,7 @@ Each specialized agent has a restricted tool set that matches its domain:
 |------------|-------------|-----|
 | Read-Only (analyzer, reviewer) | Read, Glob, Grep, Bash | Objectivity requires inability to modify |
 | Implementation (optimizer, devops) | Read, Write, Edit, Glob, Grep, Bash | Can modify but cannot spawn sub-delegations |
-| Meta-Agents (orchestrator, decomposer) | Read, Task, Tasks API | Coordinates but doesn't execute directly |
+| Meta-Agents (orchestrator, decomposer) | Read, Agent, Tasks API | Coordinates but doesn't execute directly |
 | Verification (verifier, validator) | Read, Bash, Glob, Grep | Validates without modifying (maintains objectivity) |
 | Planning (native plan mode) | EnterPlanMode, ExitPlanMode, Read, Glob, Grep, Bash | Main agent plans directly via plan mode |
 
@@ -86,7 +86,7 @@ Each specialized agent has a restricted tool set that matches its domain:
                               |
 +-------------------------------------------------------------------+
 |                    MAIN CLAUDE SESSION                             |
-|  Allowlist: Tasks API, AskUserQuestion, SlashCommand, Task         |
+|  Allowlist: Tasks API, AskUserQuestion, SlashCommand, Agent        |
 |  All other tools: BLOCKED                                          |
 +-------------------------------------------------------------------+
                               |
@@ -95,7 +95,7 @@ Each specialized agent has a restricted tool set that matches its domain:
 +-------------------------------------------------------------------+
 |                    DELEGATION BOUNDARY                             |
 |  Session registered -> Tool access granted                         |
-|  Specialized agent spawned via Task tool (isolated)                |
+|  Specialized agent spawned via Agent tool (isolated)               |
 +-------------------------------------------------------------------+
                               |
 +-------------------------------------------------------------------+
@@ -116,7 +116,7 @@ Each specialized agent has a restricted tool set that matches its domain:
                               |
 +-------------------------------------------------------------------+
 |                    MAIN CLAUDE SESSION (Team Lead)                 |
-|  Allowlist: Tasks API, AskUserQuestion, Task, TeamCreate,          |
+|  Allowlist: Tasks API, AskUserQuestion, Agent, TeamCreate,         |
 |             SendMessage, SlashCommand                              |
 +-------------------------------------------------------------------+
                               |
@@ -124,7 +124,7 @@ Each specialized agent has a restricted tool set that matches its domain:
                               |
 +-------------------------------------------------------------------+
 |                    TEAM BOUNDARY                                    |
-|  Task(team_name="...") spawns teammates (shared context)           |
+|  Agent(team_name="...") spawns teammates (shared context)          |
 |  Teammates communicate via SendMessage                             |
 +-------------------------------------------------------------------+
                          /    |    \
@@ -406,7 +406,7 @@ The system uses a 3-step routing check before planning:
 | Main Claude (with workflow_orchestrator system prompt)             |
 |                                                                    |
 | Processing:                                                        |
-| 1. Execute Wave N phases (spawn via Task)                          |
+| 1. Execute Wave N phases (spawn via Agent)                         |
 |    - Batched if phases > CLAUDE_MAX_CONCURRENT                     |
 | 2. Wait for completion notifications (NO TaskOutput/TaskList poll) |
 | 3. Read scratchpad files for context                               |
@@ -490,8 +490,8 @@ The planning phase evaluates a `team_mode_score` to decide the execution mechani
 **Decision:** Score >= 5 selects team mode. Score < 5 selects subagent mode.
 
 **The ONE parameter difference:**
-- `Task(team_name="project-team", ...)` = **teammate** (shared context, SendMessage, shared task list)
-- `Task(...)` = **isolated subagent** (no communication, no coordination)
+- `Agent(team_name="project-team", ...)` = **teammate** (shared context, SendMessage, shared task list)
+- `Agent(...)` = **isolated subagent** (no communication, no coordination)
 
 ---
 
@@ -635,16 +635,16 @@ This ensures team mode activates only when its coordination benefits outweigh it
 **Simple team (single AGENT TEAM phase):**
 - Use case: Multi-perspective exploration (e.g., "analyze from different angles")
 - Structure: One phase with `phase_type: "team"` and a `teammates` array
-- Each teammate entry becomes a separate `Task(team_name=...)` invocation
+- Each teammate entry becomes a separate `Agent(team_name=...)` invocation
 - Teammates explore in parallel, then a synthesis phase aggregates findings
 
 **Complex team (multiple phases across waves):**
 - Use case: Collaborative implementation (e.g., "implement project collaboratively")
 - Structure: Standard multi-wave plan with individual phases, but `execution_mode: "team"` at the plan level
-- Every phase executes as a teammate via `Task(team_name=...)` instead of isolated `Task(...)`
+- Every phase executes as a teammate via `Agent(team_name=...)` instead of isolated `Agent(...)`
 - Teammates share context and can message each other within the same wave
 
-The key insight: the plan structure (phases, waves, dependencies) remains identical between modes. Only the execution mechanism changes -- one parameter (`team_name`) on every `Task` call.
+The key insight: the plan structure (phases, waves, dependencies) remains identical between modes. Only the execution mechanism changes -- one parameter (`team_name`) on every `Agent` call.
 
 ### 6.5 Team Lifecycle
 
@@ -660,7 +660,7 @@ Score >= 5 + AGENT_TEAMS env var set?
     Step 0: Create team — TeamCreate(team_name="workflow-{timestamp}")
          |
     Step 1: For each wave:
-         |   Spawn teammates via Task(team_name=...) in parallel
+         |   Spawn teammates via Agent(team_name=...) in parallel
          |   Wait for completion notifications
          |
     Step 2: Monitor (teammates self-coordinate via SendMessage)
@@ -819,8 +819,8 @@ Delegation privileges automatically decay:
 |  +-------------------------------------------------------------------+  |
 |  +-------------------------------------------------------------------+  |
 |  |                    Execution Mode Selection                       |  |
-|  |  Subagent (default): Task() -> isolated agents                    |  |
-|  |  Team (experimental): TeamCreate + Task(team_name) -> teammates   |  |
+|  |  Subagent (default): Agent() -> isolated agents                   |  |
+|  |  Team (experimental): TeamCreate + Agent(team_name) -> teammates  |  |
 |  +-------------------------------------------------------------------+  |
 +-------------------------------------------------------------------------+
                                       |

@@ -375,7 +375,7 @@ if next_idx < len(workflow["phases"]):
 
     # Spawn next agent with context
     next_phase = workflow["phases"][next_idx]
-    Task(
+    Agent(
         agent=next_phase["agent"],
         task=f"{next_phase['title']}\n\nContext: {workflow['phases'][current_idx]['context_for_next']}"
     )
@@ -398,7 +398,7 @@ else:
    - `generate_markdown(workflow) -> str`
 
 2. **`hooks/PostToolUse/workflow_sync.sh`** - Hook for state sync
-   - Trigger: After Task tool completes
+   - Trigger: After Agent tool completes
    - Logic: Extract phase result → update workflow.json → sync Tasks API
    - Call: `scripts/workflow_state.py` functions
 
@@ -413,7 +413,7 @@ else:
 
 5. **`settings.json`** - Register new PostToolUse hook
    - Add `workflow_sync.sh` to PostToolUse hooks
-   - Matcher: `*Task*` (triggers on Task tool)
+   - Matcher: `*Task*` (triggers on Agent tool)
 
 6. **`CLAUDE.md`** - Document agent protocol
    - Add section: "Workflow State Protocol"
@@ -438,7 +438,7 @@ else:
 - Expected: Tasks API UI shows phase list, updates as phases complete
 
 **Test 4: Hook Trigger**
-- Input: Manual Task tool invocation
+- Input: Manual Agent tool invocation
 - Expected: PostToolUse hook triggers → workflow.json updated
 
 ### Rollout Plan

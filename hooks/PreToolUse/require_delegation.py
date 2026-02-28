@@ -78,7 +78,8 @@ ALLOWED_TOOLS = {
     "TaskGet",
     "Skill",  # Claude Code 70+ tool name for slash commands
     "SlashCommand",  # Deprecated: Keep for backwards compatibility
-    "Task",  # Allow delegation Task tool
+    "Task",  # Allow delegation Agent/Task tool
+    "Agent",  # Allow delegation Agent/Task tool (renamed in Claude Code v2.1.63)
     "SubagentTask",
     "AgentTask",
     "EnterPlanMode",
@@ -86,7 +87,7 @@ ALLOWED_TOOLS = {
 }
 
 # Agent Teams tools - gated behind env var, NOT unconditionally allowed
-# Note: Teammates are spawned via Task tool with team_name parameter (already in ALLOWED_TOOLS)
+# Note: Teammates are spawned via Agent/Task tool with team_name parameter (already in ALLOWED_TOOLS)
 # The pattern match on "team"/"teammate" below catches additional variations
 AGENT_TEAMS_TOOLS = {
     "TeamCreate",      # Create a team
@@ -174,13 +175,13 @@ def main() -> int:
                 debug_log(f"ALLOWED: Matched '{allowed}'")
                 # Create delegation_active flag for subagent session inheritance
                 # This enables Skill subagents to use tools after delegation is invoked
-                if tool_name in {"Skill", "Task", "SlashCommand", "SubagentTask", "AgentTask"}:
+                if tool_name in {"Skill", "Task", "Agent", "SlashCommand", "SubagentTask", "AgentTask"}:
                     delegation_flag.touch()
                     debug_log(f"FLAG: Created delegation_active for {tool_name} subagent inheritance")
                 return 0
 
         # Pattern allow (delegation-related)
-        if "delegate" in tool_name_lower or "delegation" in tool_name_lower or tool_name.startswith("Task."):
+        if "delegate" in tool_name_lower or "delegation" in tool_name_lower or tool_name.startswith("Task.") or tool_name.startswith("Agent."):
             debug_log("ALLOWED: Delegation pattern")
             return 0
 

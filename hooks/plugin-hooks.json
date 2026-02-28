@@ -8,7 +8,7 @@
             "type": "command",
             "command": "uv run --no-project --script \"${CLAUDE_PLUGIN_ROOT}/hooks/PreToolUse/validate_task_graph_compliance.py\"",
             "timeout": 5,
-            "description": "Validate Task invocations against active task graph execution plan"
+            "description": "Validate Agent/Task invocations against active task graph execution plan"
           },
           {
             "type": "command",
@@ -39,7 +39,7 @@
         ]
       },
       {
-        "matcher": "Task",
+        "matcher": "Agent|Task",
         "hooks": [
           {
             "type": "command",

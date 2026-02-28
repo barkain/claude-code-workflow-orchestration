@@ -2,7 +2,7 @@
 name: task-planner
 description: Analyze user request, explore codebase, decompose into subtasks, assign agents, and return complete execution plan with wave assignments.
 context: fork
-allowed-tools: Read, Grep, Glob, Bash, WebFetch, AskUserQuestion, TaskCreate, TaskUpdate, TaskList, TaskGet
+allowed-tools: Read, Grep, Glob, Bash, WebFetch, AskUserQuestion, Agent, TaskCreate, TaskUpdate, TaskList, TaskGet
 ---
 
 > **DEPRECATED:** This skill is retained for backward compatibility only. The planning logic (complexity scoring, tier classification, agent assignment, wave scheduling, task creation) has been moved to native plan mode in `system-prompts/workflow_orchestrator.md` (see "Planning Instructions" section). The main agent now enters plan mode via `EnterPlanMode` instead of invoking this skill.
@@ -253,7 +253,7 @@ After decomposing subtasks and assigning agents, evaluate execution mode.
 
 When `execution_mode` is set to `"team"`, the workflow orchestrator will:
 - Create a native agent team via `TeamCreate`
-- Execute ALL phases (across all waves) using `Task(team_name=...)` instead of isolated `Task(...)`
+- Execute ALL phases (across all waves) using `Agent(team_name=...)` instead of isolated `Agent(...)`
 - This means ALL agents can communicate via `SendMessage` and coordinate through shared task list
 - The plan structure (phases, waves, dependencies) stays the same -- only the execution mechanism changes
 
@@ -295,7 +295,7 @@ When `execution_mode` is `"team"`, include `team_config` in the execution plan o
 
 | Field | Description |
 |-------|-------------|
-| `team_name` | Unique team identifier: `workflow-{YYYYMMDD_HHMMSS}`. Used with `TeamCreate(team_name=...)` and `Task(team_name=...)`. |
+| `team_name` | Unique team identifier: `workflow-{YYYYMMDD_HHMMSS}`. Used with `TeamCreate(team_name=...)` and `Agent(team_name=...)`. |
 | `lead_mode` | Always `"delegate"` (coordination-only, aligns with delegation enforcement) |
 | `plan_approval` | `true` to require lead approval of teammate plans before implementation (see Plan Approval Cycle below) |
 | `max_teammates` | Max concurrent teammates (default 4, conservative to manage lead context) |
@@ -304,11 +304,11 @@ When `execution_mode` is `"team"`, include `team_config` in the execution plan o
 | `teammate_roles[].agent_config` | Agent name for system prompt (e.g., "code-cleanup-optimizer") |
 | `teammate_roles[].phase_ids` | Array of phase IDs this teammate handles |
 
-**Bootstrapping:** The main agent creates the team via `TeamCreate(team_name=...)`, then spawns each teammate via `Task(team_name=..., subagent_type=..., prompt=...)`. The `team_name` parameter on Task is what makes it a teammate (shared context, SendMessage) vs an isolated subagent.
+**Bootstrapping:** The main agent creates the team via `TeamCreate(team_name=...)`, then spawns each teammate via `Agent(team_name=..., subagent_type=..., prompt=...)`. The `team_name` parameter on Agent is what makes it a teammate (shared context, SendMessage) vs an isolated subagent.
 
 ### Plan Approval Cycle
 
-Plan approval is activated via the **spawn prompt** (natural language instruction), not a Task tool parameter. When `plan_approval: true` in team_config, the task-planner should include the plan-before-implementing instruction in the teammate prompt template.
+Plan approval is activated via the **spawn prompt** (natural language instruction), not an Agent tool parameter. When `plan_approval: true` in team_config, the task-planner should include the plan-before-implementing instruction in the teammate prompt template.
 
 When spawning teammates, add this instruction to each teammate's prompt:
 > "Before implementing, first explore the codebase and create a detailed plan. Submit your plan for approval before making any changes."
@@ -376,14 +376,14 @@ The phase metadata includes:
 
 **Note:** The PreToolUse hook automatically creates `.claude/state/team_mode_active` on the first team tool use (e.g., `TeamCreate`) when `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is set. No manual state file creation is needed.
 
-**Native team bootstrapping:** The main agent executes `TeamCreate(team_name=...)` to create the team, then spawns each teammate via `Task(team_name=..., subagent_type=..., prompt=...)`. The `team_name` parameter on Task is what makes it a teammate (shared context, `SendMessage` for inter-agent communication) vs an isolated subagent (no `team_name` = no communication).
+**Native team bootstrapping:** The main agent executes `TeamCreate(team_name=...)` to create the team, then spawns each teammate via `Agent(team_name=..., subagent_type=..., prompt=...)`. The `team_name` parameter on Agent is what makes it a teammate (shared context, `SendMessage` for inter-agent communication) vs an isolated subagent (no `team_name` = no communication).
 
 **Example TaskCreate for a team phase:**
 
 ```
 TaskCreate:
   subject: "Agent Team: Multi-perspective exploration"
-  description: "Spawn native Agent Team with 3 teammates exploring TODO CLI design. Bootstrap via TeamCreate then Task(team_name=...) for each teammate."
+  description: "Spawn native Agent Team with 3 teammates exploring TODO CLI design. Bootstrap via TeamCreate then Agent(team_name=...) for each teammate."
   activeForm: "Running Agent Team exploration"
   metadata: {
     wave: 0,

@@ -8,7 +8,7 @@ See the delegation system in action:
 
 ## 🆕 What's New
 
-🤝 **Agent Teams Integration** — Native dual-mode execution: workflows automatically select between isolated subagents and collaborative Agent Teams (via `TeamCreate` + `Task(team_name=...)` + `SendMessage`) based on task complexity scoring. Teammates communicate in real-time, share task lists, and self-coordinate. Enable with `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`.
+🤝 **Agent Teams Integration** — Native dual-mode execution: workflows automatically select between isolated subagents and collaborative Agent Teams (via `TeamCreate` + `Agent(team_name=...)` + `SendMessage`) based on task complexity scoring. Teammates communicate in real-time, share task lists, and self-coordinate. Enable with `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`.
 
 ⚡ **Statusline Performance** — Cold start optimized from ~28s to <0.1s through merged API calls and non-blocking background cache refresh.
 
@@ -23,7 +23,7 @@ This system uses Claude Code's hook mechanism to create a delegation-enforced wo
 - **Native Plan Mode** - Built-in plan mode (EnterPlanMode/ExitPlanMode) handles planning, agent selection, and execution orchestration
 - **Intelligent Multi-Step Workflows** - Sequential execution for dependent phases, parallel for independent phases
 - **Dual-Mode Execution** - Isolated subagent sessions (default) or collaborative Agent Teams with real-time inter-agent communication (experimental)
-- **Agent Teams Integration** - Native `TeamCreate` + `Task(team_name=...)` + `SendMessage` for peer-to-peer collaboration, shared task lists, and coordinated multi-agent workflows
+- **Agent Teams Integration** - Native `TeamCreate` + `Agent(team_name=...)` + `SendMessage` for peer-to-peer collaboration, shared task lists, and coordinated multi-agent workflows
 - **Tasks API Integration** - Native task tracking via TaskCreate, TaskUpdate, TaskList, TaskGet with structured metadata
 - **Structured Task Metadata** - Wave assignments, phase IDs, agent assignments, and dependencies encoded in task metadata
 - **Async Hook Support** - Non-blocking background tasks for reminders and cleanup operations
@@ -47,8 +47,8 @@ The system uses a two-stage execution pipeline:
 **Stage 1: Execution**
 - **Single-Step Tasks:** Hook blocks tools → Delegates to specialized agent → Agent executes → Results returned
 - **Multi-Step Workflows:**
-  - **Subagent mode (default):** Isolated parallel Task instances per wave. Agents return `DONE|{path}`. Context-efficient, optimal for most workflows.
-  - **Team mode (experimental):** Native Agent Teams via `TeamCreate` + `Task(team_name=...)`. Teammates share context, communicate via `SendMessage`, and self-coordinate through shared task lists. Requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`.
+  - **Subagent mode (default):** Isolated parallel Agent instances per wave. Agents return `DONE|{path}`. Context-efficient, optimal for most workflows.
+  - **Team mode (experimental):** Native Agent Teams via `TeamCreate` + `Agent(team_name=...)`. Teammates share context, communicate via `SendMessage`, and self-coordinate through shared task lists. Requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`.
 - Results consolidated and summary provided
 
 **Execution Mode Selection:** Plan mode calculates a `team_mode_score` to choose between subagent mode (isolated, context-efficient) and team mode (collaborative, real-time communication). For subagent mode, it further selects sequential (context preservation, dependencies) or parallel (time savings, independence) based on phase dependency analysis.
@@ -309,7 +309,7 @@ Blocks most tools and forces delegation to specialized agents. Cross-platform Py
 - `AskUserQuestion` - Ask users for clarification
 - `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet` - Track task progress with structured metadata
 - `Skill`, `SlashCommand` - Execute slash commands (including `/delegate`)
-- `Task`, `SubagentTask`, `AgentTask` - Spawn subagents
+- `Agent`, `SubagentTask`, `AgentTask` - Spawn subagents
 
 **Note:** `TaskOutput` is prohibited to prevent context exhaustion. Agents write to `$CLAUDE_SCRATCHPAD_DIR` and return `DONE|{path}` only.
 
@@ -440,14 +440,14 @@ A score of **5 or higher** (with `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`) trigg
 
 | Aspect            | Subagent Mode (default)                 | Team Mode (experimental)                    |
 |-------------------|-----------------------------------------|---------------------------------------------|
-| Execution         | Isolated `Task(...)` per phase          | `Task(team_name=...)` per phase             |
+| Execution         | Isolated `Agent(...)` per phase         | `Agent(team_name=...)` per phase            |
 | Communication     | None (agents are isolated)              | `SendMessage` for peer-to-peer messaging    |
 | Task list         | Framework-managed via TaskCreate/Update | Shared task list, teammates self-claim     |
 | Coordination      | Main agent orchestrates waves           | Teammates self-coordinate                   |
 | Context sharing   | Via output files (`DONE\|{path}`)       | Shared context + messaging                  |
 | Best for          | Most workflows, context-efficient       | Complex collaborative tasks, review cycles  |
 
-The key difference is **one parameter**: `Task(team_name="x")` makes a teammate; `Task()` makes an isolated subagent.
+The key difference is **one parameter**: `Agent(team_name="x")` makes a teammate; `Agent()` makes an isolated subagent.
 
 ### Two Team Workflow Patterns
 
@@ -459,7 +459,7 @@ The key difference is **one parameter**: `Task(team_name="x")` makes a teammate;
 
 This creates one team phase where each teammate explores a different perspective (e.g., security, performance, architecture), then results are synthesized.
 
-**Complex team** -- multiple individual phases across waves, all executed as teammates with `Task(team_name=...)`. Used for collaborative implementation tasks.
+**Complex team** -- multiple individual phases across waves, all executed as teammates with `Agent(team_name=...)`. Used for collaborative implementation tasks.
 
 ```text
 > implement the payment service. tasks should be collaborative

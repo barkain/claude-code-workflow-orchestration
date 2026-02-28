@@ -96,13 +96,13 @@ alternative_code
    - Include key insights and actionable information
    - Add status message: `🎨 Delegating visual report generation to specialized agent...`
 
-2. **Task Tool Delegation (CONTEXT-PRESERVING)**:
-   
-   **CRITICAL: Use Task tool with `general-purpose` agent for HTML generation**
+2. **Agent Tool Delegation (CONTEXT-PRESERVING)**:
+
+   **CRITICAL: Use Agent tool with `general-purpose` agent for HTML generation**
    
    This preserves main agent context while generating HTML:
    ```xml
-   <invoke name="Task">
+   <invoke name="Agent">
    <parameter name="subagent_type">general-purpose</parameter>
    <parameter name="description">Generate visual HTML report</parameter>
    <parameter name="prompt">Create an interactive HTML report with the following analysis data:
@@ -341,7 +341,7 @@ graph LR
 
 ### Context-Preserving Implementation (REQUIRED)
 
-**CRITICAL: Always use Task tool with `general-purpose` agent for HTML generation!**
+**CRITICAL: Always use Agent tool with `general-purpose` agent for HTML generation!**
 
 ```markdown
 ## Console Response (Immediate)
@@ -356,9 +356,9 @@ graph LR
 📋 Main conversation context preserved
 ```
 
-**Then immediately invoke Task tool with agent delegation:**
+**Then immediately invoke Agent tool with agent delegation:**
 ```xml
-<invoke name="Task">
+<invoke name="Agent">
 <parameter name="subagent_type">general-purpose</parameter>
 <parameter name="description">Generate interactive HTML report</parameter>
 <parameter name="prompt">Create a comprehensive interactive HTML report with the following data and analysis:

@@ -1,7 +1,7 @@
 ---
 description: Execute plan mode output by delegating phases to specialized agents
 argument-hint: [task description]
-allowed-tools: Task
+allowed-tools: Agent, Task
 ---
 
 # Routing Check (FIRST)

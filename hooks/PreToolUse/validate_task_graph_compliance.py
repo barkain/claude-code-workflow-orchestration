@@ -60,15 +60,15 @@ def main() -> int:
     if len(sys.argv) > 1:
         tool_name = sys.argv[1]
 
-    # Only validate Task tool invocations
-    if tool_name != "Task":
+    # Only validate Agent/Task tool invocations (subagent-spawning tools)
+    if tool_name not in ("Agent", "Task", "SubagentTask", "AgentTask"):
         return 0
 
     # Project directory (supports both project and user scope)
     project_dir = Path(os.environ.get("CLAUDE_PROJECT_DIR", Path.cwd()))
     task_graph_file = project_dir / ".claude" / "state" / "active_task_graph.json"
 
-    # If no active task graph, allow the Task invocation
+    # If no active task graph, allow the Agent/Task invocation
     if not task_graph_file.exists():
         return 0
 
@@ -99,7 +99,7 @@ def main() -> int:
         sys.stderr.write("❌ TASK GRAPH COMPLIANCE VIOLATION\n")
         sys.stderr.write("\n")
         sys.stderr.write(f"An active task graph exists at: {task_graph_file}\n")
-        sys.stderr.write("But this Task invocation is missing a Phase ID marker.\n")
+        sys.stderr.write("But this Agent/Task invocation is missing a Phase ID marker.\n")
         sys.stderr.write("\n")
         sys.stderr.write("REQUIRED: Include 'Phase ID: phase_X_Y' at the start of your Task prompt.\n")
         sys.stderr.write("\n")

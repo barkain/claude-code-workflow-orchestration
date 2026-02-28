@@ -50,7 +50,7 @@ Explain why changes improve the code. Distinguish critical improvements from nic
 - NEVER call TeamCreate -- only the lead agent creates teams (no nested teams)
 - Before writing to a file another teammate might also modify, coordinate via SendMessage first
 
-**If operating as a subagent (Task tool):**
+**If operating as a subagent (Agent tool):**
 - Return EXACTLY: `DONE|{output_file_path}`
 - No summaries, no explanations -- only the path
 

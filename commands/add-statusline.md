@@ -1,7 +1,7 @@
 ---
 description: Add statusline configuration to Claude settings file
 argument-hint: ""
-allowed-tools: Task, AskUserQuestion
+allowed-tools: Agent, AskUserQuestion
 ---
 
 # Add StatusLine Configuration
@@ -15,12 +15,12 @@ Use AskUserQuestion to ask which settings file:
 - **project**: `./.claude/settings.json`
 - **local**: `./.claude/settings.local.json`
 
-## Step 2: Execute via Task
+## Step 2: Execute via Agent
 
-Spawn a **general-purpose** subagent with the Task tool:
+Spawn a **general-purpose** subagent with the Agent tool:
 
 ```
-Task(
+Agent(
   subagent_type: "general-purpose",
   description: "Add statusline to settings",
   prompt: "Add statusline configuration to [FILE_PATH].

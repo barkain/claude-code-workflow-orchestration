@@ -57,7 +57,7 @@ rules            validation
 
 **Parameters:**
 - `$1`: Full JSON input from hook system containing:
-  - `tool.name`: Tool that was invoked (e.g., "Task", "SubagentTask", "AgentTask")
+  - `tool.name`: Tool that was invoked (e.g., "Agent", "SubagentTask", "AgentTask")
   - `tool.parameters.prompt`: Task objective/description
   - `tool.result`: Subagent's deliverables/output
   - `sessionId`: Session identifier
@@ -131,7 +131,7 @@ The main hook logic now:
 ### When Semantic Validation Applies
 
 Semantic validation is attempted for:
-- **Tool names:** `Task`, `SubagentTask`, `AgentTask`
+- **Tool names:** `Agent`, `SubagentTask`, `AgentTask`
 - **With parameters:** Non-empty `tool.parameters.prompt` field
 - **With results:** Non-empty `tool.result` field
 
@@ -290,7 +290,7 @@ source /Users/nadavbarkai/dev/claude-code-workflow-orchestration/hooks/PostToolU
 ```bash
 test_input='{
   "tool": {
-    "name": "Task",
+    "name": "Agent",
     "parameters": {
       "prompt": "Create a calculator module"
     },
@@ -331,7 +331,7 @@ EOF
 ```bash
 echo '{
   "tool": {
-    "name": "Task",
+    "name": "Agent",
     "parameters": {
       "prompt": "Create a test file"
     },
@@ -363,7 +363,7 @@ No additional environment variables are required. Semantic validation uses the s
 ### Feature Flags
 
 Currently, semantic validation is always enabled when:
-1. Tool is a delegation tool (Task/SubagentTask/AgentTask)
+1. Tool is a delegation tool (Agent/SubagentTask/AgentTask)
 2. Task objective and result are present
 3. Claude command is available
 

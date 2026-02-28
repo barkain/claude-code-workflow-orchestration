@@ -67,15 +67,15 @@ Use Claude Code's built-in scratchpad directory for agent output files:
 - Example: 16 files ÷ 8 agents = 2 files per agent
 
 **Step 3: SPAWN ALL AGENTS IN A SINGLE MESSAGE (CRITICAL)**
-You MUST spawn all agents in ONE message with MULTIPLE Task tool calls:
+You MUST spawn all agents in ONE message with MULTIPLE Agent tool calls:
 
 ```
-[In a SINGLE response, call Task tool 8 times:]
+[In a SINGLE response, call Agent tool 8 times:]
 
 Task 1: "Review files: code-cleanup-optimizer.md, code-reviewer.md. Write report to $CLAUDE_SCRATCHPAD_DIR/review_batch1.md"
 Task 2: "Review files: codebase-context-analyzer.md, dependency-manager.md. Write report to $CLAUDE_SCRATCHPAD_DIR/review_batch2.md"
 Task 3: "Review files: devops-experience-architect.md, documentation-expert.md. Write report to $CLAUDE_SCRATCHPAD_DIR/review_batch3.md"
-...etc (8 total Task calls in ONE message)
+...etc (8 total Agent calls in ONE message)
 ```
 
 **Step 4: Collect Results**
@@ -85,10 +85,10 @@ Task 3: "Review files: devops-experience-architect.md, documentation-expert.md. 
 
 **CRITICAL RULES:**
 1. MUST spawn ALL agents in a SINGLE message (enables true parallelism)
-2. Each Task call is a separate general-purpose agent
+2. Each Agent call is a separate general-purpose agent
 3. Each agent handles MULTIPLE items (not 1 item per agent)
 4. Default 8 agents - user can request different number
-5. NO plan mode, NO TaskCreate, NO waves - just direct Task tool calls
+5. NO plan mode, NO TaskCreate, NO waves - just direct Agent tool calls
 
 **Example - 16 files, 8 agents:**
 ```
@@ -102,15 +102,15 @@ Files to review: [list 16 files]
 Agent count: 8
 Items per agent: 2
 
-[SPAWN 8 Task tools in THIS message:]
-- Task(general-purpose): "Review file1.md, file2.md → write $CLAUDE_SCRATCHPAD_DIR/batch1.md"
-- Task(general-purpose): "Review file3.md, file4.md → write $CLAUDE_SCRATCHPAD_DIR/batch2.md"
-- Task(general-purpose): "Review file5.md, file6.md → write $CLAUDE_SCRATCHPAD_DIR/batch3.md"
-- Task(general-purpose): "Review file7.md, file8.md → write $CLAUDE_SCRATCHPAD_DIR/batch4.md"
-- Task(general-purpose): "Review file9.md, file10.md → write $CLAUDE_SCRATCHPAD_DIR/batch5.md"
-- Task(general-purpose): "Review file11.md, file12.md → write $CLAUDE_SCRATCHPAD_DIR/batch6.md"
-- Task(general-purpose): "Review file13.md, file14.md → write $CLAUDE_SCRATCHPAD_DIR/batch7.md"
-- Task(general-purpose): "Review file15.md, file16.md → write $CLAUDE_SCRATCHPAD_DIR/batch8.md"
+[SPAWN 8 Agent tools in THIS message:]
+- Agent(general-purpose): "Review file1.md, file2.md → write $CLAUDE_SCRATCHPAD_DIR/batch1.md"
+- Agent(general-purpose): "Review file3.md, file4.md → write $CLAUDE_SCRATCHPAD_DIR/batch2.md"
+- Agent(general-purpose): "Review file5.md, file6.md → write $CLAUDE_SCRATCHPAD_DIR/batch3.md"
+- Agent(general-purpose): "Review file7.md, file8.md → write $CLAUDE_SCRATCHPAD_DIR/batch4.md"
+- Agent(general-purpose): "Review file9.md, file10.md → write $CLAUDE_SCRATCHPAD_DIR/batch5.md"
+- Agent(general-purpose): "Review file11.md, file12.md → write $CLAUDE_SCRATCHPAD_DIR/batch6.md"
+- Agent(general-purpose): "Review file13.md, file14.md → write $CLAUDE_SCRATCHPAD_DIR/batch7.md"
+- Agent(general-purpose): "Review file15.md, file16.md → write $CLAUDE_SCRATCHPAD_DIR/batch8.md"
 ```
 
 **WHY THIS WORKS:**
@@ -127,7 +127,7 @@ Items per agent: 2
 
 1. Any incoming request from the user that requires doing any work or using a Tool MUST be delegated to a specialized agent or general-purpose agent.
 2. The main agent NEVER executes tools directly (except Tasks API tools: TaskCreate, TaskUpdate, TaskList, TaskGet, AskUserQuestion, and plan mode tools: EnterPlanMode, ExitPlanMode).
-3. Use `EnterPlanMode` for planning, then the Task tool for execution.
+3. Use `EnterPlanMode` for planning, then the Agent tool for execution.
 4. After ExitPlanMode is approved, IMMEDIATELY proceed to execution - do NOT stop and wait.
 5. **NEVER use native Agent Teams tools (TeamCreate, Task with team_name, SendMessage, etc.) directly without first entering plan mode.** Team creation MUST go through the planning pipeline.
 
@@ -763,8 +763,8 @@ This applies to BOTH team workflow patterns:
 2. **Complex team** (many individual phases across multiple waves, `execution_mode: "team"` at plan level) -- e.g., "implement project collaboratively"
 
 The key difference between team mode and subagent mode is ONE parameter: `team_name`.
-- `Task(team_name="project-team", ...)` = **teammate** (shared context, can SendMessage, sees shared task list)
-- `Task(...)` = **isolated subagent** (no communication, no coordination)
+- `Agent(team_name="project-team", ...)` = **teammate** (shared context, can SendMessage, sees shared task list)
+- `Agent(...)` = **isolated subagent** (no communication, no coordination)
 
 **Step 0: Create the team**
 ```
@@ -772,9 +772,9 @@ TeamCreate(team_name="<team_name from plan>")
 ```
 
 **Step 1: Execute phases as teammates**
-For EACH phase in EACH wave, spawn via Task WITH the team_name parameter:
+For EACH phase in EACH wave, spawn via Agent WITH the team_name parameter:
 ```
-Task(
+Agent(
   team_name: "<team_name>",
   subagent_type: "<agent from phase>",
   prompt: "<phase prompt with context>",
@@ -844,11 +844,11 @@ After all teammates are shut down:
 
 ### Explore Agent (Built-in Haiku)
 
-For breadth tasks: `subagent_type: Explore` in Task tool. Cheap/fast, returns summary only.
+For breadth tasks: `subagent_type: Explore` in Agent tool. Cheap/fast, returns summary only.
 
 ### Agent Prompt Template
 
-Use this template for every Task tool invocation:
+Use this template for every Agent tool invocation:
 ```
 Phase ID: {phase_id}
 Agent: {agent-name}
@@ -983,7 +983,7 @@ If you see wave order violation errors, you MUST wait for current wave to comple
 4. Spawn next batch, repeat
 
 **PROHIBITED:**
-- Spawning more than max_concurrent Task tool invocations in a single message
+- Spawning more than max_concurrent Agent tool invocations in a single message
 - Calling TaskOutput (brings full results into context, consuming 75%+ with many tasks)
 
 **REQUIRED:**

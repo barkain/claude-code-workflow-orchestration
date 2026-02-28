@@ -187,6 +187,10 @@ The PreToolUse hook (`require_delegation.py`) gates Agent Teams tools behind thi
 1. **Env var set to `1` + team tool invoked:** Tool is allowed. If `.claude/state/team_mode_active` does not exist, the hook auto-creates it so downstream hooks (e.g., `validate_task_graph_compliance.py`) can detect team mode.
 2. **Env var NOT set or `0` + team tool invoked:** Tool is blocked with an error message instructing the user to set the variable.
 
+**Spawned via the Agent tool:**
+- Teammates are spawned via the `Agent` tool with a `team_name` parameter
+- The system distinguishes between isolated subagents (`Agent()`) and teammates (`Agent(team_name=...)`)
+
 **Tool Gating:**
 
 | Tool | Matching Method | Description |
@@ -513,18 +517,18 @@ This Bash command returns the env var value or defaults to `8` if not set. The t
 1. Task-planner reads `CLAUDE_MAX_CONCURRENT` via Bash at start of planning
 2. Task-planner includes `max_concurrent` in execution plan JSON output
 3. Main agent extracts `max_concurrent` from the execution plan
-4. If wave has ≤ max_concurrent phases: spawn all in single message
+4. If wave has ≤ max_concurrent phases: spawn all via Agent in single message
 5. If wave has > max_concurrent phases: batch execution
-   - Spawn first batch (up to max_concurrent)
+   - Spawn first batch (up to max_concurrent) via Agent
    - Wait for batch completion
-   - Spawn next batch
+   - Spawn next batch via Agent
    - Repeat until all phases complete
 
 **Example - Wave with 20 phases, max_concurrent=8:**
 ```
-Batch 1: Phases 1-8 spawn → Wait for completion
-Batch 2: Phases 9-16 spawn → Wait for completion
-Batch 3: Phases 17-20 spawn → Wait for completion
+Batch 1: Phases 1-8 spawn via Agent → Wait for completion
+Batch 2: Phases 9-16 spawn via Agent → Wait for completion
+Batch 3: Phases 17-20 spawn via Agent → Wait for completion
 Wave complete
 ```
 
@@ -584,7 +588,7 @@ unset CLAUDE_SKIP_PYTHON_VALIDATION
 
 ### Purpose
 
-Auto-set by Claude Code for subagents spawned via the Task tool. When present, the PreToolUse hook skips all tool blocking for that session.
+Auto-set by Claude Code for subagents spawned via the Agent tool. When present, the PreToolUse hook skips all tool blocking for that session.
 
 ### Values
 
@@ -593,7 +597,7 @@ Auto-set by Claude Code for subagents spawned via the Task tool. When present, t
 
 ### How It Works
 
-When Claude Code spawns a subagent via the Task tool, it automatically sets `CLAUDE_PARENT_SESSION_ID` in the subagent's environment. The PreToolUse hook checks for this variable first and exits immediately with success if present.
+When Claude Code spawns a subagent via the Agent tool, it automatically sets `CLAUDE_PARENT_SESSION_ID` in the subagent's environment. The PreToolUse hook checks for this variable first and exits immediately with success if present.
 
 This ensures subagents have full tool access without needing delegation, while the main agent remains constrained by the delegation policy.
 

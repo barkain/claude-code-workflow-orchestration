@@ -112,11 +112,11 @@ Is CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 set?
           │
           Score >= 5?
           ├── YES → TEAM MODE
-          │         TeamCreate + Task(team_name=...) for all phases
+          │         TeamCreate + Agent(team_name=...) for all phases
           │         Teammates communicate via SendMessage
           │
           └── NO  → SUBAGENT MODE
-                    Task() for each phase (isolated, no communication)
+                    Agent() for each phase (isolated, no communication)
 ```
 
 ### Is Task Atomic?
@@ -156,7 +156,7 @@ ALL criteria met?
 
 ### Agent Capabilities Matrix
 
-| Agent | Read | Write | Edit | Bash | Task | Glob | Grep |
+| Agent | Read | Write | Edit | Bash | Agent | Glob | Grep |
 |-------|:----:|:-----:|:----:|:----:|:----:|:----:|:----:|
 | breadth-reader (skill) | Y | - | - | - | - | Y | Y |
 | codebase-context-analyzer | Y | - | - | Y | - | Y | Y |
@@ -170,7 +170,7 @@ ALL criteria met?
 
 **Legend:** Y = Has access, - = No access
 
-**Team Mode:** All agents include a conditional COMMUNICATION MODE. As teammates, they send completion messages via SendMessage and proactively notify peers of cross-cutting issues. As subagents, they return only `DONE|{path}`.
+**Team Mode:** All agents include a conditional COMMUNICATION MODE. As teammates, they send completion messages via SendMessage and proactively notify peers of cross-cutting issues. As subagents spawned via Agent, they return only `DONE|{path}`.
 
 ### Agent Selection Keywords
 
@@ -385,7 +385,7 @@ rm -f .claude/state/team_mode_active .claude/state/team_config.json
 | UserPromptSubmit | Before user message | Clear delegation + team state | - | 2s |
 | PreToolUse (*) | Before every tool | Validate task graph, check allowlist | - | 5s each |
 | PostToolUse (Write/Edit) | After Python file changes | Ruff + Pyright validation | - | default |
-| PostToolUse (Task) | After Task tool | Depth validation, wave update, DAG viz | - | 5-10s each |
+| PostToolUse (Task) | After Agent tool | Depth validation, wave update, DAG viz | - | 5-10s each |
 | SubagentStop | Subagent completes | Task reminder, verification trigger | Yes* | 2-5s each |
 | Stop | Session ends | Cleanup stale sessions, background tasks | Yes* | default |
 
@@ -400,7 +400,7 @@ rm -f .claude/state/team_mode_active .claude/state/team_config.json
 - `AskUserQuestion` - Read-only questions
 - `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet` - Native task tracking with structured metadata
 - `SlashCommand` - Triggers session registration
-- `Task`/`SubagentTask`/`AgentTask` - Delegation mechanism
+- `Agent`/`SubagentTask`/`AgentTask` - Delegation mechanism
 - `Skill` - Skill invocation
 
 **Conditionally Allowed (Agent Teams, requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`):**
@@ -649,7 +649,7 @@ score = file_count*2 + lines/50 + concerns*1.5 + ext_deps + (arch_decisions ? 3 
 | Aspect | Subagent Mode (Default) | Team Mode (Experimental) |
 |--------|------------------------|--------------------------|
 | Activation | Always available | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` + score >= 5 |
-| Spawn mechanism | `Task(...)` | `Task(team_name="...", ...)` |
+| Spawn mechanism | `Agent(...)` | `Agent(team_name="...", ...)` |
 | Communication | None (isolated) | `SendMessage` (peer-to-peer) |
 | Task list | Per-agent (isolated) | Shared across team |
 | Context passing | Scratchpad files between waves | Scratchpad + real-time messaging |
@@ -674,7 +674,7 @@ score = file_count*2 + lines/50 + concerns*1.5 + ext_deps + (arch_decisions ? 3 
 2. Score >= 5 → execution_mode: "team" in plan
 3. Lead asks user for confirmation (AskUserQuestion)
 4. TeamCreate(team_name="workflow-{timestamp}")
-5. For each wave: Task(team_name=...) per phase (parallel in same message)
+5. For each wave: Agent(team_name=...) per phase (parallel in same message)
 6. Wait for completion notifications
 7. SendMessage shutdown_request to each teammate
 8. TaskUpdate for completed phases

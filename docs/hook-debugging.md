@@ -218,7 +218,7 @@ The following tools are always allowed without delegation:
 - `AskUserQuestion` - Read-only questions
 - `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet` - Task tracking via Tasks API
 - `SlashCommand` - Triggers session registration
-- `Task`/`SubagentTask`/`AgentTask` - Triggers session registration
+- `Agent`/`SubagentTask`/`AgentTask` - Triggers session registration
 
 All other tools are BLOCKED unless session is registered.
 

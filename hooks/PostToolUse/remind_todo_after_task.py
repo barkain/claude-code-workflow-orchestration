@@ -30,7 +30,7 @@ def main() -> int:
     tool_name = data.get("tool_name", "")
 
     # Only process Task tool invocations
-    if tool_name not in ("Task", "SubagentTask", "AgentTask"):
+    if tool_name not in ("Agent", "Task", "SubagentTask", "AgentTask"):
         return 0
 
     # Display reminder to update task status using Tasks API

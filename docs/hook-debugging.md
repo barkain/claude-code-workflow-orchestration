@@ -219,6 +219,7 @@ The following tools are always allowed without delegation:
 - `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet` - Task tracking via Tasks API
 - `SlashCommand` - Triggers session registration
 - `Agent`/`SubagentTask`/`AgentTask` - Triggers session registration
+- `ToolSearch` - Discover and load deferred tools
 
 All other tools are BLOCKED unless session is registered.
 

@@ -86,7 +86,8 @@ Each specialized agent has a restricted tool set that matches its domain:
                               |
 +-------------------------------------------------------------------+
 |                    MAIN CLAUDE SESSION                             |
-|  Allowlist: Tasks API, AskUserQuestion, SlashCommand, Agent        |
+|  Allowlist: Tasks API, AskUserQuestion, SlashCommand, Agent,       |
+|             ToolSearch                                              |
 |  All other tools: BLOCKED                                          |
 +-------------------------------------------------------------------+
                               |

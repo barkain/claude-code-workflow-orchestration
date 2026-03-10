@@ -103,8 +103,8 @@ def block_tool(tool_name: str) -> int:
         print("Tool: <unknown - failed to parse>", file=sys.stderr)  # noqa: T201
         print("", file=sys.stderr)  # noqa: T201
         print("⚠️ STOP: Do NOT try alternative tools.", file=sys.stderr)  # noqa: T201
-        print("✅ REQUIRED: Use /delegate command immediately:", file=sys.stderr)  # noqa: T201
-        print("   /delegate <full task description>", file=sys.stderr)  # noqa: T201
+        print("✅ REQUIRED: Use /workflow-orchestrator:delegate command immediately:", file=sys.stderr)  # noqa: T201
+        print("   /workflow-orchestrator:delegate <full task description>", file=sys.stderr)  # noqa: T201
         print("", file=sys.stderr)  # noqa: T201
         print("Debug: export DEBUG_DELEGATION_HOOK=1", file=sys.stderr)  # noqa: T201
     else:
@@ -112,8 +112,8 @@ def block_tool(tool_name: str) -> int:
         print(f"Tool: {tool_name}", file=sys.stderr)  # noqa: T201
         print("", file=sys.stderr)  # noqa: T201
         print("⚠️ STOP: Do NOT try alternative tools.", file=sys.stderr)  # noqa: T201
-        print("✅ REQUIRED: Use /delegate command immediately:", file=sys.stderr)  # noqa: T201
-        print("   /delegate <full task description>", file=sys.stderr)  # noqa: T201
+        print("✅ REQUIRED: Use /workflow-orchestrator:delegate command immediately:", file=sys.stderr)  # noqa: T201
+        print("   /workflow-orchestrator:delegate <full task description>", file=sys.stderr)  # noqa: T201
     return 2
 
 

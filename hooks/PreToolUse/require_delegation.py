@@ -84,6 +84,7 @@ ALLOWED_TOOLS = {
     "AgentTask",
     "EnterPlanMode",
     "ExitPlanMode",
+    "ToolSearch",  # Required to fetch schemas for deferred tools (Skill, Agent, etc.)
 }
 
 # Agent Teams tools - gated behind env var, NOT unconditionally allowed

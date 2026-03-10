@@ -120,7 +120,7 @@ Hook config source of truth: `hooks/plugin-hooks.json` (not settings.json). All 
 
 ### Tool Allowlist
 
-Main agent can only use: `AskUserQuestion`, `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet`, `Skill`, `SlashCommand`, `Agent`, `Task`, `SubagentTask`, `AgentTask`, `EnterPlanMode`, `ExitPlanMode`
+Main agent can only use: `AskUserQuestion`, `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet`, `Skill`, `SlashCommand`, `Agent`, `Task`, `SubagentTask`, `AgentTask`, `EnterPlanMode`, `ExitPlanMode`, `ToolSearch`
 
 Special cases:
 - `Write` tool allowed for temp/scratchpad paths only (`/tmp/`, `/private/tmp/`, `/var/folders/`)

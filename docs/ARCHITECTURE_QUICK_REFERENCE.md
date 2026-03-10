@@ -402,6 +402,7 @@ rm -f .claude/state/team_mode_active .claude/state/team_config.json
 - `SlashCommand` - Triggers session registration
 - `Agent`/`SubagentTask`/`AgentTask` - Delegation mechanism
 - `Skill` - Skill invocation
+- `ToolSearch` - Discover and load deferred tools
 
 **Conditionally Allowed (Agent Teams, requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`):**
 - `TeamCreate` - Create a named agent team

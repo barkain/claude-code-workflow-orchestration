@@ -64,11 +64,17 @@ def run_critical_security_check(content: str, file_path: str) -> list[str]:
         violations.append("Potential command injection vulnerability")
 
     # Hardcoded secrets (more specific patterns)
-    if re.search(r"(password|secret|token|api_key)\s*=\s*['\"][A-Za-z0-9]{16,}['\"]", content, re.IGNORECASE):
+    if re.search(
+        r"(password|secret|token|api_key)\s*=\s*['\"][A-Za-z0-9]{16,}['\"]",
+        content,
+        re.IGNORECASE,
+    ):
         violations.append("Hardcoded secret/credential detected")
 
     # Insecure random for security purposes
-    if re.search(r"import random", content) and re.search(r"(password|token|secret|key)", content, re.IGNORECASE):
+    if re.search(r"import random", content) and re.search(
+        r"(password|token|secret|key)", content, re.IGNORECASE
+    ):
         violations.append("Using insecure random module for security purposes")
 
     # Dangerous eval/exec usage
@@ -87,7 +93,13 @@ def run_ruff_check(file_path: str) -> tuple[bool, list[str]]:
     # Try uvx ruff first, then ruff directly
     for cmd_prefix in [["uvx", "ruff"], ["ruff"]]:
         returncode, stdout, stderr = run_command(
-            [*cmd_prefix, "check", "--select", "F,E711,E712,UP006,UP007,UP035,UP037,T201,S", file_path]
+            [
+                *cmd_prefix,
+                "check",
+                "--select",
+                "F,E711,E712,UP006,UP007,UP035,UP037,T201,S",
+                file_path,
+            ]
         )
         if returncode == 0:
             return True, []
@@ -134,7 +146,9 @@ def validate_python_content(content: str, file_path: str) -> tuple[bool, list[st
         errors.extend([f"CRITICAL SECURITY: {issue}" for issue in security_issues])
 
     # 2. Create temp file for tool-based validation
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, encoding="utf-8") as f:
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".py", delete=False, encoding="utf-8"
+    ) as f:
         f.write(content)
         temp_file = f.name
 
@@ -212,8 +226,13 @@ def main() -> int:
         for error in errors:
             print(f"  {error}", file=sys.stderr)
         print("", file=sys.stderr)
-        print("⚠️  CLAUDE.md standards and/or security violations found", file=sys.stderr)
-        print("🔒 Critical security issues MUST be fixed before proceeding", file=sys.stderr)
+        print(
+            "⚠️  CLAUDE.md standards and/or security violations found", file=sys.stderr
+        )
+        print(
+            "🔒 Critical security issues MUST be fixed before proceeding",
+            file=sys.stderr,
+        )
         print("📋 Fix all violations and retry the operation", file=sys.stderr)
         return 2  # Block the operation
 

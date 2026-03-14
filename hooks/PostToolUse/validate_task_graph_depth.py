@@ -61,16 +61,28 @@ def main() -> int:
 
     # Check for violations
     if violations:
-        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", file=sys.stderr)
+        print(
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+            file=sys.stderr,
+        )
         print("❌ TASK GRAPH VALIDATION FAILED: Depth-3 Enforcement", file=sys.stderr)
-        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", file=sys.stderr)
+        print(
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+            file=sys.stderr,
+        )
         print("", file=sys.stderr)
-        print("The following atomic tasks violate the minimum depth-3 constraint:", file=sys.stderr)
+        print(
+            "The following atomic tasks violate the minimum depth-3 constraint:",
+            file=sys.stderr,
+        )
         print("", file=sys.stderr)
         for v in violations:
             print(f"  {v}", file=sys.stderr)
         print("", file=sys.stderr)
-        print(f"REQUIREMENT: All atomic tasks MUST have depth >= {MIN_DEPTH}", file=sys.stderr)
+        print(
+            f"REQUIREMENT: All atomic tasks MUST have depth >= {MIN_DEPTH}",
+            file=sys.stderr,
+        )
         print("", file=sys.stderr)
         print("WHY THIS MATTERS:", file=sys.stderr)
         print("- Shallow decomposition leads to coarse-grained tasks", file=sys.stderr)
@@ -85,7 +97,10 @@ def main() -> int:
         print("4. Re-generate task graph with proper decomposition", file=sys.stderr)
         print("", file=sys.stderr)
         print(f"LOCATION: {task_graph_file}", file=sys.stderr)
-        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", file=sys.stderr)
+        print(
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+            file=sys.stderr,
+        )
         return 1
 
     # All atomic tasks have depth >= 3

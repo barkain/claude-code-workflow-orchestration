@@ -46,6 +46,7 @@ uvx ruff format .                # Format code (auto-fix)
 uvx ruff check --no-fix .       # Lint code (check only)
 uvx pyright .                    # Type checking
 uvx deadcode hooks/ scripts/    # Dead code detection
+uvx pytest tests/ -v            # Run test suite
 ```
 
 The PostToolUse hook enforces a specific ruff rule subset on edited Python files:
@@ -53,7 +54,7 @@ The PostToolUse hook enforces a specific ruff rule subset on edited Python files
 uvx ruff check --select F,E711,E712,UP006,UP007,UP035,UP037,T201,S <file>
 ```
 
-CI workflow exists (`.github/workflows/ci.yml`) but tests are currently disabled/placeholder.
+Test suite exists in `tests/` with comprehensive coverage for hooks and token efficiency features.
 
 ---
 
@@ -105,14 +106,14 @@ User prompt
   → Stop hook: calculate turn duration, quality analysis
 ```
 
-### Hook System (6 lifecycle events, 12 scripts)
+### Hook System (6 lifecycle events, 15 scripts)
 
 | Event | Scripts | Purpose |
 |-------|---------|---------|
-| **PreToolUse** (`*`) | `require_delegation.py`, `validate_task_graph_compliance.py` | Block non-allowed tools; validate Agent/Task invocations against active task graph |
+| **PreToolUse** (`*`, `Bash`) | `require_delegation.py`, `validate_task_graph_compliance.py`, `token_rewrite_hook.py` | Block non-allowed tools; validate Agent/Task invocations against active task graph; rewrite Bash commands for token efficiency |
 | **PostToolUse** | `python_posttooluse_hook.py` (Edit/Write/MultiEdit), `remind_skill_continuation.py` (ExitPlanMode\|Skill\|SlashCommand), `validate_task_graph_depth.py` + `remind_todo_after_task.py` (Agent/Task) | Python validation (Ruff, Pyright, security), workflow continuation state (triggers on ExitPlanMode for plan mode flows), depth-3 enforcement, task reminders |
 | **UserPromptSubmit** | `clear-delegation-sessions.py` | Clear delegation state, record turn start timestamp, clear team state (`team_mode_active`, `team_config.json`), rotate logs |
-| **SessionStart** (`startup\|resume\|clear\|compact`) | `inject_workflow_orchestrator.py`, `inject-output-style.py` | Inject system prompt + output style |
+| **SessionStart** (`startup\|resume\|clear\|compact`) | `inject_workflow_orchestrator.py`, `inject-output-style.py`, `inject_token_efficiency.py` | Inject system prompt + output style + token efficiency guidance |
 | **SubagentStop** (`*`) | `remind_todo_update.py` (async), `trigger_verification.py` | Remind to update tasks, suggest verification |
 | **Stop** | `python_stop_hook.py` | Turn duration, workflow continuation (block stop + inject "continue"), quality analysis |
 
@@ -165,7 +166,9 @@ All 8 agents include a conditional COMMUNICATION MODE section: when running as a
 
 The framework supports two execution modes, selected at planning time during native plan mode:
 
-**Subagent mode** (default): Current pipeline. Main agent spawns Agent tool instances per wave. Agents return `DONE|{path}`. Context-efficient, optimal for most workflows.
+Multi-agent execution is mandatory — all plans produce ≥2 subtasks. Default is team mode when `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`, otherwise parallel subagents.
+
+**Subagent mode**: Current pipeline. Main agent spawns Agent tool instances per wave. Agents return `DONE|{path}`. Context-efficient, used when `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is not set.
 
 **Team mode** (experimental): Uses Claude Code's Agent Teams feature. Lead agent calls `TeamCreate(team_name=...)`, then spawns teammates via `Agent(team_name=..., subagent_type=..., prompt=...)`. The `team_name` parameter makes Agent invocations teammates (shared context, `SendMessage`) vs isolated subagents. Teammates self-claim tasks, communicate peer-to-peer. Bridge pattern syncs team task completions to framework Tasks API. Teammates use `SendMessage(type: "message")` for point-to-point communication and `SendMessage(type: "broadcast")` for team-wide announcements. Broadcast sends N separate messages (one per teammate) so prefer point-to-point messaging; reserve broadcast for critical announcements only.
 
@@ -177,7 +180,8 @@ Two team workflow patterns:
 - Phase count >8: +2, Tier 3 complexity: +2, cross-phase data flow: +3
 - Review-fix cycles: +3, iterative refinement: +2, user keyword "collaborate"/"team": +5
 - Breadth task: -5, phase count <=3: -3
-- Score >=5 with `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` = team mode
+- With `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`: default to team mode; only fall back to subagent when `team_mode_score <= -3` (breadth-only tasks)
+- Without env var: always parallel subagent mode (≥2 subtasks mandatory)
 
 **When team mode is active:**
 - `validate_task_graph_compliance.py` hook is bypassed (team handles dependencies)
@@ -240,6 +244,21 @@ Agent config format: YAML frontmatter (`name`, `description`, optional `tools`/`
 | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` | `0` | Enable Agent Teams dual-mode (`1` to enable team mode scoring and tools) |
 | `CLAUDE_CODE_ENABLE_TASKS` | `true` | Set `false` to revert to TodoWrite |
 | `CLAUDE_CODE_TASK_LIST_ID` | Per-session | Share task list across sessions |
+| `CLAUDE_TOKEN_EFFICIENCY` | `1` | Enable token-efficient CLI output compression (`0` to disable) |
+
+---
+
+## Token-Efficient CLI Usage
+
+Minimize command output to reduce context consumption. Enabled by default (`CLAUDE_TOKEN_EFFICIENCY=1`).
+
+**Two-layer approach:**
+1. **Behavioral guidance** (`system-prompts/token_efficient_cli.md`): Injected via SessionStart, teaches compact flag usage (e.g., `git status -sb`, `pytest -q --tb=short`)
+2. **Output compression** (`hooks/compact_run.py`): PreToolUse hook rewrites matching Bash commands through `compact_run.py`, which compresses git/test/log output post-execution
+
+**Supported command families:** git (push/pull/commit/etc), pytest, cargo test, npm/pnpm/yarn/bun test, npx (vitest/jest/mocha/playwright), go test, make test/check, docker/kubectl logs
+
+Disable: `export CLAUDE_TOKEN_EFFICIENCY=0`
 
 ---
 
@@ -274,7 +293,7 @@ export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
 The PreToolUse hook blocks all team tools (`TeamCreate`, `SendMessage`, pattern `*team*`/`*teammate*`) unless this env var is set. The hook prints a specific error message indicating the env var is missing.
 
 **Team mode not activating despite keywords:**
-Ensure `team_mode_score >= 5`. Simple tasks (<=3 phases) get -3, breadth tasks get -5. Add explicit keywords like "collaborate" or "team" (+5) to trigger team mode. Check `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is set -- without it, plan mode always selects `"subagent"` mode regardless of score.
+When `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is set, team mode is the default. It only falls back to subagent mode when `team_mode_score <= -3` (breadth-only tasks with no complexity factors). Without the env var, plan mode always selects `"subagent"` mode (with ≥2 subtasks mandatory).
 
 **Team state files stale after crash:**
 ```bash

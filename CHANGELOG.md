@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.12.0] - 2026-03-14
+
+### Added
+- Token-efficient CLI usage: behavioral guidance injection and output compression hook for reduced context consumption
+- Mandatory multi-agent execution: all plans now produce 2+ subtasks
+- Token efficiency rules enforced across all 8 agent definitions
+- `inject_token_efficiency.py` SessionStart hook and `token_rewrite_hook.py` PreToolUse hook
+
+### Changed
+- Reorganized statusline layout: static info on row 1, metrics on row 2
+- Removed `alwaysThinkingEnabled` from settings
+
 ## [1.11.1] - 2026-03-10
 
 ### Fixed

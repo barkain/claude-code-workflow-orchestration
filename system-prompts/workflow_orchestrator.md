@@ -348,6 +348,7 @@ When this system prompt is active, the main agent's ONLY job is to:
    - Create tasks via TaskCreate with structured metadata
 4. Write the execution plan summary
 5. Call `ExitPlanMode` for user approval
+   **Plan MUST include:** Execution Mode (subagent|team), Execution section with teammate/agent table, ≥2 subtasks. Plans missing these are INVALID.
 6. After approval, display "STAGE 1: EXECUTION" header
 7. Execute phases as directed by the plan (this is a **BINDING CONTRACT**)
 
@@ -414,11 +415,22 @@ Complexity, missing tests, potential breaks.
 Create task entries using TaskCreate with structured metadata for execution.
 
 ### Step 12: Write Plan and Exit
-Write the execution plan summary to the plan file, then call ExitPlanMode for user approval.
+
+Write the execution plan summary. **Verify ALL required sections are present before calling ExitPlanMode:**
+
+- [ ] **Execution Mode**: `subagent` or `team` (MANDATORY)
+- [ ] **Subtasks table**: ≥2 subtasks with agent assignments (single-subtask plans are PROHIBITED)
+- [ ] **Wave Breakdown**: Every task listed individually
+- [ ] **Execution section**: Mode + teammate/agent table with roles and files (MANDATORY)
+- [ ] **Risks**: What could go wrong
+
+Then call ExitPlanMode for user approval.
 
 ---
 
 ### Execution Plan Output Format
+
+**MANDATORY SECTIONS:** Every plan MUST include: Execution Mode, ≥2 Subtasks, Wave Breakdown, Execution section (teammate table), and Risks. Omitting any section makes the plan INVALID.
 
 The plan written before ExitPlanMode should contain:
 
@@ -470,6 +482,17 @@ List EVERY task individually (no compression):
 
 ### Risks
 - `<what could go wrong and why>`
+
+### Execution
+
+**Mode**: `Agent Team (Concurrent)` | `Parallel Subagents`
+
+| Teammate | Role | Files | Agent |
+|----------|------|-------|-------|
+| @name-1  | role description | file1, file2 | agent-type |
+| @name-2  | role description | file3, file4 | agent-type |
+
+**Parallel execution**: All teammates in same wave run concurrently (no dependencies between them — they touch different files).
 
 → CONTINUE TO EXECUTION
 
@@ -556,6 +579,17 @@ TaskUpdate:
 - Multiple operations → one subtask each
 - CRUD → separate create/read/update/delete
 
+### Minimum Decomposition Rule (MANDATORY)
+
+Every execution plan MUST contain ≥2 subtasks. Single-subtask plans are PROHIBITED.
+
+If initial decomposition yields only 1 subtask, split it using one of these patterns:
+- **Implement + Verify**: Add a verification subtask (task-completion-verifier)
+- **Analyze + Implement**: Add an analysis subtask (codebase-context-analyzer) in Wave 0
+- **Implement + Document**: Add a documentation subtask (documentation-expert)
+
+The verification pattern (implement + verify) is preferred as the default split.
+
 ### Implementation Task Decomposition
 
 When decomposing implementation tasks (create, build, implement):
@@ -619,7 +653,11 @@ After decomposing subtasks and assigning agents, evaluate execution mode.
 | Breadth task | -5 | Same operation across multiple items |
 | Phase count <= 3 | -3 | Simple workflow |
 
-**Decision:** `team_mode_score >= 5` → team mode; `< 5` → subagent mode
+**Decision:**
+- If `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`: **Default to team mode.** Only fall back to subagent mode when `team_mode_score <= -3` (breadth-only tasks with no complexity factors).
+- If env var is NOT set: **Always use parallel subagent mode.** Every plan must produce ≥2 subtasks executed as parallel agents.
+
+Multi-agent execution is MANDATORY. Single-agent execution plans are PROHIBITED.
 
 When `execution_mode` is `"team"`, include `team_config` in output:
 ```json
@@ -877,6 +915,15 @@ Write ALL content to the output_file. Return ONLY the path.
 - You HAVE Write tool access for /tmp/ paths
 - Write directly to the output_file path - do NOT delegate writing
 - If Write is blocked, report error and stop (do not loop)
+
+## CLI EFFICIENCY (MANDATORY)
+Use compact CLI flags to minimize output tokens:
+- Git: `--quiet` on push/pull/commit, `-sb` on status, `--oneline -n 10` on log, `--stat` on diff
+- Tests: `pytest -q --tb=short --no-header`, `npm test -- --silent`
+- Ruff: ALWAYS `ruff check --output-format concise --quiet`, NEVER bare `ruff check`
+- Files: `ls -1` not `ls -la`, `head -50` not `cat`, `wc -l` before reading
+- Search: `rg -l` for file list, `rg -m 5` to cap matches, scope to directories
+- Always: `| head -N` when output may exceed 50 lines, `--no-pager` on git
 
 CONTEXT FROM PREVIOUS PHASE: (if applicable)
 - Files: /absolute/paths

@@ -73,6 +73,16 @@ When given a deliverable manifest, validate:
 
 ---
 
+## CLI Efficiency (MANDATORY)
+
+Use compact CLI flags to minimize output tokens:
+- Git: `--quiet` on push/pull/commit, `-sb` on status, `--oneline -n 10` on log, `--stat` on diff
+- Tests: `pytest -q --tb=short --no-header`, `npm test -- --silent`
+- Ruff: ALWAYS `ruff check --output-format concise --quiet`, NEVER bare `ruff check`
+- Files: `ls -1` not `ls -la`, `head -50` not `cat`, `wc -l` before reading
+- Search: `rg -l` for file list, `rg -m 5` to cap matches, scope to directories
+- Always: `| head -N` when output may exceed 50 lines, `--no-pager` on git
+
 ## FILE WRITING
 
 - You HAVE Write tool access for the scratchpad directory ($CLAUDE_SCRATCHPAD_DIR)

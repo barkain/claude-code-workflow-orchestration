@@ -227,6 +227,11 @@ CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1     # Disable async background tasks
 CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1     # Enable Agent Teams dual-mode execution
 ```
 
+**Token Efficiency:**
+```bash
+CLAUDE_TOKEN_EFFICIENCY=1                  # Enable token-efficient CLI output (default: 1)
+```
+
 **Debug & Control:**
 ```bash
 DEBUG_DELEGATION_HOOK=1                    # Enable hook debug logging
@@ -245,29 +250,18 @@ See [Environment Variables](./docs/environment-variables.md) for detailed config
 
 The `plugin-hooks.json` configures the delegation enforcement hooks using cross-platform Python scripts:
 
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "*",
-        "hooks": [{"type": "command", "command": "uv run --no-project --script \"${CLAUDE_PLUGIN_ROOT}/hooks/PreToolUse/require_delegation.py\""}]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [{"type": "command", "command": "uv run --no-project --script \"${CLAUDE_PLUGIN_ROOT}/hooks/UserPromptSubmit/clear-delegation-sessions.py\""}]
-      }
-    ]
-  }
-}
-```
-
 **Note:** All hooks use `uv run --no-project --script` for cross-platform compatibility (Windows, macOS, Linux). The `--no-project` flag allows execution without requiring a pyproject.toml, and `--script` directly runs Python scripts using uv's managed interpreter.
 
-**PreToolUse Hook**: Intercepts every tool call and enforces delegation policy
-**UserPromptSubmit Hook**: Clears delegation state between user prompts to ensure fresh enforcement
-**SessionStart Hook**: Automatically appends workflow_orchestrator system prompt for seamless multi-step workflow detection
+**Hook Events (6 lifecycle points, 15 scripts):**
+
+| Event | Scripts | Purpose |
+|-------|---------|---------|
+| **PreToolUse** | `validate_task_graph_compliance.py`, `require_delegation.py`, `token_rewrite_hook.py` (Bash only) | Validate task graph compliance; block non-delegated tools; rewrite Bash commands for token efficiency |
+| **PostToolUse** | `python_posttooluse_hook.py` (Edit/Write), `remind_skill_continuation.py` (ExitPlanMode/Skill/SlashCommand), `validate_task_graph_depth.py` (Agent/Task), `remind_todo_after_task.py` (Agent/Task, async) | Python validation (Ruff/Pyright); workflow continuation state; depth-3 enforcement; task reminders |
+| **UserPromptSubmit** | `clear-delegation-sessions.py` | Clear delegation/team state, record turn timestamp |
+| **SessionStart** | `inject_workflow_orchestrator.py`, `inject-output-style.py`, `inject_token_efficiency.py` | Inject system prompts (workflow orchestration, output style, token efficiency) |
+| **SubagentStop** | `remind_todo_update.py` (async), `trigger_verification.py` | Remind to update tasks, suggest verification |
+| **Stop** | `python_stop_hook.py` | Turn duration tracking, workflow continuation |
 
 ### workflow_orchestrator Requirements
 
@@ -505,6 +499,33 @@ Team mode creates two additional state files (automatically cleaned up on comple
 | Permissions set at spawn        | Teammates inherit lead's permission mode                     |
 | Split panes need tmux/iTerm2    | Not supported in VS Code terminal or Windows Terminal        |
 
+## Token-Efficient CLI Usage
+
+The framework minimizes command output to reduce context consumption and preserve tokens for meaningful work. Token efficiency is enabled by default (`CLAUDE_TOKEN_EFFICIENCY=1`).
+
+### Two-Layer Approach
+
+1. **Behavioral Guidance** — The `token_efficient_cli.md` system prompt (injected via SessionStart) teaches compact flag usage:
+   - `git status -sb` (short branch format)
+   - `pytest -q --tb=short` (quiet mode, short tracebacks)
+   - `npm test -- -q` (quiet test output)
+   - Encourages `--help` parsing and targeted commands
+
+2. **Output Compression** — The `token_rewrite_hook.py` PreToolUse hook rewrites matching Bash commands through `compact_run.py`, which compresses git/test/log output post-execution:
+   - Git: `push`, `pull`, `commit`, `merge`, `rebase`, `status`, etc.
+   - Test runners: `pytest`, `cargo test`, `npm/pnpm/yarn/bun test`, `vitest`, `jest`, `mocha`, etc.
+   - Logs: `docker logs`, `kubectl logs`, `make` output
+
+### Disable Token Efficiency
+
+To temporarily disable token-efficient output:
+
+```bash
+export CLAUDE_TOKEN_EFFICIENCY=0
+```
+
+This disables both the behavioral guidance and output compression layers.
+
 ## Contributing
 
 We welcome contributions to the Claude Code Workflow Orchestration System! Whether you're fixing bugs, adding features, or improving documentation, your help is appreciated.
@@ -562,6 +583,31 @@ Found a bug or have a feature request? Please open a GitHub Issue with:
 - Automatic enforcement via Ruff (formatting), Pyright (types), and Pytest (tests)
 
 Always run quality checks locally before submitting to catch issues early.
+
+### Test Suite
+
+The project includes a comprehensive test suite covering hooks, token efficiency, and integration:
+
+```bash
+# Run all tests
+uv run pytest
+
+# Run with verbose output and coverage
+uv run pytest -v --cov=hooks --cov=scripts --cov=system-prompts
+
+# Run specific test file
+uv run pytest tests/test_token_rewrite_hook.py -v
+
+# Run tests matching a pattern
+uv run pytest -k "token_efficiency" -v
+```
+
+Test files:
+- `tests/test_token_rewrite_hook.py` - Token rewriting hook tests
+- `tests/test_inject_token_efficiency.py` - Token efficiency injection tests
+- `tests/test_compact_run.py` - Compact output runner tests
+- `tests/test_integration.py` - End-to-end integration tests
+- `tests/conftest.py` - Test fixtures and configuration
 
 ### We Value
 

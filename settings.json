@@ -17,6 +17,5 @@
     "type": "command",
     "command": "uv run --no-project --script ${CLAUDE_PLUGIN_ROOT}/scripts/statusline.py",
     "padding": 0
-  },
-  "alwaysThinkingEnabled": true
+  }
 }

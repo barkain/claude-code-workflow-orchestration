@@ -23,7 +23,9 @@ def main() -> int:
     # Check if team mode is active -- skip validation entirely
     # In team mode, the lead does not invoke Task tools for phase execution;
     # wave ordering is enforced by the team's built-in dependency system
-    state_dir = Path(os.environ.get("CLAUDE_PROJECT_DIR", Path.cwd())) / ".claude" / "state"
+    state_dir = (
+        Path(os.environ.get("CLAUDE_PROJECT_DIR", Path.cwd())) / ".claude" / "state"
+    )
     team_mode_file = state_dir / "team_mode_active"
     if team_mode_file.exists():
         return 0  # Skip validation in team mode -- team handles dependencies
@@ -44,7 +46,9 @@ def main() -> int:
 
     # Check 2: Detect empty input
     if not stdin_json:
-        sys.stderr.write("ERROR: stdin is empty, expected JSON input from PreToolUse hook\n")
+        sys.stderr.write(
+            "ERROR: stdin is empty, expected JSON input from PreToolUse hook\n"
+        )
         return 1
 
     # Check 3: Validate JSON syntax
@@ -73,7 +77,9 @@ def main() -> int:
         return 0
 
     # Extract the prompt from tool input
-    task_prompt = tool_input.get("prompt", "") or tool_input.get("parameters", {}).get("prompt", "")
+    task_prompt = tool_input.get("prompt", "") or tool_input.get("parameters", {}).get(
+        "prompt", ""
+    )
 
     if not task_prompt:
         return 0
@@ -99,9 +105,13 @@ def main() -> int:
         sys.stderr.write("❌ TASK GRAPH COMPLIANCE VIOLATION\n")
         sys.stderr.write("\n")
         sys.stderr.write(f"An active task graph exists at: {task_graph_file}\n")
-        sys.stderr.write("But this Agent/Task invocation is missing a Phase ID marker.\n")
+        sys.stderr.write(
+            "But this Agent/Task invocation is missing a Phase ID marker.\n"
+        )
         sys.stderr.write("\n")
-        sys.stderr.write("REQUIRED: Include 'Phase ID: phase_X_Y' at the start of your Task prompt.\n")
+        sys.stderr.write(
+            "REQUIRED: Include 'Phase ID: phase_X_Y' at the start of your Task prompt.\n"
+        )
         sys.stderr.write("\n")
         sys.stderr.write("Example:\n")
         sys.stderr.write("  Phase ID: phase_0_0\n")
@@ -109,7 +119,9 @@ def main() -> int:
         sys.stderr.write("\n")
         sys.stderr.write("  [Your task description...]\n")
         sys.stderr.write("\n")
-        sys.stderr.write("If you believe this task graph is outdated, delete it first:\n")
+        sys.stderr.write(
+            "If you believe this task graph is outdated, delete it first:\n"
+        )
         sys.stderr.write(f"  rm {task_graph_file}\n")
         return 1
 
@@ -149,7 +161,9 @@ def main() -> int:
         sys.stderr.write(f"Current wave: {current_wave}\n")
         sys.stderr.write(f"Attempted phase: {phase_id} (wave {phase_wave})\n")
         sys.stderr.write("\n")
-        sys.stderr.write(f"Cannot start Wave {phase_wave} tasks while Wave {current_wave} is incomplete.\n")
+        sys.stderr.write(
+            f"Cannot start Wave {phase_wave} tasks while Wave {current_wave} is incomplete.\n"
+        )
         sys.stderr.write(f"Complete all Wave {current_wave} phases first.\n")
         return 1
 

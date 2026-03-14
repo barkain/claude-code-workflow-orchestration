@@ -672,9 +672,7 @@ def main() -> None:
     # Get model info
     model = input_data.get("model", {})
     raw_model = model.get("display_name") or model.get("id", "Unknown")
-    output_style = input_data.get("output_style", {}).get("name", "default")
-
-    debug_log(f"Model: {raw_model}, Style: {output_style}")
+    debug_log(f"Model: {raw_model}")
 
     # Get current working directory for project-based cost tracking
     full_cwd = os.getcwd()
@@ -713,17 +711,16 @@ def main() -> None:
     cost_display = f"{GREEN}💰 {daily_amount} (🎯 {session_amount}){RESET}"
 
     # Output statusline (print is required for statusline output)
-    # Row 1: Claude version first, then model, style, costs, context
-    sys.stdout.write(
-        f"{BLUE}{claude_version}{RESET} | {SHINY_AQUA}🤖 {raw_model}{RESET} | {BLUE}🎨 {output_style}{RESET} | {cost_display} | {context_info}\n"
-    )
-    # Row 2: Turn duration, git branch, CWD (cyan for visibility on both light/dark themes)
+    # Row 1 (static per session): version, model, project dir, git branch
     cwd_display = f"{SHINY_AQUA}📁 {cwd}{RESET}"
+    sys.stdout.write(
+        f"{BLUE}{claude_version}{RESET} | {SHINY_AQUA}🤖 {raw_model}{RESET} | {cwd_display} | {YELLOW}{git_status}{RESET}\n"
+    )
+    # Row 2 (dynamic metrics): costs, context bar, turn duration
+    row2_parts = [cost_display, context_info]
     if turn_duration:
-        turn_display = f"{YELLOW}⏱️ {turn_duration}{RESET} | "
-        sys.stdout.write(f"{turn_display}{YELLOW}{git_status}{RESET} | {cwd_display}\n")
-    else:
-        sys.stdout.write(f"{YELLOW}{git_status}{RESET} | {cwd_display}\n")
+        row2_parts.append(f"{YELLOW}⏱️ {turn_duration}{RESET}")
+    sys.stdout.write(" | ".join(row2_parts) + "\n")
 
 
 if __name__ == "__main__":

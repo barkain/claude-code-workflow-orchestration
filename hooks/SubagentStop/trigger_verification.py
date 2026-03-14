@@ -32,7 +32,9 @@ def main() -> int:
         return 0
 
     # Output brief verification instruction
-    print(f"🔍 Spawn task-completion-verifier to verify the work completed by {agent_type}")
+    print(
+        f"🔍 Spawn task-completion-verifier to verify the work completed by {agent_type}"
+    )
 
     return 0
 

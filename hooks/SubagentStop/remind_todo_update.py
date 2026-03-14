@@ -36,7 +36,9 @@ def main() -> int:
 
         # Remind about dependency graph for orchestrator
         if subagent_type == "delegation-orchestrator" or "orchestrat" in subagent_type:
-            print("REQUIRED: Render DEPENDENCY GRAPH using box format. Do NOT skip. Prefer parallel waves.")
+            print(
+                "REQUIRED: Render DEPENDENCY GRAPH using box format. Do NOT skip. Prefer parallel waves."
+            )
             print("")
 
     return 0

@@ -23,7 +23,11 @@ if sys.platform == "win32":
 
 # Debug mode
 DEBUG_HOOK = os.environ.get("DEBUG_DELEGATION_HOOK", "0") == "1"
-DEBUG_FILE = Path("/tmp/delegation_hook_debug.log") if os.name != "nt" else Path(os.environ.get("TEMP", ".")) / "delegation_hook_debug.log"
+DEBUG_FILE = (
+    Path("/tmp/delegation_hook_debug.log")
+    if os.name != "nt"
+    else Path(os.environ.get("TEMP", ".")) / "delegation_hook_debug.log"
+)
 
 
 def debug_log(message: str) -> None:
@@ -82,11 +86,19 @@ def main() -> int:
         # Don't block session startup, but warn user
         print("⚠️ Warning: workflow_orchestrator.md not found", file=sys.stderr)
         print("", file=sys.stderr)
-        print("Multi-step workflow orchestration will not be available.", file=sys.stderr)
+        print(
+            "Multi-step workflow orchestration will not be available.", file=sys.stderr
+        )
         print("", file=sys.stderr)
         print("Expected locations:", file=sys.stderr)
-        print(f"  - {get_plugin_root() / 'system-prompts' / 'workflow_orchestrator.md'}", file=sys.stderr)
-        print(f"  - {Path.home() / '.claude' / 'system-prompts' / 'workflow_orchestrator.md'}", file=sys.stderr)
+        print(
+            f"  - {get_plugin_root() / 'system-prompts' / 'workflow_orchestrator.md'}",
+            file=sys.stderr,
+        )
+        print(
+            f"  - {Path.home() / '.claude' / 'system-prompts' / 'workflow_orchestrator.md'}",
+            file=sys.stderr,
+        )
         print("", file=sys.stderr)
         print("To install: cp -r system-prompts ~/.claude/", file=sys.stderr)
 
@@ -97,7 +109,9 @@ def main() -> int:
         content = orchestrator_file.read_text(encoding="utf-8")
         line_count = content.count("\n") + 1
         byte_count = len(content.encode("utf-8"))
-        debug_log(f"Injecting workflow_orchestrator.md ({line_count} lines, {byte_count} bytes)")
+        debug_log(
+            f"Injecting workflow_orchestrator.md ({line_count} lines, {byte_count} bytes)"
+        )
     except OSError as e:
         print(f"⚠️ Warning: Failed to read {orchestrator_file}: {e}", file=sys.stderr)
         debug_log(f"ERROR: Failed to read file: {e}")

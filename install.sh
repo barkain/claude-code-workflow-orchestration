@@ -423,7 +423,7 @@ copy_files() {
 
 # Generate settings.json by merging template with hooks from hooks.json
 # Sources:
-#   - settings.json: Template with permissions, statusLine, alwaysThinkingEnabled
+#   - settings.json: Template with permissions, statusLine
 #   - hooks/plugin-hooks.json: Hook configuration (source of truth for hooks)
 #   - output-styles/: Output style name (extracted from frontmatter)
 # Handles path resolution based on scope:

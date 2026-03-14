@@ -11,6 +11,7 @@ Triggers on:
   - PostToolUse for ExitPlanMode tool (plan mode completion)
 This is a workaround for plugin mode where additionalContext isn't applied.
 """
+
 import io
 import json
 import logging
@@ -47,10 +48,15 @@ def _create_continuation_state(reason: str) -> None:
     state_dir = Path(".claude/state")
     state_dir.mkdir(parents=True, exist_ok=True)
     state_file = state_dir / "workflow_continuation_needed.json"
-    state_file.write_text(json.dumps({
-        "reason": reason,
-        "action": "continue workflow execution",
-    }, ensure_ascii=False))
+    state_file.write_text(
+        json.dumps(
+            {
+                "reason": reason,
+                "action": "continue workflow execution",
+            },
+            ensure_ascii=False,
+        )
+    )
     logger.debug("Created state file: %s (reason: %s)", state_file, reason)
 
     # Also output additionalContext (may work in some contexts)

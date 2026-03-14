@@ -55,10 +55,14 @@ def rotate_log(log_file: Path) -> None:
 
     file_size = log_file.stat().st_size
     if file_size < MAX_LOG_SIZE:
-        debug_log(f"Log rotation not needed: {log_file} ({file_size} bytes < {MAX_LOG_SIZE} threshold)")
+        debug_log(
+            f"Log rotation not needed: {log_file} ({file_size} bytes < {MAX_LOG_SIZE} threshold)"
+        )
         return
 
-    debug_log(f"Rotating log file: {log_file} ({file_size} bytes >= {MAX_LOG_SIZE} threshold)")
+    debug_log(
+        f"Rotating log file: {log_file} ({file_size} bytes >= {MAX_LOG_SIZE} threshold)"
+    )
 
     # Rotate existing backups
     for i in range(MAX_ROTATIONS - 1, 0, -1):
@@ -105,7 +109,9 @@ def cleanup_old_validations(validation_dir: Path) -> None:
         except OSError as e:
             debug_log(f"WARNING: Failed to process {file_path}: {e}")
 
-    debug_log(f"Validation cleanup completed: deleted {deleted_count} files older than {VALIDATION_FILE_MAX_AGE_HOURS}h")
+    debug_log(
+        f"Validation cleanup completed: deleted {deleted_count} files older than {VALIDATION_FILE_MAX_AGE_HOURS}h"
+    )
 
 
 def record_turn_start_timestamp(state_dir: Path) -> None:
@@ -143,7 +149,9 @@ def main() -> int:
 
     # Check for in-session delegation disable flag (do not clear this flag - it persists)
     if delegation_disabled_file.exists():
-        debug_log("[DEBUG] Delegation disabled via flag file, skipping session clearing")
+        debug_log(
+            "[DEBUG] Delegation disabled via flag file, skipping session clearing"
+        )
         return 0
 
     debug_log("Starting session cleanup and memory management")
@@ -152,7 +160,9 @@ def main() -> int:
     if delegated_sessions_file.exists():
         try:
             delegated_sessions_file.unlink()
-            debug_log(f"SUCCESS: Cleared delegation sessions file: {delegated_sessions_file}")
+            debug_log(
+                f"SUCCESS: Cleared delegation sessions file: {delegated_sessions_file}"
+            )
         except OSError as e:
             debug_log(f"WARNING: Failed to remove file: {e}")
             return 0
@@ -163,7 +173,9 @@ def main() -> int:
     if delegation_flag_file.exists():
         try:
             delegation_flag_file.unlink()
-            debug_log(f"SUCCESS: Cleared delegation_active flag: {delegation_flag_file}")
+            debug_log(
+                f"SUCCESS: Cleared delegation_active flag: {delegation_flag_file}"
+            )
         except OSError as e:
             debug_log(f"WARNING: Failed to remove delegation_active flag: {e}")
 

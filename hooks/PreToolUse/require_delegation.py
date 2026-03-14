@@ -29,11 +29,17 @@ if parent_session_id:
         data = json.loads(stdin_data) if stdin_data else {}
         tool_name = str(data.get("tool_name", ""))
         if tool_name == "TeamCreate":
-            print("Nested teams not supported. Teammates cannot create teams.", file=sys.stderr)  # noqa: T201
+            print(
+                "Nested teams not supported. Teammates cannot create teams.",
+                file=sys.stderr,
+            )  # noqa: T201
             sys.exit(2)
     except Exception as exc:  # noqa: BLE001
         # Can't parse stdin; allow tool to avoid breaking subagents
-        print(f"Warning: subagent TeamCreate guard failed to parse stdin: {exc}", file=sys.stderr)  # noqa: T201
+        print(
+            f"Warning: subagent TeamCreate guard failed to parse stdin: {exc}",
+            file=sys.stderr,
+        )  # noqa: T201
     sys.exit(0)
 
 # Force UTF-8 output on Windows (fixes emoji encoding errors)
@@ -91,8 +97,8 @@ ALLOWED_TOOLS = {
 # Note: Teammates are spawned via Agent/Task tool with team_name parameter (already in ALLOWED_TOOLS)
 # The pattern match on "team"/"teammate" below catches additional variations
 AGENT_TEAMS_TOOLS = {
-    "TeamCreate",      # Create a team
-    "SendMessage",     # Inter-agent communication
+    "TeamCreate",  # Create a team
+    "SendMessage",  # Inter-agent communication
 }
 
 
@@ -103,8 +109,14 @@ def block_tool(tool_name: str) -> int:
         print("Tool: <unknown - failed to parse>", file=sys.stderr)  # noqa: T201
         print("", file=sys.stderr)  # noqa: T201
         print("⚠️ STOP: Do NOT try alternative tools.", file=sys.stderr)  # noqa: T201
-        print("✅ REQUIRED: Use /workflow-orchestrator:delegate command immediately:", file=sys.stderr)  # noqa: T201
-        print("   /workflow-orchestrator:delegate <full task description>", file=sys.stderr)  # noqa: T201
+        print(
+            "✅ REQUIRED: Use /workflow-orchestrator:delegate command immediately:",
+            file=sys.stderr,
+        )  # noqa: T201
+        print(
+            "   /workflow-orchestrator:delegate <full task description>",
+            file=sys.stderr,
+        )  # noqa: T201
         print("", file=sys.stderr)  # noqa: T201
         print("Debug: export DEBUG_DELEGATION_HOOK=1", file=sys.stderr)  # noqa: T201
     else:
@@ -112,8 +124,14 @@ def block_tool(tool_name: str) -> int:
         print(f"Tool: {tool_name}", file=sys.stderr)  # noqa: T201
         print("", file=sys.stderr)  # noqa: T201
         print("⚠️ STOP: Do NOT try alternative tools.", file=sys.stderr)  # noqa: T201
-        print("✅ REQUIRED: Use /workflow-orchestrator:delegate command immediately:", file=sys.stderr)  # noqa: T201
-        print("   /workflow-orchestrator:delegate <full task description>", file=sys.stderr)  # noqa: T201
+        print(
+            "✅ REQUIRED: Use /workflow-orchestrator:delegate command immediately:",
+            file=sys.stderr,
+        )  # noqa: T201
+        print(
+            "   /workflow-orchestrator:delegate <full task description>",
+            file=sys.stderr,
+        )  # noqa: T201
     return 2
 
 
@@ -176,13 +194,27 @@ def main() -> int:
                 debug_log(f"ALLOWED: Matched '{allowed}'")
                 # Create delegation_active flag for subagent session inheritance
                 # This enables Skill subagents to use tools after delegation is invoked
-                if tool_name in {"Skill", "Task", "Agent", "SlashCommand", "SubagentTask", "AgentTask"}:
+                if tool_name in {
+                    "Skill",
+                    "Task",
+                    "Agent",
+                    "SlashCommand",
+                    "SubagentTask",
+                    "AgentTask",
+                }:
                     delegation_flag.touch()
-                    debug_log(f"FLAG: Created delegation_active for {tool_name} subagent inheritance")
+                    debug_log(
+                        f"FLAG: Created delegation_active for {tool_name} subagent inheritance"
+                    )
                 return 0
 
         # Pattern allow (delegation-related)
-        if "delegate" in tool_name_lower or "delegation" in tool_name_lower or tool_name.startswith("Task.") or tool_name.startswith("Agent."):
+        if (
+            "delegate" in tool_name_lower
+            or "delegation" in tool_name_lower
+            or tool_name.startswith("Task.")
+            or tool_name.startswith("Agent.")
+        ):
             debug_log("ALLOWED: Delegation pattern")
             return 0
 
@@ -203,7 +235,9 @@ def main() -> int:
                     try:
                         state_dir.mkdir(parents=True, exist_ok=True)
                         team_state_file.touch()
-                        debug_log(f"AUTO-CREATED: {team_state_file} on first team tool use")
+                        debug_log(
+                            f"AUTO-CREATED: {team_state_file} on first team tool use"
+                        )
                     except OSError as e:
                         debug_log(f"WARNING: Failed to create {team_state_file}: {e}")
                 debug_log(f"ALLOWED: Agent Teams tool '{tool_name}' (env var enabled)")

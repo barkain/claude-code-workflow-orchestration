@@ -16,6 +16,17 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --no-project --script \"${CLAUDE_PLUGIN_ROOT}/hooks/PreToolUse/token_rewrite_hook.py\"",
+            "timeout": 3,
+            "description": "Rewrite Bash commands through compact_run.py for token-efficient output"
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -79,6 +90,11 @@
           {
             "type": "command",
             "command": "uv run --no-project --script \"${CLAUDE_PLUGIN_ROOT}/hooks/SessionStart/inject-output-style.py\"",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "uv run --no-project --script \"${CLAUDE_PLUGIN_ROOT}/hooks/SessionStart/inject_token_efficiency.py\"",
             "timeout": 10
           }
         ]

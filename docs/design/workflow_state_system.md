@@ -197,7 +197,7 @@ The Agent Teams dual-mode execution introduces two additional state files:
 ```
 User prompt submitted
   -> UserPromptSubmit hook clears team_mode_active (if exists)
-  -> Workflow starts, task-planner selects team mode
+  -> Workflow starts, planning phase selects team mode
   -> Main agent calls TeamCreate (team tool)
   -> PreToolUse hook auto-creates team_mode_active
   -> Subsequent Task invocations skip task graph validation

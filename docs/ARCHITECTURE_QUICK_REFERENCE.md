@@ -94,8 +94,9 @@ Are phases dependent?
 ### Subagent vs Team Mode?
 
 ```
-Is CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 set?
+Is TeamCreate tool available?
 ├── NO → SUBAGENT MODE (always)
+│        (Tool not available when CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS not set)
 │
 └── YES → Calculate team_mode_score:
           │

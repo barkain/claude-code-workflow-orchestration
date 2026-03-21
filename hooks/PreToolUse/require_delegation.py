@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.12"
+# ///
 """
 PreToolUse Hook: Require Delegation (cross-platform)
 
@@ -14,10 +17,24 @@ EXIT CODES:
 
 import io
 import json
+import logging
 import os
 import re
 import sys
 from pathlib import Path
+
+# Force UTF-8 output on Windows (fixes emoji encoding errors)
+# Must run before any text I/O including logger StreamHandler setup
+if sys.platform == "win32":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+
+# Configure logger for hook diagnostics (stderr so Claude Code captures it)
+logger = logging.getLogger("require_delegation")
+logger.setLevel(logging.WARNING)
+_handler = logging.StreamHandler(sys.stderr)
+_handler.setFormatter(logging.Formatter("%(message)s"))
+logger.addHandler(_handler)
 
 # P0 FIX: Skip hook entirely for subagents
 # Subagents have CLAUDE_PARENT_SESSION_ID set, main agent does not
@@ -29,23 +46,17 @@ if parent_session_id:
         data = json.loads(stdin_data) if stdin_data else {}
         tool_name = str(data.get("tool_name", ""))
         if tool_name == "TeamCreate":
-            print(
+            logger.warning(
                 "Nested teams not supported. Teammates cannot create teams.",
-                file=sys.stderr,
-            )  # noqa: T201
+            )
             sys.exit(2)
     except Exception as exc:  # noqa: BLE001
         # Can't parse stdin; allow tool to avoid breaking subagents
-        print(
-            f"Warning: subagent TeamCreate guard failed to parse stdin: {exc}",
-            file=sys.stderr,
-        )  # noqa: T201
+        logger.warning(
+            "subagent TeamCreate guard failed to parse stdin: %s",
+            exc,
+        )
     sys.exit(0)
-
-# Force UTF-8 output on Windows (fixes emoji encoding errors)
-if sys.platform == "win32":
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 # Debug mode
 DEBUG_HOOK = os.environ.get("DEBUG_DELEGATION_HOOK", "0") == "1"
@@ -91,6 +102,9 @@ ALLOWED_TOOLS = {
     "EnterPlanMode",
     "ExitPlanMode",
     "ToolSearch",  # Required to fetch schemas for deferred tools (Skill, Agent, etc.)
+    "CronCreate",  # System-level cron management (cannot be delegated)
+    "CronDelete",  # System-level cron management (cannot be delegated)
+    "CronList",  # System-level cron management (cannot be delegated)
 }
 
 # Agent Teams tools - gated behind env var, NOT unconditionally allowed
@@ -104,34 +118,9 @@ AGENT_TEAMS_TOOLS = {
 
 def block_tool(tool_name: str) -> int:
     """Block a tool and print the error message."""
-    if not tool_name:
-        print("🚫 Tool blocked by delegation policy", file=sys.stderr)  # noqa: T201
-        print("Tool: <unknown - failed to parse>", file=sys.stderr)  # noqa: T201
-        print("", file=sys.stderr)  # noqa: T201
-        print("⚠️ STOP: Do NOT try alternative tools.", file=sys.stderr)  # noqa: T201
-        print(
-            "✅ REQUIRED: Use /workflow-orchestrator:delegate command immediately:",
-            file=sys.stderr,
-        )  # noqa: T201
-        print(
-            "   /workflow-orchestrator:delegate <full task description>",
-            file=sys.stderr,
-        )  # noqa: T201
-        print("", file=sys.stderr)  # noqa: T201
-        print("Debug: export DEBUG_DELEGATION_HOOK=1", file=sys.stderr)  # noqa: T201
-    else:
-        print("🚫 Tool blocked by delegation policy", file=sys.stderr)  # noqa: T201
-        print(f"Tool: {tool_name}", file=sys.stderr)  # noqa: T201
-        print("", file=sys.stderr)  # noqa: T201
-        print("⚠️ STOP: Do NOT try alternative tools.", file=sys.stderr)  # noqa: T201
-        print(
-            "✅ REQUIRED: Use /workflow-orchestrator:delegate command immediately:",
-            file=sys.stderr,
-        )  # noqa: T201
-        print(
-            "   /workflow-orchestrator:delegate <full task description>",
-            file=sys.stderr,
-        )  # noqa: T201
+    name = tool_name or "<unknown>"
+    msg = f"Tool blocked: {name}. Use /delegate <task> immediately. Do NOT retry other tools."
+    logger.warning("%s", msg)
     return 2
 
 
@@ -251,15 +240,9 @@ def main() -> int:
             )
             if is_team_tool:
                 debug_log(f"BLOCKED: Agent Teams tool '{tool_name}' (env var not set)")
-                print(  # noqa: T201
-                    "Team tool blocked: CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS is not set to '1'.",
-                    file=sys.stderr,
-                )
-                print(f"Tool: {tool_name}", file=sys.stderr)  # noqa: T201
-                print("", file=sys.stderr)  # noqa: T201
-                print(  # noqa: T201
-                    "Set CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 to enable Agent Teams.",
-                    file=sys.stderr,
+                logger.warning(
+                    "Tool blocked: %s. Set CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 to enable.",
+                    tool_name,
                 )
                 return 2
 
@@ -289,12 +272,9 @@ def main() -> int:
 
 if __name__ == "__main__":
     try:
-        exit_code = main()
-        debug_log(f"=== PreToolUse Hook END (exit {exit_code}) ===")
-        sys.exit(exit_code)
+        sys.exit(main())
     except Exception as e:
-        # Any uncaught exception should block the tool for safety
         debug_log(f"UNCAUGHT EXCEPTION: {e}")
-        print(f"🚫 Hook error: {e}", file=sys.stderr)  # noqa: T201
-        print("Tool blocked due to hook error.", file=sys.stderr)  # noqa: T201
-        sys.exit(2)
+        # Exit 1 for internal errors (distinct from 0=allow, 2=block)
+        logger.error("Hook internal error: %s", e)
+        sys.exit(1)

@@ -1,19 +1,23 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.12"
+# ///
 """
-SessionStart Hook: Inject workflow_orchestrator system prompt (cross-platform)
+SessionStart Hook: Inject orchestrator routing stub (cross-platform)
 
 This hook runs on session startup/resume/clear/compact and injects the
-workflow_orchestrator.md system prompt into Claude's context. This enables
-automatic multi-step workflow detection, phase decomposition, and intelligent
-delegation orchestration for every session.
+orchestrator_stub.md routing prompt into Claude's context. The full
+workflow_orchestrator.md is loaded on-demand by /delegate.
 
 This Python version works on Windows, macOS, and Linux.
 """
 
 import io
 import json
+import logging
 import os
 import sys
+import tempfile
 from pathlib import Path
 
 # Force UTF-8 output on Windows (fixes emoji encoding errors)
@@ -21,13 +25,11 @@ if sys.platform == "win32":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
+logger = logging.getLogger(__name__)
+
 # Debug mode
 DEBUG_HOOK = os.environ.get("DEBUG_DELEGATION_HOOK", "0") == "1"
-DEBUG_FILE = (
-    Path("/tmp/delegation_hook_debug.log")
-    if os.name != "nt"
-    else Path(os.environ.get("TEMP", ".")) / "delegation_hook_debug.log"
-)
+DEBUG_FILE = Path(tempfile.gettempdir()) / "delegation_hook_debug.log"
 
 
 def debug_log(message: str) -> None:
@@ -50,25 +52,27 @@ def get_plugin_root() -> Path:
 
 def find_orchestrator_file() -> Path | None:
     """
-    Locate workflow_orchestrator.md with priority order:
+    Locate orchestrator_stub.md (lightweight routing stub) with priority order:
     1. Plugin directory (marketplace or development install)
-    2. Installed location: ~/.claude/system-prompts/workflow_orchestrator.md
+    2. Installed location: ~/.claude/system-prompts/orchestrator_stub.md
     3. Repository src/ location (for development)
     4. Local .claude directory (project-specific override)
+
+    The full workflow_orchestrator.md is loaded on-demand by /delegate.
     """
     plugin_dir = get_plugin_root()
     project_dir = Path(os.environ.get("CLAUDE_PROJECT_DIR", Path.cwd()))
 
     search_paths = [
-        plugin_dir / "system-prompts" / "workflow_orchestrator.md",
-        Path.home() / ".claude" / "system-prompts" / "workflow_orchestrator.md",
-        project_dir / "system-prompts" / "workflow_orchestrator.md",
-        project_dir / ".claude" / "system-prompts" / "workflow_orchestrator.md",
+        plugin_dir / "system-prompts" / "orchestrator_stub.md",
+        Path.home() / ".claude" / "system-prompts" / "orchestrator_stub.md",
+        project_dir / "system-prompts" / "orchestrator_stub.md",
+        project_dir / ".claude" / "system-prompts" / "orchestrator_stub.md",
     ]
 
     for path in search_paths:
         if path.exists():
-            debug_log(f"Found orchestrator at: {path}")
+            debug_log(f"Found orchestrator stub at: {path}")
             return path
 
     return None
@@ -82,27 +86,15 @@ def main() -> int:
     orchestrator_file = find_orchestrator_file()
 
     if orchestrator_file is None:
-        # File not found - log error and exit gracefully
-        # Don't block session startup, but warn user
-        print("⚠️ Warning: workflow_orchestrator.md not found", file=sys.stderr)
-        print("", file=sys.stderr)
-        print(
-            "Multi-step workflow orchestration will not be available.", file=sys.stderr
+        logger.warning(
+            "orchestrator_stub.md not found. "
+            "Multi-step workflow orchestration will not be available. "
+            "Expected: %s or %s. To install: cp -r system-prompts ~/.claude/",
+            get_plugin_root() / "system-prompts" / "orchestrator_stub.md",
+            Path.home() / ".claude" / "system-prompts" / "orchestrator_stub.md",
         )
-        print("", file=sys.stderr)
-        print("Expected locations:", file=sys.stderr)
-        print(
-            f"  - {get_plugin_root() / 'system-prompts' / 'workflow_orchestrator.md'}",
-            file=sys.stderr,
-        )
-        print(
-            f"  - {Path.home() / '.claude' / 'system-prompts' / 'workflow_orchestrator.md'}",
-            file=sys.stderr,
-        )
-        print("", file=sys.stderr)
-        print("To install: cp -r system-prompts ~/.claude/", file=sys.stderr)
 
-        debug_log("ERROR: workflow_orchestrator.md not found")
+        debug_log("ERROR: orchestrator_stub.md not found")
         return 0  # Exit gracefully - don't block session startup
 
     try:
@@ -110,10 +102,10 @@ def main() -> int:
         line_count = content.count("\n") + 1
         byte_count = len(content.encode("utf-8"))
         debug_log(
-            f"Injecting workflow_orchestrator.md ({line_count} lines, {byte_count} bytes)"
+            f"Injecting orchestrator_stub.md ({line_count} lines, {byte_count} bytes)"
         )
     except OSError as e:
-        print(f"⚠️ Warning: Failed to read {orchestrator_file}: {e}", file=sys.stderr)
+        logger.warning("Failed to read %s: %s", orchestrator_file, e)
         debug_log(f"ERROR: Failed to read file: {e}")
         return 0
 
@@ -124,7 +116,7 @@ def main() -> int:
             "additionalContext": content,
         }
     }
-    print(json.dumps(output))
+    sys.stdout.write(json.dumps(output))
 
     debug_log("SessionStart hook completed successfully")
     return 0

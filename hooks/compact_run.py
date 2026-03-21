@@ -270,6 +270,32 @@ def handle_npx(args: list[str], stdout: str, stderr: str, exit_code: int) -> int
             return exit_code
         return emit_failure(stdout, stderr, exit_code)
 
+    if second == "eslint":
+        if exit_code == 0:
+            print("ok \u2192 no issues")  # noqa: T201
+            return exit_code
+        return emit_failure(stdout, stderr, exit_code)
+
+    if second == "next":
+        # Only compress 'next lint'; other next commands (build, dev, etc.) need their output
+        if len(args) > 2 and args[2] == "lint":
+            if exit_code == 0:
+                print("ok \u2192 no issues")  # noqa: T201
+                return exit_code
+            return emit_failure(stdout, stderr, exit_code)
+        # Fall through to passthrough for non-lint next commands
+        if stdout:
+            print(stdout)  # noqa: T201
+        if stderr:
+            print(stderr, file=sys.stderr)  # noqa: T201
+        return exit_code
+
+    if second == "tsc":
+        if exit_code == 0:
+            print("ok \u2192 no type errors")  # noqa: T201
+            return exit_code
+        return emit_failure(stdout, stderr, exit_code)
+
     # Other npx commands — pass through
     if stdout:
         print(truncated_output(stdout))  # noqa: T201
@@ -346,9 +372,9 @@ def main() -> int:
             timeout=CMD_TIMEOUT,
         )
     except subprocess.TimeoutExpired:
-        print(
+        print(  # noqa: T201
             f"command timed out after {CMD_TIMEOUT}s: {' '.join(args)}", file=sys.stderr
-        )  # noqa: T201
+        )
         return 1
     except FileNotFoundError:
         print(f"command not found: {args[0]}", file=sys.stderr)  # noqa: T201
@@ -400,6 +426,19 @@ def main() -> int:
 
     if first_base == "npx":
         return handle_npx(args, stdout, stderr, exit_code)
+
+    if first_base == "next":
+        second = args[1] if len(args) > 1 else ""
+        if second == "lint":
+            if exit_code == 0:
+                print("ok \u2192 no issues")  # noqa: T201
+                return exit_code
+            return emit_failure(stdout, stderr, exit_code)
+        if stdout:
+            print(truncated_output(stdout))  # noqa: T201
+        if stderr:
+            print(truncated_output(stderr), file=sys.stderr)  # noqa: T201
+        return exit_code
 
     if first_base == "go":
         return handle_go(args, stdout, stderr, exit_code)

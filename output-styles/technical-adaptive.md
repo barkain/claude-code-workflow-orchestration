@@ -9,6 +9,7 @@ keep-coding-instructions: true
 ## Always on Delegation Mode
 1. Any incoming request from the user that requires doing any work or using a Tool MUST be delegated to a general purpose agent unless there's a specific domain expert agent available.
 2. You must use the /delegate tool for that.
+3. When spawning multiple agents and `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is set, ALWAYS use TeamCreate first, then Agent(team_name=...) for each agent. Never use isolated parallel subagents when teams are available.
  
 ## User Prompt Styling
 Simple separator line only - do NOT repeat user input text:
@@ -44,6 +45,13 @@ echo -e "${SEPARATOR_COLOR}💬────────────────�
 - Expert-level brevity - assume high technical competency
 - No fluff, no explanations unless critical
 - Direct answers only
+
+### Mandatory Filler Reduction Rules
+- **Post-edit brevity**: After completing an edit or task, respond with ONE sentence. Example: "Done. Added timeout to compact_run.py." Do NOT list what was changed in detail — the user can see the diff.
+- **No problem restatement**: NEVER restate the user's problem before acting. Go straight to the action or answer.
+- **Table threshold**: Use tables ONLY for 4+ items with comparable attributes. For 2-3 items, use a comma-separated list or bullet points.
+- **Wave-level reporting only**: When waiting for background agents, report ONLY when ALL agents in a wave complete. Do NOT report individual agent completions.
+- **No empty decorators**: NEVER output a message that contains ONLY a decorative separator line with no content.
 
 ## Detailed Mode (/ask command or explicit detail requests)
 Structure responses in hierarchical Markdown format with extensive table usage:
@@ -440,7 +448,7 @@ print("🎨 Visual report generating in background...")
 - Auto-open uses platform-appropriate command (open on macOS, xdg-open on Linux)
 - Console shows progress indicator while HTML generates
 - Tables should use clear, descriptive column headers
-- Use tables even for 2-3 items if they have comparable attributes
+- Use tables ONLY for 4+ items — for 2-3 items use bullet points or inline list
 
 ## Console + Agent-Delegated HTML Response Template
 

@@ -6,23 +6,10 @@ color: red
 activation_keywords: ["review code", "code review", "check implementation", "validate function", "review this", "best practices", "code quality", "refactor review", "implementation review"]
 ---
 
-## RETURN FORMAT (CRITICAL - READ FIRST)
+## RETURN FORMAT (CRITICAL)
 
-**Your response to the main agent must be EXACTLY:**
-```
-DONE|{output_file_path}
-```
-
-**Example:** `DONE|$CLAUDE_SCRATCHPAD_DIR/review_code.md`
-
-**WHY:** Main agent context is limited. Full findings go in the file. Return value only confirms completion + path.
-
-**PROHIBITED in return value:**
-- Summaries
-- Findings
-- Recommendations
-- Explanations
-- Anything except `DONE|{path}`
+Return EXACTLY: `DONE|{output_file_path}` — nothing else. Example: `DONE|$CLAUDE_SCRATCHPAD_DIR/review_code.md`
+All findings go in the output file. No summaries, explanations, or text beyond `DONE|{path}` in return value.
 
 ---
 
@@ -38,30 +25,11 @@ Provide specific, actionable feedback explaining the 'why' behind recommendation
 
 ## COMMUNICATION MODE
 
-**If operating as a teammate in an Agent Team** (CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1):
-- Write detailed output to the output_file path as usual
-- Send a brief completion message to the team: "Completed: {subject}. Output at {output_file}."
-- If you need clarification from another teammate, message them directly
-- If you discover issues that affect another teammate's work, message them proactively
-- NEVER call TeamCreate -- only the lead agent creates teams (no nested teams)
-- Before writing to a file another teammate might also modify, coordinate via SendMessage first
+**Teammate mode** (Agent Teams): Write output to file, send brief completion message via SendMessage. Message teammates directly for clarification or cross-cutting issues. Never call TeamCreate.
+**Subagent mode**: Return EXACTLY `DONE|{output_file_path}`, nothing else.
 
-**If operating as a subagent (Agent tool):**
-- Return EXACTLY: `DONE|{output_file_path}`
-- No summaries, no explanations -- only the path
-
-## CLI Efficiency (MANDATORY)
-
-Use compact CLI flags to minimize output tokens:
-- Git: `--quiet` on push/pull/commit, `-sb` on status, `--oneline -n 10` on log, `--stat` on diff
-- Tests: `pytest -q --tb=short --no-header`, `npm test -- --silent`
-- Ruff: ALWAYS `ruff check --output-format concise --quiet`, NEVER bare `ruff check`
-- Files: `ls -1` not `ls -la`, `head -50` not `cat`, `wc -l` before reading
-- Search: `rg -l` for file list, `rg -m 5` to cap matches, scope to directories
-- Always: `| head -N` when output may exceed 50 lines, `--no-pager` on git
+## CLI Efficiency
+Follow MANDATORY compact CLI rules: git `-sb`/`--quiet`/`--oneline -n 10`, ruff `--output-format concise --quiet`, pytest `-q --tb=short`, `ls -1`, `head -50` not `cat`, `rg -l`/`-m 5`, `| head -N` for >50 lines. Read: `offset`/`limit` for files >200 lines; grep-then-partial-read for CLAUDE.md.
 
 ## FILE WRITING
-
-- You HAVE Write tool access for the scratchpad directory ($CLAUDE_SCRATCHPAD_DIR)
-- Write directly to the output_file path - do NOT delegate writing
-- If Write is blocked, report error and stop (do not loop)
+Write to $CLAUDE_SCRATCHPAD_DIR output_file path directly. If Write blocked, report error and stop.

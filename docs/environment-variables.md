@@ -159,7 +159,7 @@ unset CLAUDE_CODE_DISABLE_BACKGROUND_TASKS
 
 ### CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS
 
-**Purpose:** Enable Agent Teams dual-mode execution. When set, the PreToolUse hook allows Agent Teams tools (`TeamCreate`, `SendMessage`) and auto-creates the `.claude/state/team_mode_active` state file on first team tool use. The task-planner skill uses this variable to score whether a workflow should use team mode vs subagent mode.
+**Purpose:** Enable Agent Teams and team mode scoring. When set to `1`, the PreToolUse hook allows Agent Teams tools (`TeamCreate`, `SendMessage`) and auto-creates the `.claude/state/team_mode_active` state file on first team tool use. The planning phase uses TeamCreate tool availability to detect whether Agent Teams are enabled, then calculates `team_mode_score` to determine whether to use team mode or subagent mode.
 
 **Values:**
 - `0` (default): Agent Teams disabled. Team tools are blocked by PreToolUse hook with a message instructing the user to set this variable.
@@ -171,7 +171,7 @@ unset CLAUDE_CODE_DISABLE_BACKGROUND_TASKS
 # Enable Agent Teams mode
 export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
 
-# Run a collaborative workflow (task-planner may select team mode)
+# Run a collaborative workflow (planning phase may select team mode)
 /delegate "Build auth module with API and tests collaboratively"
 
 # Disable Agent Teams mode
@@ -184,8 +184,8 @@ unset CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS
 
 The PreToolUse hook (`require_delegation.py`) gates Agent Teams tools behind this variable:
 
-1. **Env var set to `1` + team tool invoked:** Tool is allowed. If `.claude/state/team_mode_active` does not exist, the hook auto-creates it so downstream hooks (e.g., `validate_task_graph_compliance.py`) can detect team mode.
-2. **Env var NOT set or `0` + team tool invoked:** Tool is blocked with an error message instructing the user to set the variable.
+1. **Env var set to `1` + team tool invoked:** Tool is allowed. The hook auto-creates `.claude/state/team_mode_active` if it doesn't already exist, signaling downstream hooks that Agent Teams mode is active. This is how plan mode detects TeamCreate availability.
+2. **Env var NOT set or `0` + team tool invoked:** Tool is blocked with an error message instructing the user to set the variable to `1`.
 
 **Spawned via the Agent tool:**
 - Teammates are spawned via the `Agent` tool with a `team_name` parameter
@@ -499,26 +499,13 @@ unset CLAUDE_MAX_CONCURRENT
 
 ### How It Works
 
-The `task-planner` skill reads the environment variable during the planning phase using:
-
-```bash
-echo ${CLAUDE_MAX_CONCURRENT:-8}
-```
-
-This Bash command returns the env var value or defaults to `8` if not set. The task-planner then embeds this value in the execution plan JSON.
-
-**Why task-planner reads it (not main agent):**
-- The main agent CANNOT use Bash (blocked by delegation policy)
-- Task-planner CAN use Bash (it has `Bash` in its allowed-tools)
-- Task-planner embeds `max_concurrent` directly in the execution plan JSON
-- Main agent extracts the value from the JSON, NOT by running Bash
+The planning phase (via `EnterPlanMode`) reads `CLAUDE_MAX_CONCURRENT` and embeds the value in the execution plan JSON (defaults to `8` if not set).
 
 **Execution flow:**
-1. Task-planner reads `CLAUDE_MAX_CONCURRENT` via Bash at start of planning
-2. Task-planner includes `max_concurrent` in execution plan JSON output
-3. Main agent extracts `max_concurrent` from the execution plan
-4. If wave has ≤ max_concurrent phases: spawn all via Agent in single message
-5. If wave has > max_concurrent phases: batch execution
+1. Planning phase includes `max_concurrent` in execution plan JSON output
+2. Main agent extracts `max_concurrent` from the execution plan
+3. If wave has ≤ max_concurrent phases: spawn all via Agent in single message
+4. If wave has > max_concurrent phases: batch execution
    - Spawn first batch (up to max_concurrent) via Agent
    - Wait for batch completion
    - Spawn next batch via Agent
@@ -551,7 +538,7 @@ Wave complete
 ### Related
 
 - See [Concurrency Limits](../system-prompts/workflow_orchestrator.md#concurrency-limits) for detailed execution rules
-- See [Wave Optimization Rules](../skills/task-planner/SKILL.md#wave-optimization-rules) for task planning guidance
+- See [Workflow Orchestrator](../system-prompts/workflow_orchestrator.md) for task planning guidance
 
 ---
 

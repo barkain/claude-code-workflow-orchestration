@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.13.0] - 2026-03-21
+
+### Added
+- **Token-efficient CLI output compression**: Two-layer system with behavioral guidance (SessionStart injection) and output compression (PreToolUse rewrite hook through `compact_run.py`)
+- **Cross-platform `compact_run.py`**: Python output compressor replacing bash script, supports git, pytest, cargo, npm/pnpm/yarn/bun, npx (vitest/jest/mocha/playwright/eslint/next/tsc), go, make, docker/kubectl
+- **Conditional orchestrator injection**: 40-line stub (~200 tokens) on session start, full orchestrator (~5.5K tokens) loads on-demand via `/delegate` — 55% overhead reduction
+- **Agent Teams enforcement**: Team mode as primary execution mode when `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is set, with TeamCreate tool availability detection
+- **`_npx_safe()` guard**: Prevents wrapping long-running commands (`next dev/start/build`, `tsc --watch`) through compact_run
+- **Comprehensive test suite**: 205 tests covering compact_run, token_rewrite_hook, inject_token_efficiency, and integration scenarios
+- **Claude Code Review CI workflow**: GitHub Actions workflow for automated PR review via Claude Code Action
+
+### Changed
+- **Slimmed workflow orchestrator**: 49% reduction (1065→545 lines) with conditional section loading
+- **Agent definitions deduplicated**: 47% reduction (640→339 lines) across all 8 agents with CLI efficiency rules and DONE|{output_file} enforcement
+- **Output style updated**: Mandatory filler reduction rules (post-edit brevity, no restatement, table threshold ≥4, wave-level reporting)
+- **Delegation error messages compressed**: Single-line format using logging instead of print
+- **`/delegate` command**: Expanded allowed-tools (12 tools), embeds full orchestrator for on-demand loading
+
+### Removed
+- **`skills/task-planner/`**: Deprecated planning skill deleted — all planning via native plan mode (EnterPlanMode/ExitPlanMode)
+- **`hooks/compact-run.sh`**: Replaced by cross-platform `hooks/compact_run.py`
+
+### Fixed
+- **Team mode activation**: Changed from env var Bash check (blocked by delegation hook) to TeamCreate tool availability detection
+- **`cd && command` pattern**: Rewrite hook extracts command after `cd <path> &&` for proper wrapping
+- **Exit code handling**: Uncaught exceptions in require_delegation.py now exit with code 1 (error) instead of 0 (allow)
+- **PEP 723 metadata**: Added to all scripts run via `uv run --script`
+
 ## [1.12.0] - 2026-03-14
 
 ### Added

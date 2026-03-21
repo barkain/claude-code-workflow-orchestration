@@ -497,14 +497,21 @@ class TestHandleNpx:
         assert code == 1  # noqa: S101
         assert "test error" in capsys.readouterr().err  # noqa: S101
 
-    @pytest.mark.parametrize("runner", ["eslint", "next"])
-    def test_lint_runner_success(
+    def test_lint_runner_success_eslint(
         self,
         compact_run: ModuleType,
         capsys: pytest.CaptureFixture[str],
-        runner: str,
     ) -> None:
-        code = compact_run.handle_npx(["npx", runner, "."], "lint output\n", "", 0)
+        code = compact_run.handle_npx(["npx", "eslint", "."], "lint output\n", "", 0)
+        assert code == 0  # noqa: S101
+        assert "no issues" in capsys.readouterr().out  # noqa: S101
+
+    def test_lint_runner_success_next(
+        self,
+        compact_run: ModuleType,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        code = compact_run.handle_npx(["npx", "next", "lint"], "lint output\n", "", 0)
         assert code == 0  # noqa: S101
         assert "no issues" in capsys.readouterr().out  # noqa: S101
 

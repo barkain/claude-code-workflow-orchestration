@@ -277,10 +277,18 @@ def handle_npx(args: list[str], stdout: str, stderr: str, exit_code: int) -> int
         return emit_failure(stdout, stderr, exit_code)
 
     if second == "next":
-        if exit_code == 0:
-            print("ok \u2192 no issues")  # noqa: T201
-            return exit_code
-        return emit_failure(stdout, stderr, exit_code)
+        # Only compress 'next lint'; other next commands (build, dev, etc.) need their output
+        if len(args) > 2 and args[2] == "lint":
+            if exit_code == 0:
+                print("ok \u2192 no issues")  # noqa: T201
+                return exit_code
+            return emit_failure(stdout, stderr, exit_code)
+        # Fall through to passthrough for non-lint next commands
+        if stdout:
+            print(stdout)  # noqa: T201
+        if stderr:
+            print(stderr, file=sys.stderr)  # noqa: T201
+        return exit_code
 
     if second == "tsc":
         if exit_code == 0:

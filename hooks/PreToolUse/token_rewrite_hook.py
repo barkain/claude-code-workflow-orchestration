@@ -49,9 +49,10 @@ _COMMAND_FAMILIES: dict[str, list[str] | None] = {
     "pnpm": ["test"],
     "yarn": ["test"],
     "bun": ["test"],
-    "npx": ["vitest", "jest", "mocha", "playwright"],
+    "npx": ["vitest", "jest", "mocha", "playwright", "eslint", "next", "tsc"],
     "go": ["test"],
     "make": ["test", "check"],
+    "next": ["lint"],
 }
 
 
@@ -92,6 +93,16 @@ def _has_shell_meta(command: str) -> bool:
     return any(meta in command for meta in _SHELL_META)
 
 
+def _extract_cd_prefix(command: str) -> tuple[str, str] | None:
+    """Extract 'cd <path> && ' prefix from command, return (prefix, rest) or None."""
+    import re
+
+    m = re.match(r"^(cd\s+\S+\s*&&\s*)", command)
+    if m:
+        return m.group(1), command[m.end() :]
+    return None
+
+
 def main() -> int:
     """Main entry point."""
     # Check gate
@@ -124,6 +135,19 @@ def main() -> int:
 
     # Skip if shell metacharacters present
     if _has_shell_meta(command):
+        # Special case: cd <path> && <command> — extract and check the command portion
+        cd_match = _extract_cd_prefix(command)
+        if cd_match:
+            prefix, rest = cd_match
+            if not _has_shell_meta(rest) and _should_wrap(rest):
+                compact_run = get_plugin_root() / "hooks" / "compact_run.py"
+                compact_run_quoted = shlex.quote(str(compact_run))
+                result = {
+                    "updatedInput": {
+                        "command": f"{prefix}uv run --no-project --script {compact_run_quoted} {rest}"
+                    }
+                }
+                print(json.dumps(result))  # noqa: T201
         return 0
 
     # Check if command should be wrapped

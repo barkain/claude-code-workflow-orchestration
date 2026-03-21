@@ -90,6 +90,11 @@ class TestShouldWrap:
             "npx jest --coverage",
             "npx mocha tests/",
             "npx playwright test",
+            "npx eslint src/",
+            "npx next lint",
+            "npx tsc --noEmit",
+            # next standalone
+            "next lint",
             # go
             "go test ./...",
             # make
@@ -123,6 +128,10 @@ class TestShouldWrap:
             "npx_jest",
             "npx_mocha",
             "npx_playwright",
+            "npx_eslint",
+            "npx_next",
+            "npx_tsc",
+            "next_lint",
             "go_test",
             "make_test",
             "make_check",
@@ -157,7 +166,6 @@ class TestShouldWrap:
             "make build",
             "make clean",
             # npx non-test
-            "npx eslint .",
             "npx prettier --write .",
             # general shell commands
             "ls -la",
@@ -179,7 +187,6 @@ class TestShouldWrap:
             "go_run",
             "make_build",
             "make_clean",
-            "npx_eslint",
             "npx_prettier",
             "ls",
             "echo",

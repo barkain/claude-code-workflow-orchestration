@@ -37,7 +37,23 @@ You MUST follow every rule below. These are not suggestions — they are binding
 - MUST use `rg --max-columns 120 --max-columns-preview <pattern>` to truncate long match lines.
 - MUST use `rg -g '*.py' <pattern>` to limit by filetype instead of searching everything.
 
-## File Inspection
+## File Reading (Read Tool)
+
+**MANDATORY: Partial reads for large files.** Full-file reads waste thousands of context tokens.
+
+| REQUIRED (use this) | PROHIBITED (never use this) |
+|---|---|
+| `Read` with `offset`/`limit` for files >200 lines | `Read` full file when >200 lines |
+| `Grep` to find relevant section, then `Read` with `offset`/`limit` | `Read` full CLAUDE.md, workflow_orchestrator.md, or settings.json |
+| `wc -l <file>` or `Bash: wc -l` before reading unknown files | Reading files blind without checking size |
+
+- MUST check file size (`wc -l`) before reading any file >100 lines.
+- For files >200 lines, MUST use `offset`/`limit` parameters on Read tool.
+- NEVER read CLAUDE.md in full — use Grep to find the relevant section, then Read with `offset`/`limit`.
+- For known large files (CLAUDE.md, workflow_orchestrator.md, settings.json), ALWAYS read specific sections.
+- Strategy: `Grep` for the heading/keyword → note line number → `Read` with `offset` and `limit` of ~50 lines.
+
+## File Inspection (Bash)
 
 | REQUIRED (use this) | PROHIBITED (never use this) |
 |---|---|
@@ -124,3 +140,4 @@ You MUST follow every rule below. These are not suggestions — they are binding
 3. MUST NOT run a command a second time just to re-read its output — capture to variable if needed.
 4. MUST use `--no-pager` on commands that might invoke a pager (git, man, etc.).
 5. MUST NOT use `--verbose`, `-v`, `-la`, or any flag that increases output unless the extra detail is specifically needed for the current task.
+6. MUST NOT chain commands with `&&` or `;`. Use separate Bash calls. Exception: `cd <path> && <command>` is allowed.

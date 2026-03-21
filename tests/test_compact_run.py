@@ -497,11 +497,49 @@ class TestHandleNpx:
         assert code == 1  # noqa: S101
         assert "test error" in capsys.readouterr().err  # noqa: S101
 
+    @pytest.mark.parametrize("runner", ["eslint", "next"])
+    def test_lint_runner_success(
+        self,
+        compact_run: ModuleType,
+        capsys: pytest.CaptureFixture[str],
+        runner: str,
+    ) -> None:
+        code = compact_run.handle_npx(["npx", runner, "."], "lint output\n", "", 0)
+        assert code == 0  # noqa: S101
+        assert "no issues" in capsys.readouterr().out  # noqa: S101
+
+    @pytest.mark.parametrize("runner", ["eslint", "next"])
+    def test_lint_runner_failure(
+        self,
+        compact_run: ModuleType,
+        capsys: pytest.CaptureFixture[str],
+        runner: str,
+    ) -> None:
+        code = compact_run.handle_npx(["npx", runner, "."], "errors\n", "lint err\n", 1)
+        assert code == 1  # noqa: S101
+        assert "lint err" in capsys.readouterr().err  # noqa: S101
+
+    def test_tsc_success(
+        self, compact_run: ModuleType, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        code = compact_run.handle_npx(["npx", "tsc", "--noEmit"], "", "", 0)
+        assert code == 0  # noqa: S101
+        assert "no type errors" in capsys.readouterr().out  # noqa: S101
+
+    def test_tsc_failure(
+        self, compact_run: ModuleType, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        code = compact_run.handle_npx(
+            ["npx", "tsc", "--noEmit"], "src/foo.ts(1,1): error TS2345\n", "", 1
+        )
+        assert code == 1  # noqa: S101
+        assert "error TS2345" in capsys.readouterr().out  # noqa: S101
+
     def test_other_npx_passthrough(
         self, compact_run: ModuleType, capsys: pytest.CaptureFixture[str]
     ) -> None:
         code = compact_run.handle_npx(
-            ["npx", "eslint", "."], "lint output\n", "warn\n", 0
+            ["npx", "prettier", "."], "lint output\n", "warn\n", 0
         )
         assert code == 0  # noqa: S101
         captured = capsys.readouterr()

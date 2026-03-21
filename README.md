@@ -252,14 +252,14 @@ The `plugin-hooks.json` configures the delegation enforcement hooks using cross-
 
 **Note:** All hooks use `uv run --no-project --script` for cross-platform compatibility (Windows, macOS, Linux). The `--no-project` flag allows execution without requiring a pyproject.toml, and `--script` directly runs Python scripts using uv's managed interpreter.
 
-**Hook Events (6 lifecycle points, 15 scripts):**
+**Hook Events (6 lifecycle points, 14 hooks):**
 
 | Event | Scripts | Purpose |
 |-------|---------|---------|
-| **PreToolUse** | `validate_task_graph_compliance.py`, `require_delegation.py`, `token_rewrite_hook.py` (Bash only) | Validate task graph compliance; block non-delegated tools; rewrite Bash commands for token efficiency |
+| **PreToolUse** | `validate_task_graph_compliance.py`, `require_delegation.py`, `token_rewrite_hook.py` (Bash only) | Validate task graph compliance; block non-delegated tools; rewrite Bash commands for token efficiency (cd && pattern, eslint, next, tsc support) |
 | **PostToolUse** | `python_posttooluse_hook.py` (Edit/Write), `remind_skill_continuation.py` (ExitPlanMode/Skill/SlashCommand), `validate_task_graph_depth.py` (Agent/Task), `remind_todo_after_task.py` (Agent/Task, async) | Python validation (Ruff/Pyright); workflow continuation state; depth-3 enforcement; task reminders |
 | **UserPromptSubmit** | `clear-delegation-sessions.py` | Clear delegation/team state, record turn timestamp |
-| **SessionStart** | `inject_workflow_orchestrator.py`, `inject-output-style.py`, `inject_token_efficiency.py` | Inject system prompts (workflow orchestration, output style, token efficiency) |
+| **SessionStart** | `inject_workflow_orchestrator.py`, `inject-output-style.py`, `inject_token_efficiency.py` | Inject conditional orchestrator (stub on startup, full on /delegate), output style, token efficiency guidance |
 | **SubagentStop** | `remind_todo_update.py` (async), `trigger_verification.py` | Remind to update tasks, suggest verification |
 | **Stop** | `python_stop_hook.py` | Turn duration tracking, workflow continuation |
 
@@ -268,22 +268,10 @@ The `plugin-hooks.json` configures the delegation enforcement hooks using cross-
 Multi-step workflow orchestration requires the workflow_orchestrator system prompt to be appended:
 
 **Automatic (via SessionStart hook):**
-```json
-{
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "append_system_prompt",
-            "path": "system-prompts/workflow_orchestrator.md"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
+
+The `inject_workflow_orchestrator.py` hook uses conditional injection:
+- **On startup/resume:** Injects a lightweight stub that registers `/delegate` and `/bypass` commands without loading the full orchestrator prompt, keeping baseline token overhead minimal.
+- **On `/delegate` invocation:** The full `workflow_orchestrator.md` system prompt is loaded on-demand, providing the complete planning and execution logic only when needed.
 
 **What this enables:**
 - Multi-step task detection via pattern matching
@@ -415,7 +403,7 @@ No other configuration is required. Plan mode automatically evaluates whether a 
 
 ### How Mode Selection Works
 
-During planning, plan mode calculates a `team_mode_score` based on task characteristics:
+During planning, plan mode checks if the TeamCreate tool is available (indicator that Agent Teams are enabled). If available, it calculates a `team_mode_score` based on task characteristics:
 
 | Factor                                | Points | Condition                                              |
 |---------------------------------------|--------|--------------------------------------------------------|
@@ -428,7 +416,7 @@ During planning, plan mode calculates a `team_mode_score` based on task characte
 | Breadth task                          | -5     | Simple exploration is better as subagents               |
 | Phase count <= 3                      | -3     | Small workflows don't need team overhead                |
 
-A score of **5 or higher** (with `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`) triggers team mode. Otherwise, subagent mode is used.
+Default to team mode when Agent Teams available (TeamCreate in tools). Falls back to subagent only when `team_mode_score <= -3` (breadth-only tasks). If TeamCreate tool is not available (env var not set), subagent mode is always selected.
 
 ### Subagent Mode vs Team Mode
 
@@ -503,7 +491,7 @@ Team mode creates two additional state files (automatically cleaned up on comple
 
 The framework minimizes command output to reduce context consumption and preserve tokens for meaningful work. Token efficiency is enabled by default (`CLAUDE_TOKEN_EFFICIENCY=1`).
 
-### Two-Layer Approach
+### Multi-Layer Approach
 
 1. **Behavioral Guidance** — The `token_efficient_cli.md` system prompt (injected via SessionStart) teaches compact flag usage:
    - `git status -sb` (short branch format)
@@ -515,6 +503,13 @@ The framework minimizes command output to reduce context consumption and preserv
    - Git: `push`, `pull`, `commit`, `merge`, `rebase`, `status`, etc.
    - Test runners: `pytest`, `cargo test`, `npm/pnpm/yarn/bun test`, `vitest`, `jest`, `mocha`, etc.
    - Logs: `docker logs`, `kubectl logs`, `make` output
+   - Build tools: `eslint`, `next`, `tsc`
+   - Command chaining: `cd && command` pattern support
+
+3. **Conditional System Prompt Injection** — The orchestrator is injected conditionally:
+   - On session startup: Stub version (~200 tokens) provides minimal direction
+   - On first plan mode entry (via /delegate or detected multi-step): Full version (~11K tokens) for complete planning capability
+   - Saves tokens for single-step and read-only tasks
 
 ### Disable Token Efficiency
 

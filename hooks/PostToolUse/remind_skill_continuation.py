@@ -3,11 +3,10 @@
 # requires-python = ">=3.12"
 # ///
 """
-Remind Claude to continue after task-planner skill or ExitPlanMode.
+Remind Claude to continue after ExitPlanMode.
 
 Creates a state file that the Stop hook checks to auto-continue workflow.
 Triggers on:
-  - PostToolUse for Skill tool when skill contains "task-planner"
   - PostToolUse for ExitPlanMode tool (plan mode completion)
 This is a workaround for plugin mode where additionalContext isn't applied.
 """
@@ -81,15 +80,6 @@ def main() -> None:
             logger.debug("ExitPlanMode detected, creating continuation state file")
             _create_continuation_state("plan mode completed")
             return
-
-        # Case 2: task-planner skill invoked (backward compat for skill mode)
-        if tool_name == "Skill":
-            skill = data.get("tool_input", {}).get("skill", "")
-            logger.debug("Skill tool detected, skill=%s", skill)
-            if "task-planner" in skill:
-                logger.debug("task-planner detected, creating continuation state file")
-                _create_continuation_state("task-planner skill completed")
-                return
 
     except (json.JSONDecodeError, KeyError, TypeError) as e:
         logger.debug("Error: %s", e)

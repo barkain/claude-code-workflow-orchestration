@@ -471,9 +471,9 @@ return max(candidates, key=lambda a: a.match_count)
 
 ### 4.5 Subagent vs Team Mode Selection
 
-The planning phase evaluates a `team_mode_score` to decide the execution mechanism.
+The planning phase detects TeamCreate tool availability to decide the execution mechanism. If available, it evaluates a `team_mode_score` to determine which mode to use.
 
-**Prerequisites:** `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` must be set. Otherwise, subagent mode is always used.
+**Prerequisites:** `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` must be set for TeamCreate tool to be available. Otherwise, subagent mode is always used.
 
 **Scoring Factors:**
 
@@ -488,11 +488,11 @@ The planning phase evaluates a `team_mode_score` to decide the execution mechani
 | Breadth task | -5 | Same operation across multiple items |
 | Phase count <= 3 | -3 | Simple workflow |
 
-**Decision:** Score >= 5 selects team mode. Score < 5 selects subagent mode.
+**Decision:** Score >= 5 (with TeamCreate available) selects team mode. Score < 5 or TeamCreate unavailable selects subagent mode.
 
 **The ONE parameter difference:**
-- `Agent(team_name="project-team", ...)` = **teammate** (shared context, SendMessage, shared task list)
-- `Agent(...)` = **isolated subagent** (no communication, no coordination)
+- `Agent(team_name="project-team", ...)` = **teammate** (shared context, SendMessage, shared task list) — only when TeamCreate is available
+- `Agent(...)` = **isolated subagent** (no communication, no coordination) — default or when team mode not available
 
 ---
 
@@ -607,6 +607,7 @@ The framework supports two execution mechanisms because workflows have fundament
 - Deterministic execution: Wave ordering provides predictable behavior
 - Simpler state management: No team lifecycle, no messaging protocol
 - Easier debugging: Each agent's output is self-contained in a scratchpad file
+- Always available: Works without requiring TeamCreate tool availability
 
 **Team mode advantages:**
 - Real-time coordination: Teammates can message each other without waiting for wave completion
@@ -615,6 +616,7 @@ The framework supports two execution mechanisms because workflows have fundament
 - Review-fix cycles: A reviewer can immediately notify an implementer, who fixes without wave overhead
 
 **Team mode costs:**
+- Tool availability: Requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` environment variable
 - Lead context pressure: Team messages flow through the lead agent's context
 - Non-deterministic execution: Teammate ordering depends on runtime conditions
 - More complex state: `team_mode_active`, `team_config.json`, shutdown protocol
@@ -627,9 +629,9 @@ The `team_mode_score` algorithm is deliberately conservative. The threshold (>= 
 - A simple "collaborate" keyword (+5) grants immediate access, respecting user intent
 - Without user intent, the workflow itself must demonstrate need: complex (Tier 3: +2), many phases (>8: +2), cross-phase data flow (+3), or review-fix cycles (+3)
 - Counter-signals actively suppress team mode: breadth tasks (-5), simple workflows (-3)
-- The env var `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` acts as a hard gate -- without it, team mode is never considered
+- TeamCreate tool availability (determined by `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` env var) acts as a hard gate -- without it, team mode is never considered
 
-This ensures team mode activates only when its coordination benefits outweigh its overhead costs.
+This ensures team mode activates only when both the tool is available and coordination benefits outweigh its overhead costs.
 
 ### 6.4 Two Team Workflow Patterns
 
@@ -652,9 +654,9 @@ The key insight: the plan structure (phases, waves, dependencies) remains identi
 ```
 User Request
     |
-Plan mode evaluates team_mode_score
+Plan mode checks TeamCreate tool availability
     |
-Score >= 5 + AGENT_TEAMS env var set?
+TeamCreate available + Score >= 5?
 ├── NO → Subagent mode (standard pipeline)
 └── YES → Team mode:
          |

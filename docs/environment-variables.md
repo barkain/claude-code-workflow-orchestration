@@ -159,7 +159,7 @@ unset CLAUDE_CODE_DISABLE_BACKGROUND_TASKS
 
 ### CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS
 
-**Purpose:** Enable Agent Teams dual-mode execution. When set, the PreToolUse hook allows Agent Teams tools (`TeamCreate`, `SendMessage`) and auto-creates the `.claude/state/team_mode_active` state file on first team tool use. The planning phase uses this variable to score whether a workflow should use team mode vs subagent mode.
+**Purpose:** Enable Agent Teams and team mode scoring. When set to `1`, the PreToolUse hook allows Agent Teams tools (`TeamCreate`, `SendMessage`) and auto-creates the `.claude/state/team_mode_active` state file on first team tool use. The planning phase uses TeamCreate tool availability to detect whether Agent Teams are enabled, then calculates `team_mode_score` to determine whether to use team mode or subagent mode.
 
 **Values:**
 - `0` (default): Agent Teams disabled. Team tools are blocked by PreToolUse hook with a message instructing the user to set this variable.
@@ -184,8 +184,8 @@ unset CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS
 
 The PreToolUse hook (`require_delegation.py`) gates Agent Teams tools behind this variable:
 
-1. **Env var set to `1` + team tool invoked:** Tool is allowed. If `.claude/state/team_mode_active` does not exist, the hook auto-creates it so downstream hooks (e.g., `validate_task_graph_compliance.py`) can detect team mode.
-2. **Env var NOT set or `0` + team tool invoked:** Tool is blocked with an error message instructing the user to set the variable.
+1. **Env var set to `1` + team tool invoked:** Tool is allowed. The hook auto-creates `.claude/state/team_mode_active` if it doesn't already exist, signaling downstream hooks that Agent Teams mode is active. This is how plan mode detects TeamCreate availability.
+2. **Env var NOT set or `0` + team tool invoked:** Tool is blocked with an error message instructing the user to set the variable to `1`.
 
 **Spawned via the Agent tool:**
 - Teammates are spawned via the `Agent` tool with a `team_name` parameter

@@ -184,7 +184,7 @@ Two team workflow patterns:
   - Phase count >8: +2, Tier 3 complexity: +2, cross-phase data flow: +3
   - Review-fix cycles: +3, iterative refinement: +2, user keyword "collaborate"/"team": +5
   - Breadth task: -5, phase count <=3: -3
-  - Score >= 5: use team mode; Score < 5: use subagent mode
+  - Default to team mode (score not calculated, absent, or > -3); use subagent mode only when score <= -3
 - **If TeamCreate tool is not available** (env var not set): Always use subagent mode (≥2 subtasks mandatory)
 
 **When team mode is active:**

@@ -378,7 +378,7 @@ If teams are NOT available (no `TeamCreate` tool) → always `"subagent"` mode.
 | Breadth task | -5 |
 | Phase count <= 3 | -3 |
 
-**Decision:** When `TeamCreate` is available: use `execution_mode: "team"` if `team_mode_score` >= 5 (or score not calculated); use `execution_mode: "subagent"` if `team_mode_score` < 5. If TeamCreate fails at runtime, the fallback section handles it automatically. Without teams available: always parallel subagent (>=2 subtasks mandatory).
+**Decision:** When `TeamCreate` is available: default to `execution_mode: "team"` (used when `team_mode_score` is not calculated, absent, or > -3); use `execution_mode: "subagent"` only when `team_mode_score` <= -3. If TeamCreate fails at runtime, the fallback section handles it automatically. Without teams available: always parallel subagent (>=2 subtasks mandatory).
 
 When `execution_mode: "team"`, include `team_config` in output:
 ```json

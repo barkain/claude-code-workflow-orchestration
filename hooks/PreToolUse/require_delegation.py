@@ -272,6 +272,6 @@ if __name__ == "__main__":
         sys.exit(main())
     except Exception as e:
         debug_log(f"UNCAUGHT EXCEPTION: {e}")
-        # Fail-open: allow tool on internal errors to avoid blocking legitimate usage
-        logger.error("Hook internal error: %s. Failing open (tool allowed).", e)
-        sys.exit(0)
+        # Exit 1 for internal errors (distinct from 0=allow, 2=block)
+        logger.error("Hook internal error: %s", e)
+        sys.exit(1)

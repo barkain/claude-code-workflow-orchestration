@@ -49,8 +49,15 @@ _COMMAND_FAMILIES: dict[str, list[str] | None] = {
     "pnpm": ["test"],
     "yarn": ["test"],
     "bun": ["test"],
-    "npx": ["vitest", "jest", "mocha", "playwright", "eslint", "next", "tsc"],  # filtered by _npx_safe()
-
+    "npx": [
+        "vitest",
+        "jest",
+        "mocha",
+        "playwright",
+        "eslint",
+        "next",
+        "tsc",
+    ],  # filtered by _npx_safe()
     "go": ["test"],
     "make": ["test", "check"],
     "next": ["lint"],

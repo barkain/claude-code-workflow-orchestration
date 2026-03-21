@@ -49,7 +49,8 @@ _COMMAND_FAMILIES: dict[str, list[str] | None] = {
     "pnpm": ["test"],
     "yarn": ["test"],
     "bun": ["test"],
-    "npx": ["vitest", "jest", "mocha", "playwright", "eslint", "next", "tsc"],
+    "npx": ["vitest", "jest", "mocha", "playwright", "eslint", "next", "tsc"],  # filtered by _npx_safe()
+
     "go": ["test"],
     "make": ["test", "check"],
     "next": ["lint"],
@@ -70,6 +71,26 @@ def _normalize_cmd(token: str) -> str:
     return name.lower() if ext.lower() == ".exe" else base
 
 
+def _npx_safe(parts: list[str]) -> bool:
+    """Check if an npx command is safe to wrap (not long-running).
+
+    Long-running commands like ``npx next dev``, ``npx next start``,
+    ``npx next build``, and ``npx tsc --watch`` must NOT be wrapped.
+    """
+    if len(parts) < 2:
+        return False
+    tool = parts[1]
+    third = parts[2] if len(parts) > 2 else ""
+    if tool == "next":
+        # Only `next lint` is safe; dev/start/build are long-running
+        return third == "lint"
+    if tool == "tsc":
+        # tsc is safe unless --watch is present anywhere
+        return "--watch" not in parts and "-w" not in parts
+    # vitest, jest, mocha, playwright, eslint — always safe
+    return tool in ("vitest", "jest", "mocha", "playwright", "eslint")
+
+
 def _should_wrap(command: str) -> bool:
     """Check if command matches a wrappable command family."""
     parts = command.split()
@@ -85,6 +106,8 @@ def _should_wrap(command: str) -> bool:
     if subcommands is None:
         # Entry exists with None value — always wrap (e.g., pytest)
         return True
+    if first == "npx" and second in subcommands:
+        return _npx_safe(parts)
     return second in subcommands
 
 

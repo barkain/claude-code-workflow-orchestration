@@ -293,7 +293,7 @@ Wave 1 (M tasks): 3: <desc> -> <agent>
 - `activeForm`: Present continuous form for spinner
 - `metadata`: Object with wave, phase, agent, parallel info, and `output_file: $CLAUDE_SCRATCHPAD_DIR/{sanitized_subject}.md`
 
-**Agent Return Format (CRITICAL):** Return EXACTLY `DONE|{output_file_path}`. PROHIBITED: summaries, findings, any other text. All content goes in output file.
+**Agent Return Format (CRITICAL):** Return EXACTLY `DONE|{output_file}`. PROHIBITED: summaries, findings, any other text. All content goes in output file.
 
 **File naming:** `$CLAUDE_SCRATCHPAD_DIR/{sanitized_subject}.md` -- lowercase, spaces to underscores.
 

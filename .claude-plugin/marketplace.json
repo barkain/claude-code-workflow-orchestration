@@ -16,6 +16,16 @@
       "license": "MIT",
       "keywords": ["delegation", "workflow", "orchestration", "agents"],
       "category": "productivity"
+    },
+    {
+      "name": "madrox",
+      "description": "MCP server that orchestrates multiple Claude CLI instances as parallel workers with a real-time dashboard",
+      "source": {
+        "source": "github",
+        "repo": "barkain/madrox"
+      },
+      "category": "productivity",
+      "homepage": "https://github.com/barkain/madrox"
     }
   ]
 }

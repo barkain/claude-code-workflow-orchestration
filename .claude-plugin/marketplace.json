@@ -20,6 +20,7 @@
     {
       "name": "madrox",
       "description": "MCP server that orchestrates multiple Claude CLI instances as parallel workers with a real-time dashboard",
+      "version": "1.4.0",
       "source": {
         "source": "github",
         "repo": "barkain/madrox"

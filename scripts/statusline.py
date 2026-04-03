@@ -10,7 +10,6 @@ Cross-platform Python version (works on Windows, macOS, Linux)
 
 import io
 import json
-import logging
 import os
 import subprocess
 import sys
@@ -18,18 +17,11 @@ import tempfile
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any
-
-logger = logging.getLogger(__name__)
 
 # Cache configuration
 COST_CACHE_TTL_SECONDS = 300  # Cache costs for 5 minutes (cost data changes slowly)
 COST_CACHE_FILE = Path(tempfile.gettempdir()) / "statusline_cost_cache.json"
 COST_REFRESH_LOCK = Path(tempfile.gettempdir()) / "statusline_cost_refresh.lock"  # noqa: S108
-
-# Usage API cache (separate from cost cache — different TTL)
-USAGE_CACHE_TTL_SECONDS = 60  # 60 second TTL
-USAGE_CACHE_FILE = Path(tempfile.gettempdir()) / "statusline_usage_cache.json"
 
 # Force UTF-8 output on Windows (fixes emoji encoding errors)
 if sys.platform == "win32":
@@ -554,203 +546,6 @@ finally:
         debug_log(f"Failed to spawn background refresh: {e}")
 
 
-def fetch_usage_data() -> tuple[float | None, float | None]:
-    """Fetch usage data from Anthropic OAuth usage API.
-
-    Simple inline fetch with SSL fallback. On ANY failure, returns (None, None).
-
-    Returns:
-        Tuple of (five_hour_pct, seven_day_pct) or (None, None) on failure.
-    """
-    import urllib.request
-
-    token = get_oauth_token()
-    if not token:
-        return None, None
-
-    url = "https://api.anthropic.com/api/oauth/usage"
-    req = urllib.request.Request(  # noqa: S310
-        url,
-        headers={
-            "Authorization": f"Bearer {token}",
-            "anthropic-beta": "oauth-2025-04-20",
-            "User-Agent": "claude-code/1.0",
-        },
-    )
-    try:
-        body = _urlopen_with_ssl_fallback(req, timeout=5)
-        data = json.loads(body.decode("utf-8"))
-        five_hour = data.get("five_hour", {}).get("utilization")
-        seven_day = data.get("seven_day", {}).get("utilization")
-        debug_log(f"Usage API: 5h={five_hour}%, 7d={seven_day}%")
-        return five_hour, seven_day
-    except Exception as e:
-        debug_log(f"Usage API error: {e}")
-        return None, None
-
-
-def get_oauth_token() -> str | None:
-    """Find OAuth token from multiple sources.
-
-    Checks in order:
-    1. CLAUDE_CODE_OAUTH_TOKEN env var (most common for CLI sessions)
-    2. ~/.claude/.credentials.json -> .claudeAiOauth.accessToken (macOS/Linux)
-    3. %APPDATA%/claude/.credentials.json -> .claudeAiOauth.accessToken (Windows)
-
-    Returns:
-        OAuth access token string, or None if not found.
-    """
-    # Source 1: Environment variable
-    env_token = os.environ.get("CLAUDE_CODE_OAUTH_TOKEN")
-    if env_token:
-        debug_log("OAuth token found via CLAUDE_CODE_OAUTH_TOKEN env var")
-        return env_token
-
-    # Source 2: macOS/Linux credentials file
-    creds_path = Path.home() / ".claude" / ".credentials.json"
-    token = _read_token_from_creds(creds_path)
-    if token:
-        debug_log("OAuth token found via ~/.claude/.credentials.json")
-        return token
-
-    # Source 3: Windows credentials file
-    appdata = os.environ.get("APPDATA", "")
-    if appdata:
-        win_creds_path = Path(appdata) / "claude" / ".credentials.json"
-        token = _read_token_from_creds(win_creds_path)
-        if token:
-            debug_log("OAuth token found via APPDATA credentials")
-            return token
-
-    debug_log("No OAuth token found from any source")
-    return None
-
-
-def _read_token_from_creds(creds_path: Path) -> str | None:
-    """Extract OAuth access token from a credentials JSON file.
-
-    Args:
-        creds_path: Path to the .credentials.json file.
-
-    Returns:
-        Token string, or None if file missing/invalid/no token.
-    """
-    if not creds_path.exists():
-        return None
-    try:
-        creds = json.loads(creds_path.read_text(encoding="utf-8"))
-        return creds.get("claudeAiOauth", {}).get("accessToken") or None
-    except (json.JSONDecodeError, OSError) as e:
-        debug_log(f"Failed to read credentials from {creds_path}: {e}")
-        return None
-
-
-def _urlopen_with_ssl_fallback(req: Any, timeout: int = 10) -> bytes:
-    """Open a URL request with SSL certificate error fallback.
-
-    Tries in order:
-    1. Default SSL context
-    2. Explicit /etc/ssl/cert.pem context (macOS fallback)
-    3. Unverified SSL as last resort (with warning)
-
-    Args:
-        req: The urllib.request.Request object.
-        timeout: Request timeout in seconds.
-
-    Returns:
-        Response body bytes.
-    """
-    import ssl
-    import urllib.error
-    import urllib.request
-
-    # Attempt 1: default SSL
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
-            return resp.read()
-    except urllib.error.URLError as e:
-        if not isinstance(getattr(e, "reason", None), ssl.SSLError):
-            raise
-        debug_log(f"SSL error with default context: {e.reason}")
-
-    # Attempt 2: explicit cert bundle (common macOS path)
-    cert_pem = Path("/etc/ssl/cert.pem")
-    if cert_pem.exists():
-        try:
-            ctx = ssl.create_default_context(cafile=str(cert_pem))
-            with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:  # noqa: S310
-                return resp.read()
-        except urllib.error.URLError as e:
-            if not isinstance(getattr(e, "reason", None), ssl.SSLError):
-                raise
-            debug_log(f"SSL error with /etc/ssl/cert.pem: {e.reason}")
-
-    # Attempt 3: unverified SSL (last resort)
-    logger.warning("Falling back to unverified SSL for usage API request")
-    debug_log("WARNING: using unverified SSL context as last resort")
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
-    with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:  # noqa: S310
-        return resp.read()
-
-
-def get_usage_cached() -> tuple[float | None, float | None]:
-    """Get usage percentages with simple inline cache.
-
-    If cache is fresh (< 60s): return cached values.
-    If cache is stale: fetch inline, update cache on success.
-    If fetch fails and stale cache exists: re-save stale data with fresh
-    timestamp (implicit backoff — won't retry for another 60s).
-
-    Returns:
-        Tuple of (five_hour_pct, seven_day_pct) — None means data unavailable.
-    """
-    # Try to load existing cache
-    cache: dict = {}
-    try:
-        if USAGE_CACHE_FILE.exists():
-            cache = json.loads(USAGE_CACHE_FILE.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        pass
-
-    # If cache is fresh, return it
-    if cache:
-        age = time.time() - cache.get("timestamp", 0)
-        if age < USAGE_CACHE_TTL_SECONDS:
-            debug_log(f"Using cached usage (age: {age:.1f}s)")
-            return cache.get("five_hour_pct"), cache.get("seven_day_pct")
-
-    # Cache stale or missing — fetch inline
-    five_h, seven_d = fetch_usage_data()
-
-    if five_h is not None or seven_d is not None:
-        # Fetch succeeded — save fresh data
-        new_cache = {
-            "five_hour_pct": five_h,
-            "seven_day_pct": seven_d,
-            "timestamp": time.time(),
-        }
-        try:
-            USAGE_CACHE_FILE.write_text(json.dumps(new_cache), encoding="utf-8")
-        except OSError:
-            pass
-        return five_h, seven_d
-
-    # Fetch failed — if stale cache exists, re-save with fresh timestamp
-    # (implicit backoff: won't retry for another USAGE_CACHE_TTL_SECONDS)
-    if cache:
-        cache["timestamp"] = time.time()
-        try:
-            USAGE_CACHE_FILE.write_text(json.dumps(cache), encoding="utf-8")
-        except OSError:
-            pass
-        debug_log("Fetch failed, re-stamped stale cache for implicit backoff")
-        return cache.get("five_hour_pct"), cache.get("seven_day_pct")
-
-    return None, None
-
-
 def get_costs_cached(cwd: str) -> tuple[str, str, float, float]:
     """Get daily and session costs with non-blocking cache refresh.
 
@@ -974,8 +769,12 @@ def main() -> None:
     daily_amount = daily_cost
     cost_display = f"{GREEN}\U0001f4b0 {daily_amount}{RESET}"
 
-    # Get real usage percentages from Anthropic OAuth API
-    five_hour_pct, seven_day_pct = get_usage_cached()
+    # Extract rate limits from statusLine JSON input
+    rate_limits = input_data.get("rate_limits", {})
+    five_hour = rate_limits.get("five_hour", {})
+    seven_day = rate_limits.get("seven_day", {})
+    five_hour_pct = five_hour.get("used_percentage")  # float or None
+    seven_day_pct = seven_day.get("used_percentage")  # float or None
 
     usage_display = format_usage_percentages(five_hour_pct, seven_day_pct)
 

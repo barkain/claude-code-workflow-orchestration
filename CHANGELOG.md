@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.15.0] - 2026-04-03
+
+### Added
+- **5h/weekly usage percentages**: Display real Anthropic plan usage limits in statusline, read directly from Claude Code's `rate_limits` JSON input (zero API calls)
+- **Responsive statusline layout**: Terminal width detection with 4-tier progressive compaction for narrow/split terminals
+- **Color-coded usage thresholds**: Green (<50%), yellow (50-75%), red (>=75%) for usage percentages
+
+### Changed
+- **Context bar shortened**: Reduced from 20 to 10 characters for better space utilization
+- **Directory/branch truncation**: Dir max 25 chars, branch max 20 chars with ellipsis truncation
+- **Row 2 priority layout**: Context bar + usage % (always shown) > cost (>=80 cols) > duration (>=60 cols)
+
+### Removed
+- **Sparkline/cycle time graph**: Removed `generate_sparkline()` visualization, duration text preserved
+- **Session cost display**: Removed `🎯 $X.XX` from statusline row 2
+- **OAuth usage API code**: Replaced with direct stdin JSON reading (API is permanently rate-limited)
+
+### Fixed
+- **Narrow terminal handling**: Width detection no longer forces small values to 120, allowing compact layouts to trigger
+- **Double session file read**: `calculate_context_usage()` returns raw percentage for reuse in minimal layout
+- **Usage color boundaries**: Corrected to `>=50` yellow and `>=75` red (was strict greater-than)
+
 ## [1.13.0] - 2026-03-21
 
 ### Added

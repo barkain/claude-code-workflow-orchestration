@@ -15,7 +15,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 # Cache configuration
@@ -275,17 +275,27 @@ def load_cost_cache() -> dict:
     return {}
 
 
-def save_cost_cache(daily_cost: str, session_cost: str, cwd: str) -> None:
+def save_cost_cache(
+    daily_cost: str,
+    session_cost: str,
+    cwd: str,
+    daily_cost_val: float = 0.0,
+    weekly_cost_val: float = 0.0,
+) -> None:
     """Save cost values to cache file.
 
     Args:
         daily_cost: Formatted daily cost string.
         session_cost: Formatted session cost string.
         cwd: Current working directory (for cache invalidation).
+        daily_cost_val: Raw daily cost value for percentage calculations.
+        weekly_cost_val: Raw weekly cost value for percentage calculations.
     """
     cache = {
         "daily_cost": daily_cost,
         "session_cost": session_cost,
+        "daily_cost_val": daily_cost_val,
+        "weekly_cost_val": weekly_cost_val,
         "timestamp": time.time(),
         "cwd": cwd,
     }
@@ -313,26 +323,33 @@ def is_cache_valid(cache: dict, cwd: str) -> bool:
     return age < COST_CACHE_TTL_SECONDS and cache_cwd == cwd
 
 
-def fetch_costs_raw(cwd: str) -> tuple[str, str]:
-    """Fetch daily and session costs from a single ccusage call.
+def fetch_costs_raw(cwd: str) -> tuple[str, str, float, float]:
+    """Fetch daily, session, and weekly costs from ccusage calls.
 
     Uses the `-i` flag which returns per-project breakdown that also includes
     daily totals, allowing both values to be extracted from one response.
+    Also fetches weekly data for usage percentage calculation.
 
     Args:
         cwd: Current working directory, used to identify the project.
 
     Returns:
-        Tuple of (daily_cost, session_cost) formatted strings like "$X.XX".
+        Tuple of (daily_cost, session_cost, daily_cost_val, weekly_cost_val)
+        where daily_cost/session_cost are formatted strings like "$X.XX"
+        and daily_cost_val/weekly_cost_val are raw float values.
     """
     today = datetime.now().strftime("%Y%m%d")
 
     # Convert cwd to project name format (replace / with -)
     project_name = cwd.replace("/", "-").replace("\\", "-") if cwd else ""
 
+    daily_cost_val = 0.0
+    weekly_cost_val = 0.0
+
     # Try bunx (bun) first, then npx - single call with -i flag gets both values
     for cmd in [["bunx", "ccusage@latest"], ["npx", "ccusage@latest"]]:
         try:
+            # Fetch today's costs
             result = subprocess.run(  # noqa: S603, S607
                 [*cmd, "daily", "--json", "--since", today, "-i"],
                 capture_output=True,
@@ -358,7 +375,19 @@ def fetch_costs_raw(cwd: str) -> tuple[str, str]:
                             )
                             session_cost = f"${total_cost:.2f}"
 
-                return daily_cost, session_cost
+                # Fetch weekly costs (last 7 days)
+                week_ago = (datetime.now() - timedelta(days=6)).strftime("%Y%m%d")
+                weekly_result = subprocess.run(  # noqa: S603, S607
+                    [*cmd, "daily", "--json", "--since", week_ago, "-i"],
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+                if weekly_result.returncode == 0 and weekly_result.stdout.strip():
+                    weekly_data = json.loads(weekly_result.stdout)
+                    weekly_cost_val = weekly_data.get("totals", {}).get("totalCost", 0)
+
+                return daily_cost, session_cost, daily_cost_val, weekly_cost_val
         except (
             subprocess.TimeoutExpired,
             FileNotFoundError,
@@ -367,7 +396,7 @@ def fetch_costs_raw(cwd: str) -> tuple[str, str]:
         ):
             continue
 
-    return "$0.00", "$0.00"
+    return "$0.00", "$0.00", 0.0, 0.0
 
 
 def _is_refresh_locked() -> bool:
@@ -414,7 +443,7 @@ def spawn_background_refresh(cwd: str) -> None:
     refresh_script = f"""
 import json, subprocess, time, sys
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 
 lock_file = Path({str(COST_REFRESH_LOCK)!r})
 cache_file = Path({str(COST_CACHE_FILE)!r})
@@ -425,10 +454,13 @@ try:
     lock_file.write_text(str(time.time()))
 
     today = datetime.now().strftime("%Y%m%d")
+    week_ago = (datetime.now() - timedelta(days=6)).strftime("%Y%m%d")
     project_name = cwd.replace("/", "-").replace("\\\\", "-") if cwd else ""
 
     daily_cost = "$0.00"
     session_cost = "$0.00"
+    daily_cost_val = 0.0
+    weekly_cost_val = 0.0
 
     for cmd in [["bunx", "ccusage@latest"], ["npx", "ccusage@latest"]]:
         try:
@@ -447,6 +479,16 @@ try:
                         if project_data and len(project_data) > 0:
                             total_cost = sum(e.get("totalCost", 0) for e in project_data)
                             session_cost = f"${{total_cost:.2f}}"
+
+                # Fetch weekly costs
+                weekly_result = subprocess.run(
+                    [*cmd, "daily", "--json", "--since", week_ago, "-i"],
+                    capture_output=True, text=True, timeout=30,
+                )
+                if weekly_result.returncode == 0 and weekly_result.stdout.strip():
+                    weekly_data = json.loads(weekly_result.stdout)
+                    weekly_cost_val = weekly_data.get("totals", {{}}).get("totalCost", 0)
+
                 break
         except Exception:
             continue
@@ -454,6 +496,8 @@ try:
     cache = {{
         "daily_cost": daily_cost,
         "session_cost": session_cost,
+        "daily_cost_val": daily_cost_val,
+        "weekly_cost_val": weekly_cost_val,
         "timestamp": time.time(),
         "cwd": cwd,
     }}
@@ -473,7 +517,7 @@ finally:
         debug_log(f"Failed to spawn background refresh: {e}")
 
 
-def get_costs_cached(cwd: str) -> tuple[str, str]:
+def get_costs_cached(cwd: str) -> tuple[str, str, float, float]:
     """Get daily and session costs with non-blocking cache refresh.
 
     Returns cached values immediately. If the cache is expired, returns stale
@@ -486,7 +530,7 @@ def get_costs_cached(cwd: str) -> tuple[str, str]:
         cwd: Current working directory for session cost lookup.
 
     Returns:
-        Tuple of (daily_cost, session_cost) formatted strings like "$X.XX".
+        Tuple of (daily_cost, session_cost, daily_cost_val, weekly_cost_val).
     """
     cache = load_cost_cache()
 
@@ -494,24 +538,33 @@ def get_costs_cached(cwd: str) -> tuple[str, str]:
         debug_log(
             f"Using cached costs (age: {time.time() - cache.get('timestamp', 0):.1f}s)"
         )
-        return cache.get("daily_cost", "$0.00"), cache.get("session_cost", "$0.00")
+        return (
+            cache.get("daily_cost", "$0.00"),
+            cache.get("session_cost", "$0.00"),
+            cache.get("daily_cost_val", 0.0),
+            cache.get("weekly_cost_val", 0.0),
+        )
 
     # Cache is stale or missing - return immediately with stale/placeholder values
     if cache:
         stale_daily = cache.get("daily_cost", "$...")
         stale_session = cache.get("session_cost", "$...")
+        stale_daily_val = cache.get("daily_cost_val", 0.0)
+        stale_weekly_val = cache.get("weekly_cost_val", 0.0)
         debug_log(
             f"Cache expired, returning stale values: daily={stale_daily}, session={stale_session}"
         )
     else:
         stale_daily = "$..."
         stale_session = "$..."
+        stale_daily_val = 0.0
+        stale_weekly_val = 0.0
         debug_log("No cache exists, returning placeholders")
 
     # Spawn background refresh (fire and forget)
     spawn_background_refresh(cwd)
 
-    return stale_daily, stale_session
+    return stale_daily, stale_session, stale_daily_val, stale_weekly_val
 
 
 def get_claude_version() -> str:
@@ -534,79 +587,14 @@ def get_claude_version() -> str:
     return "v?"
 
 
-def generate_sparkline(durations: list[float]) -> str:
-    """Generate a sparkline visualization from duration values.
-
-    Maps each duration to a block character based on its relative position
-    between the min and max values in the array.
-
-    Args:
-        durations: List of duration values in seconds.
-
-    Returns:
-        Sparkline string using block characters (e.g., "▁▃▅▂█").
-    """
-    if not durations:
-        return ""
-
-    # Sparkline characters from lowest to highest
-    spark_chars = "▁▂▃▄▅▆▇█"
-    max_index = len(spark_chars) - 1
-
-    min_val = min(durations)
-    max_val = max(durations)
-    value_range = max_val - min_val
-
-    sparkline = ""
-    for duration in durations:
-        if value_range == 0:
-            # All values are equal - use middle height
-            index = max_index // 2
-        else:
-            # Map value to 0-7 index based on position in range
-            normalized = (duration - min_val) / value_range
-            index = int(normalized * max_index)
-            # Clamp to valid range
-            index = max(0, min(max_index, index))
-        sparkline += spark_chars[index]
-
-    return sparkline
-
-
-def get_duration_history() -> list[float]:
-    """Get the history of turn durations for sparkline visualization.
-
-    Reads from the JSON file maintained by the stop hook.
-
-    Returns:
-        List of duration values in seconds, or empty list if not available.
-    """
-    state_dir = (
-        Path(os.environ.get("CLAUDE_PROJECT_DIR", Path.cwd())) / ".claude" / "state"
-    )
-    history_file = state_dir / "turn_durations.json"
-
-    if not history_file.exists():
-        return []
-
-    try:
-        data = json.loads(history_file.read_text(encoding="utf-8"))
-        durations = data.get("durations", [])
-        # Validate and convert to floats
-        return [float(d) for d in durations if isinstance(d, int | float)]
-    except (json.JSONDecodeError, ValueError, OSError):
-        return []
-
-
 def get_turn_duration() -> str | None:
-    """Get the duration of the last completed turn with sparkline visualization.
+    """Get the duration of the last completed turn.
 
     Reads from the state file written by the stop hook which calculates
-    duration from UserPromptSubmit to Stop events. Also includes a sparkline
-    showing the trend of the last 10 turn durations.
+    duration from UserPromptSubmit to Stop events.
 
     Returns:
-        Formatted duration string like "▁▃▅▂█ 45s", or None if not available.
+        Formatted duration string like "45s" or "1m 23s", or None if not available.
     """
     state_dir = (
         Path(os.environ.get("CLAUDE_PROJECT_DIR", Path.cwd())) / ".claude" / "state"
@@ -619,21 +607,59 @@ def get_turn_duration() -> str | None:
     try:
         duration_str = duration_file.read_text(encoding="utf-8").strip()
         if duration_str:
-            # Get sparkline from duration history
-            durations = get_duration_history()
-            sparkline = generate_sparkline(durations)
-
-            if sparkline:
-                # Color the sparkline with coral/salmon (RGB true color)
-                # Fallback-safe: Windows Terminal supports RGB, older terminals ignore
-                CORAL = "\033[38;2;255;127;80m"
-                RESET = "\033[0m"
-                return f"{CORAL}{sparkline}{RESET} {duration_str}"
             return duration_str
     except OSError:
         pass
 
     return None
+
+
+def format_usage_percentages(
+    daily_cost_val: float,
+    weekly_cost_val: float,
+    daily_limit: float,
+    weekly_limit: float,
+) -> str:
+    """Format 5h and weekly usage as colored percentage strings.
+
+    Uses daily spend as approximation for 5h usage (ccusage gives daily granularity).
+
+    Args:
+        daily_cost_val: Raw daily cost value.
+        weekly_cost_val: Raw weekly cost value (sum of last 7 days).
+        daily_limit: Daily spend limit in dollars.
+        weekly_limit: Weekly spend limit in dollars (daily_limit * 7).
+
+    Returns:
+        Formatted string like "5h 89% · weekly 91%" with ANSI color codes.
+    """
+    reset = "\033[0m"
+
+    def color_for_pct(pct: float) -> str:
+        if pct > 75:
+            return "\033[31m"  # Red
+        elif pct > 50:
+            return "\033[33m"  # Yellow
+        return "\033[32m"  # Green
+
+    if daily_limit > 0:
+        five_h_pct = (daily_cost_val / daily_limit) * 100
+    else:
+        five_h_pct = 0.0
+
+    if weekly_limit > 0:
+        weekly_pct = (weekly_cost_val / weekly_limit) * 100
+    else:
+        weekly_pct = 0.0
+
+    five_h_color = color_for_pct(five_h_pct)
+    weekly_color = color_for_pct(weekly_pct)
+
+    return (
+        f"{five_h_color}5h {five_h_pct:.0f}%{reset}"
+        f" · "
+        f"{weekly_color}weekly {weekly_pct:.0f}%{reset}"
+    )
 
 
 def main() -> None:
@@ -678,7 +704,9 @@ def main() -> None:
     full_cwd = os.getcwd()
 
     # Get daily and session costs (with caching for fast statusline refresh)
-    daily_cost, session_cost = get_costs_cached(full_cwd)
+    daily_cost, session_cost, daily_cost_val, weekly_cost_val = get_costs_cached(
+        full_cwd
+    )
 
     # Get Claude version
     claude_version = get_claude_version()
@@ -702,13 +730,18 @@ def main() -> None:
     # Get turn duration if available
     turn_duration = get_turn_duration()
 
-    # Format costs: extract numbers and combine as "💰 $Y.YY (🎯 $X.XX)"
-    # where daily_cost is first (larger), session_cost in parentheses
-    # session_cost format: "$X.XX"
-    # daily_cost format: "$Y.YY"
+    # Format costs: extract numbers and combine as "costs (session)"
     daily_amount = daily_cost
     session_amount = session_cost
     cost_display = f"{GREEN}💰 {daily_amount} (🎯 {session_amount}){RESET}"
+
+    # Calculate usage percentages
+    daily_limit = float(os.environ.get("CLAUDE_DAILY_LIMIT", "200"))
+    weekly_limit = daily_limit * 7
+
+    usage_display = format_usage_percentages(
+        daily_cost_val, weekly_cost_val, daily_limit, weekly_limit
+    )
 
     # Output statusline (print is required for statusline output)
     # Row 1 (static per session): version, model, project dir, git branch
@@ -716,8 +749,8 @@ def main() -> None:
     sys.stdout.write(
         f"{BLUE}{claude_version}{RESET} | {SHINY_AQUA}🤖 {raw_model}{RESET} | {cwd_display} | {YELLOW}{git_status}{RESET}\n"
     )
-    # Row 2 (dynamic metrics): costs, context bar, turn duration
-    row2_parts = [cost_display, context_info]
+    # Row 2 (dynamic metrics): costs, context bar, usage percentages, turn duration
+    row2_parts = [cost_display, context_info, usage_display]
     if turn_duration:
         row2_parts.append(f"{YELLOW}⏱️ {turn_duration}{RESET}")
     sys.stdout.write(" | ".join(row2_parts) + "\n")

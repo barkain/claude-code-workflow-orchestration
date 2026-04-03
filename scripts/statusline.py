@@ -31,7 +31,9 @@ COST_REFRESH_LOCK = Path(tempfile.gettempdir()) / "statusline_cost_refresh.lock"
 USAGE_CACHE_TTL_SECONDS = 120  # 2 minutes — aggressive but avoids 429s
 USAGE_CACHE_FILE = Path(tempfile.gettempdir()) / "statusline_usage_cache.json"
 USAGE_REFRESH_LOCK = Path(tempfile.gettempdir()) / "statusline_usage_refresh.lock"  # noqa: S108
-USAGE_429_BACKOFF_SECONDS = 300  # 5 minutes on rate limit
+USAGE_429_BACKOFF_SECONDS_DEFAULT = (
+    300  # 5 minutes on rate limit (fallback if no Retry-After)
+)
 
 # Force UTF-8 output on Windows (fixes emoji encoding errors)
 if sys.platform == "win32":
@@ -569,7 +571,7 @@ def load_usage_cache() -> dict:
 def save_usage_cache(
     five_hour_pct: float | None,
     seven_day_pct: float | None,
-    error_429: bool = False,
+    backoff_seconds: int = 0,
 ) -> None:
     """Save usage API values to cache file."""
     cache: dict = {
@@ -577,8 +579,8 @@ def save_usage_cache(
         "seven_day_pct": seven_day_pct,
         "timestamp": time.time(),
     }
-    if error_429:
-        cache["backoff_until"] = time.time() + USAGE_429_BACKOFF_SECONDS
+    if backoff_seconds > 0:
+        cache["backoff_until"] = time.time() + backoff_seconds
     try:
         USAGE_CACHE_FILE.write_text(json.dumps(cache), encoding="utf-8")
     except OSError:
@@ -750,8 +752,11 @@ def fetch_usage_data() -> tuple[float | None, float | None]:
         return five_hour, seven_day
     except urllib.error.HTTPError as e:
         if e.code == 429:
-            debug_log("Usage API rate limited (429), backing off 5 minutes")
-            save_usage_cache(None, None, error_429=True)
+            retry_after = int(
+                e.headers.get("Retry-After", USAGE_429_BACKOFF_SECONDS_DEFAULT)
+            )
+            debug_log(f"Usage API rate limited (429), backing off {retry_after}s")
+            save_usage_cache(None, None, backoff_seconds=retry_after)
         else:
             debug_log(f"Usage API HTTP error: {e.code}")
         return None, None
@@ -776,7 +781,7 @@ from pathlib import Path
 
 lock_file = Path({str(USAGE_REFRESH_LOCK)!r})
 cache_file = Path({str(USAGE_CACHE_FILE)!r})
-BACKOFF_SECONDS = {USAGE_429_BACKOFF_SECONDS}
+BACKOFF_SECONDS_DEFAULT = {USAGE_429_BACKOFF_SECONDS_DEFAULT}
 
 def get_token():
     # Source 1: env var
@@ -833,7 +838,7 @@ try:
 
     five_hour_pct = None
     seven_day_pct = None
-    error_429 = False
+    backoff_seconds = 0
 
     token = get_token()
     if token:
@@ -852,7 +857,7 @@ try:
             seven_day_pct = data.get("seven_day", {{}}).get("utilization")
         except urllib.error.HTTPError as e:
             if e.code == 429:
-                error_429 = True
+                backoff_seconds = int(e.headers.get("Retry-After", BACKOFF_SECONDS_DEFAULT))
         except Exception:
             pass
 
@@ -861,8 +866,8 @@ try:
         "seven_day_pct": seven_day_pct,
         "timestamp": time.time(),
     }}
-    if error_429:
-        cache["backoff_until"] = time.time() + BACKOFF_SECONDS
+    if backoff_seconds > 0:
+        cache["backoff_until"] = time.time() + backoff_seconds
     cache_file.write_text(json.dumps(cache))
 finally:
     lock_file.unlink(missing_ok=True)

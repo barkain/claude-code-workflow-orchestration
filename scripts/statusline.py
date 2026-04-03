@@ -23,6 +23,12 @@ COST_CACHE_TTL_SECONDS = 300  # Cache costs for 5 minutes (cost data changes slo
 COST_CACHE_FILE = Path(tempfile.gettempdir()) / "statusline_cost_cache.json"
 COST_REFRESH_LOCK = Path(tempfile.gettempdir()) / "statusline_cost_refresh.lock"  # noqa: S108
 
+# Usage API cache (separate from cost cache — different TTL)
+USAGE_CACHE_TTL_SECONDS = 120  # 2 minutes — aggressive but avoids 429s
+USAGE_CACHE_FILE = Path(tempfile.gettempdir()) / "statusline_usage_cache.json"
+USAGE_REFRESH_LOCK = Path(tempfile.gettempdir()) / "statusline_usage_refresh.lock"  # noqa: S108
+USAGE_429_BACKOFF_SECONDS = 300  # 5 minutes on rate limit
+
 # Force UTF-8 output on Windows (fixes emoji encoding errors)
 if sys.platform == "win32":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -546,6 +552,227 @@ finally:
         debug_log(f"Failed to spawn background refresh: {e}")
 
 
+def load_usage_cache() -> dict:
+    """Load usage API cache from file."""
+    try:
+        if USAGE_CACHE_FILE.exists():
+            return json.loads(USAGE_CACHE_FILE.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        pass
+    return {}
+
+
+def save_usage_cache(
+    five_hour_pct: float | None,
+    seven_day_pct: float | None,
+    error_429: bool = False,
+) -> None:
+    """Save usage API values to cache file."""
+    cache: dict = {
+        "five_hour_pct": five_hour_pct,
+        "seven_day_pct": seven_day_pct,
+        "timestamp": time.time(),
+    }
+    if error_429:
+        cache["backoff_until"] = time.time() + USAGE_429_BACKOFF_SECONDS
+    try:
+        USAGE_CACHE_FILE.write_text(json.dumps(cache), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def is_usage_cache_valid(cache: dict) -> bool:
+    """Check if usage cache is still valid."""
+    if not cache:
+        return False
+    # If in 429 backoff, cache is valid until backoff expires
+    backoff_until = cache.get("backoff_until", 0)
+    if backoff_until and time.time() < backoff_until:
+        return True
+    cache_time = cache.get("timestamp", 0)
+    age = time.time() - cache_time
+    return age < USAGE_CACHE_TTL_SECONDS
+
+
+def _is_usage_refresh_locked() -> bool:
+    """Check if a usage background refresh is already running."""
+    try:
+        if USAGE_REFRESH_LOCK.exists():
+            lock_age = time.time() - USAGE_REFRESH_LOCK.stat().st_mtime
+            if lock_age < 60:
+                return True
+            USAGE_REFRESH_LOCK.unlink(missing_ok=True)
+    except OSError:
+        pass
+    return False
+
+
+def fetch_usage_data() -> tuple[float | None, float | None]:
+    """Fetch usage data from Anthropic OAuth usage API.
+
+    Reads OAuth token from ~/.claude/.credentials.json and calls the API.
+
+    Returns:
+        Tuple of (five_hour_pct, seven_day_pct) or (None, None) on failure.
+    """
+    import urllib.request
+    import urllib.error
+
+    # Read OAuth token
+    creds_path = Path.home() / ".claude" / ".credentials.json"
+    if not creds_path.exists():
+        # Windows fallback
+        appdata = os.environ.get("APPDATA", "")
+        if appdata:
+            creds_path = Path(appdata) / "claude" / ".credentials.json"
+    if not creds_path.exists():
+        debug_log("No credentials file found for usage API")
+        return None, None
+
+    try:
+        creds = json.loads(creds_path.read_text(encoding="utf-8"))
+        token = creds.get("claudeAiOauth", {}).get("accessToken")
+        if not token:
+            debug_log("No OAuth access token found in credentials")
+            return None, None
+    except (json.JSONDecodeError, OSError) as e:
+        debug_log(f"Failed to read credentials: {e}")
+        return None, None
+
+    # Call the API
+    url = "https://api.anthropic.com/api/oauth/usage"
+    req = urllib.request.Request(  # noqa: S310
+        url,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "anthropic-beta": "oauth-2025-04-20",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310
+            data = json.loads(resp.read().decode("utf-8"))
+        five_hour = data.get("five_hour", {}).get("utilization")
+        seven_day = data.get("seven_day", {}).get("utilization")
+        debug_log(f"Usage API: 5h={five_hour}%, 7d={seven_day}%")
+        return five_hour, seven_day
+    except urllib.error.HTTPError as e:
+        if e.code == 429:
+            debug_log("Usage API rate limited (429), backing off 5 minutes")
+            save_usage_cache(None, None, error_429=True)
+        else:
+            debug_log(f"Usage API HTTP error: {e.code}")
+        return None, None
+    except (urllib.error.URLError, OSError, json.JSONDecodeError) as e:
+        debug_log(f"Usage API error: {e}")
+        return None, None
+
+
+def spawn_usage_background_refresh() -> None:
+    """Spawn a background process to refresh the usage API cache."""
+    if _is_usage_refresh_locked():
+        debug_log("Usage background refresh already running, skipping")
+        return
+
+    debug_log("Spawning usage background refresh process")
+
+    refresh_script = f"""
+import json, time, sys, os
+import urllib.request
+import urllib.error
+from pathlib import Path
+
+lock_file = Path({str(USAGE_REFRESH_LOCK)!r})
+cache_file = Path({str(USAGE_CACHE_FILE)!r})
+BACKOFF_SECONDS = {USAGE_429_BACKOFF_SECONDS}
+
+try:
+    lock_file.write_text(str(time.time()))
+
+    creds_path = Path.home() / ".claude" / ".credentials.json"
+    if not creds_path.exists():
+        appdata = os.environ.get("APPDATA", "")
+        if appdata:
+            creds_path = Path(appdata) / "claude" / ".credentials.json"
+
+    five_hour_pct = None
+    seven_day_pct = None
+    error_429 = False
+
+    if creds_path.exists():
+        creds = json.loads(creds_path.read_text(encoding="utf-8"))
+        token = creds.get("claudeAiOauth", {{}}).get("accessToken")
+        if token:
+            url = "https://api.anthropic.com/api/oauth/usage"
+            req = urllib.request.Request(
+                url,
+                headers={{
+                    "Authorization": f"Bearer {{token}}",
+                    "anthropic-beta": "oauth-2025-04-20",
+                }},
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                five_hour_pct = data.get("five_hour", {{}}).get("utilization")
+                seven_day_pct = data.get("seven_day", {{}}).get("utilization")
+            except urllib.error.HTTPError as e:
+                if e.code == 429:
+                    error_429 = True
+            except Exception:
+                pass
+
+    cache = {{
+        "five_hour_pct": five_hour_pct,
+        "seven_day_pct": seven_day_pct,
+        "timestamp": time.time(),
+    }}
+    if error_429:
+        cache["backoff_until"] = time.time() + BACKOFF_SECONDS
+    cache_file.write_text(json.dumps(cache))
+finally:
+    lock_file.unlink(missing_ok=True)
+"""
+
+    try:
+        subprocess.Popen(  # noqa: S603
+            [sys.executable, "-c", refresh_script],  # noqa: S603
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+    except OSError as e:
+        debug_log(f"Failed to spawn usage background refresh: {e}")
+
+
+def get_usage_cached() -> tuple[float | None, float | None]:
+    """Get usage percentages with non-blocking cache refresh.
+
+    Returns cached values immediately. If cache is expired, returns stale
+    values and spawns a background refresh.
+
+    Returns:
+        Tuple of (five_hour_pct, seven_day_pct) — None means data unavailable.
+    """
+    cache = load_usage_cache()
+
+    if is_usage_cache_valid(cache):
+        debug_log(
+            f"Using cached usage (age: {time.time() - cache.get('timestamp', 0):.1f}s)"
+        )
+        return cache.get("five_hour_pct"), cache.get("seven_day_pct")
+
+    # Cache stale or missing — return stale values and refresh in background
+    stale_5h = cache.get("five_hour_pct") if cache else None
+    stale_7d = cache.get("seven_day_pct") if cache else None
+    debug_log(
+        f"Usage cache expired/missing, stale values: 5h={stale_5h}, 7d={stale_7d}"
+    )
+
+    spawn_usage_background_refresh()
+
+    return stale_5h, stale_7d
+
+
 def get_costs_cached(cwd: str) -> tuple[str, str, float, float]:
     """Get daily and session costs with non-blocking cache refresh.
 
@@ -644,25 +871,21 @@ def get_turn_duration() -> str | None:
 
 
 def format_usage_percentages(
-    daily_cost_val: float,
-    weekly_cost_val: float,
-    daily_limit: float,
-    weekly_limit: float,
+    five_hour_pct: float | None,
+    seven_day_pct: float | None,
     compact: bool = False,
 ) -> str:
     """Format 5h and weekly usage as colored percentage strings.
 
-    Uses daily spend as approximation for 5h usage (ccusage gives daily granularity).
+    Uses real utilization values from the Anthropic OAuth usage API.
 
     Args:
-        daily_cost_val: Raw daily cost value.
-        weekly_cost_val: Raw weekly cost value (sum of last 7 days).
-        daily_limit: Daily spend limit in dollars.
-        weekly_limit: Weekly spend limit in dollars (daily_limit * 7).
+        five_hour_pct: 5-hour utilization percentage (0-100) from API, or None if unavailable.
+        seven_day_pct: 7-day utilization percentage (0-100) from API, or None if unavailable.
         compact: If True, use shorter labels (e.g., "5h 2%·w 60%").
 
     Returns:
-        Formatted string like "5h 89% · weekly 91%" with ANSI color codes.
+        Formatted string like "5h 6% · weekly 1%" with ANSI color codes.
     """
     reset = "\033[0m"
 
@@ -673,30 +896,31 @@ def format_usage_percentages(
             return "\033[33m"  # Yellow
         return "\033[32m"  # Green
 
-    if daily_limit > 0:
-        five_h_pct = (daily_cost_val / daily_limit) * 100
+    if five_hour_pct is not None:
+        five_h_str = f"{five_hour_pct:.0f}%"
+        five_h_color = color_for_pct(five_hour_pct)
     else:
-        five_h_pct = 0.0
+        five_h_str = "\u2026%"
+        five_h_color = "\033[90m"  # Gray for placeholder
 
-    if weekly_limit > 0:
-        weekly_pct = (weekly_cost_val / weekly_limit) * 100
+    if seven_day_pct is not None:
+        weekly_str = f"{seven_day_pct:.0f}%"
+        weekly_color = color_for_pct(seven_day_pct)
     else:
-        weekly_pct = 0.0
-
-    five_h_color = color_for_pct(five_h_pct)
-    weekly_color = color_for_pct(weekly_pct)
+        weekly_str = "\u2026%"
+        weekly_color = "\033[90m"  # Gray for placeholder
 
     if compact:
         return (
-            f"{five_h_color}5h {five_h_pct:.0f}%{reset}"
+            f"{five_h_color}5h {five_h_str}{reset}"
             f"\u00b7"
-            f"{weekly_color}w {weekly_pct:.0f}%{reset}"
+            f"{weekly_color}w {weekly_str}{reset}"
         )
 
     return (
-        f"{five_h_color}5h {five_h_pct:.0f}%{reset}"
-        f" · "
-        f"{weekly_color}weekly {weekly_pct:.0f}%{reset}"
+        f"{five_h_color}5h {five_h_str}{reset}"
+        f" \u00b7 "
+        f"{weekly_color}weekly {weekly_str}{reset}"
     )
 
 
@@ -772,13 +996,10 @@ def main() -> None:
     daily_amount = daily_cost
     cost_display = f"{GREEN}\U0001f4b0 {daily_amount}{RESET}"
 
-    # Calculate usage percentages
-    daily_limit = float(os.environ.get("CLAUDE_DAILY_LIMIT", "200"))
-    weekly_limit = daily_limit * 7
+    # Get real usage percentages from Anthropic OAuth API
+    five_hour_pct, seven_day_pct = get_usage_cached()
 
-    usage_display = format_usage_percentages(
-        daily_cost_val, weekly_cost_val, daily_limit, weekly_limit
-    )
+    usage_display = format_usage_percentages(five_hour_pct, seven_day_pct)
 
     # Detect terminal width for responsive layout
     term_width = get_terminal_width()
@@ -841,22 +1062,14 @@ def main() -> None:
     elif term_width >= 60:
         # Compact: context bar | compact usage (drop cost, duration)
         compact_usage = format_usage_percentages(
-            daily_cost_val,
-            weekly_cost_val,
-            daily_limit,
-            weekly_limit,
-            compact=True,
+            five_hour_pct, seven_day_pct, compact=True
         )
         row2_parts = [context_info, compact_usage]
     else:
         # Minimal: just percentage + compact usage (drop bar, emoji, cost, duration)
         # Extract percentage from context_info by recalculating
         compact_usage = format_usage_percentages(
-            daily_cost_val,
-            weekly_cost_val,
-            daily_limit,
-            weekly_limit,
-            compact=True,
+            five_hour_pct, seven_day_pct, compact=True
         )
         # Build a minimal context display (just percentage, no bar)
         session_id = input_data.get("session_id", "")

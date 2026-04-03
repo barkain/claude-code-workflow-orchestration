@@ -254,11 +254,21 @@ def truncate_str(s: str, max_len: int) -> str:
 
 
 def get_terminal_width() -> int:
-    """Get terminal width, defaulting to 120 if detection fails."""
+    """Get terminal width, defaulting to 120 if detection fails.
+
+    In Claude Code's statusline context, shutil.get_terminal_size() often
+    returns unreasonably small values because it's not a real TTY.
+    We treat anything below 40 columns as unreliable and default to 120.
+    """
     try:
         import shutil
 
-        return shutil.get_terminal_size(fallback=(120, 24)).columns
+        width = shutil.get_terminal_size(fallback=(120, 24)).columns
+        # In non-TTY contexts (like Claude Code statusline), the detected
+        # width can be 0 or very small. Use a conservative default instead.
+        if width < 40:
+            return 120
+        return width
     except Exception:
         return 120
 
@@ -638,6 +648,7 @@ def format_usage_percentages(
     weekly_cost_val: float,
     daily_limit: float,
     weekly_limit: float,
+    compact: bool = False,
 ) -> str:
     """Format 5h and weekly usage as colored percentage strings.
 
@@ -648,6 +659,7 @@ def format_usage_percentages(
         weekly_cost_val: Raw weekly cost value (sum of last 7 days).
         daily_limit: Daily spend limit in dollars.
         weekly_limit: Weekly spend limit in dollars (daily_limit * 7).
+        compact: If True, use shorter labels (e.g., "5h 2%·w 60%").
 
     Returns:
         Formatted string like "5h 89% · weekly 91%" with ANSI color codes.
@@ -673,6 +685,13 @@ def format_usage_percentages(
 
     five_h_color = color_for_pct(five_h_pct)
     weekly_color = color_for_pct(weekly_pct)
+
+    if compact:
+        return (
+            f"{five_h_color}5h {five_h_pct:.0f}%{reset}"
+            f"\u00b7"
+            f"{weekly_color}w {weekly_pct:.0f}%{reset}"
+        )
 
     return (
         f"{five_h_color}5h {five_h_pct:.0f}%{reset}"
@@ -809,13 +828,75 @@ def main() -> None:
     )
 
     # --- Row 2: context bar | usage | cost | duration ---
-    # Priority order: context_info, usage_display, cost_display, duration
-    # Build parts with priority-based dropping for narrow terminals
-    row2_parts = [context_info, usage_display]
-    if term_width >= 80:
-        row2_parts.append(cost_display)
-    if term_width >= 60 and turn_duration:
-        row2_parts.append(f"{YELLOW}\u23f1\ufe0f {turn_duration}{RESET}")
+    # Row 2 must ALWAYS show something. At minimum: context percentage and usage.
+    # Progressive compaction for narrow terminals instead of hiding elements.
+    if term_width >= 100:
+        # Full layout: context bar | usage | cost | duration
+        row2_parts = [context_info, usage_display, cost_display]
+        if turn_duration:
+            row2_parts.append(f"{YELLOW}\u23f1\ufe0f {turn_duration}{RESET}")
+    elif term_width >= 80:
+        # Medium: context bar | usage | cost (no duration)
+        row2_parts = [context_info, usage_display, cost_display]
+    elif term_width >= 60:
+        # Compact: context bar | compact usage (drop cost, duration)
+        compact_usage = format_usage_percentages(
+            daily_cost_val,
+            weekly_cost_val,
+            daily_limit,
+            weekly_limit,
+            compact=True,
+        )
+        row2_parts = [context_info, compact_usage]
+    else:
+        # Minimal: just percentage + compact usage (drop bar, emoji, cost, duration)
+        # Extract percentage from context_info by recalculating
+        compact_usage = format_usage_percentages(
+            daily_cost_val,
+            weekly_cost_val,
+            daily_limit,
+            weekly_limit,
+            compact=True,
+        )
+        # Build a minimal context display (just percentage, no bar)
+        session_id = input_data.get("session_id", "")
+        max_ctx = 200000
+        if "1M" in raw_model:
+            max_ctx = 1_000_000
+        # Try to get actual percentage from session data
+        ctx_pct = "0%"
+        if session_id:
+            session_file = find_session_file(
+                session_id,
+                input_data.get("cwd")
+                or input_data.get("workspace", {}).get("current_dir", ""),
+            )
+            if session_file:
+                try:
+                    last_reset_line = 0
+                    lines_list: list[str] = []
+                    with open(session_file, "r", encoding="utf-8") as f:
+                        for i, line in enumerate(f, 1):
+                            lines_list.append(line)
+                            if '"/clear"' in line or '"/compact"' in line:
+                                last_reset_line = i
+                    for line in lines_list[last_reset_line:]:
+                        try:
+                            entry = json.loads(line)
+                            usage_data = entry.get("message", {}).get("usage", {})
+                            if usage_data:
+                                total_in = (
+                                    usage_data.get("input_tokens", 0)
+                                    + usage_data.get("cache_read_input_tokens", 0)
+                                    + usage_data.get("cache_creation_input_tokens", 0)
+                                )
+                                if total_in > 0:
+                                    ctx_pct = f"{total_in * 100 / max_ctx:.0f}%"
+                        except json.JSONDecodeError:
+                            continue
+                except OSError:
+                    pass
+        row2_parts = [f"{ctx_pct}", compact_usage]
 
     sys.stdout.write(" | ".join(row2_parts) + "\n")
 

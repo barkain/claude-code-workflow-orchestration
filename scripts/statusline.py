@@ -730,10 +730,9 @@ def main() -> None:
     # Get turn duration if available
     turn_duration = get_turn_duration()
 
-    # Format costs: extract numbers and combine as "costs (session)"
+    # Format costs: daily cost only
     daily_amount = daily_cost
-    session_amount = session_cost
-    cost_display = f"{GREEN}💰 {daily_amount} (🎯 {session_amount}){RESET}"
+    cost_display = f"{GREEN}💰 {daily_amount}{RESET}"
 
     # Calculate usage percentages
     daily_limit = float(os.environ.get("CLAUDE_DAILY_LIMIT", "200"))

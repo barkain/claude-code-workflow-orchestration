@@ -45,9 +45,9 @@ def create_progress_bar(usage_rate: float, used_tokens: int, limit_tokens: int) 
     """Create a colored progress bar for context usage."""
     percentage = max(0, min(100, int(usage_rate)))
 
-    # Calculate filled blocks (20 total)
-    filled_blocks = percentage * 20 // 100
-    empty_blocks = 20 - filled_blocks
+    # Calculate filled blocks (10 total)
+    filled_blocks = percentage * 10 // 100
+    empty_blocks = 10 - filled_blocks
 
     # Build bar using Unicode block characters
     filled_part = "█" * filled_blocks

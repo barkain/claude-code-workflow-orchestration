@@ -126,8 +126,13 @@ def find_session_file(session_id: str, current_dir: str) -> Path | None:
     return None
 
 
-def calculate_context_usage(input_data: dict) -> str | None:
-    """Calculate actual context usage from session file."""
+def calculate_context_usage(input_data: dict) -> tuple[str | None, float]:
+    """Calculate actual context usage from session file.
+
+    Returns:
+        Tuple of (formatted_string, raw_pct) where raw_pct is the usage
+        percentage as a float (e.g. 57.1), or 0.0 if unavailable.
+    """
     session_id = input_data.get("session_id", "")
     current_dir = input_data.get("cwd") or input_data.get("workspace", {}).get(
         "current_dir", ""
@@ -136,7 +141,7 @@ def calculate_context_usage(input_data: dict) -> str | None:
     debug_log(f"Session ID: {session_id}, Current Dir: {current_dir}")
 
     if not session_id:
-        return None
+        return None, 0.0
 
     # Determine max context based on model
     model_name = input_data.get("model", {}).get("display_name") or input_data.get(
@@ -151,7 +156,7 @@ def calculate_context_usage(input_data: dict) -> str | None:
 
     session_file = find_session_file(session_id, current_dir)
     if not session_file:
-        return None
+        return None, 0.0
 
     debug_log(f"Processing session file: {session_file}")
 
@@ -204,12 +209,12 @@ def calculate_context_usage(input_data: dict) -> str | None:
             if total_input > 0:
                 usage_rate = total_input * 100 / max_context
                 progress_bar = create_progress_bar(usage_rate, total_input, max_context)
-                return f"🧠 {progress_bar}"
+                return f"🧠 {progress_bar}", usage_rate
 
     except OSError as e:
         debug_log(f"Error reading session file: {e}")
 
-    return None
+    return None, 0.0
 
 
 def shorten_cwd(full_path: str) -> str:
@@ -256,19 +261,15 @@ def truncate_str(s: str, max_len: int) -> str:
 def get_terminal_width() -> int:
     """Get terminal width, defaulting to 120 if detection fails.
 
-    In Claude Code's statusline context, shutil.get_terminal_size() often
-    returns unreasonably small values because it's not a real TTY.
-    We treat anything below 40 columns as unreliable and default to 120.
+    Only falls back to 120 when detection truly fails (returns 0 or raises
+    an exception). Small positive values are allowed through so narrow
+    terminals get compact layouts.
     """
     try:
         import shutil
 
         width = shutil.get_terminal_size(fallback=(120, 24)).columns
-        # In non-TTY contexts (like Claude Code statusline), the detected
-        # width can be 0 or very small. Use a conservative default instead.
-        if width < 40:
-            return 120
-        return width
+        return width if width > 0 else 120
     except Exception:
         return 120
 
@@ -650,11 +651,11 @@ def format_usage_percentages(
 ) -> str:
     """Format 5h and weekly usage as colored percentage strings.
 
-    Uses real utilization values from the Anthropic OAuth usage API.
+    Uses values from the statusLine JSON stdin ``rate_limits`` field.
 
     Args:
-        five_hour_pct: 5-hour utilization percentage (0-100) from API, or None if unavailable.
-        seven_day_pct: 7-day utilization percentage (0-100) from API, or None if unavailable.
+        five_hour_pct: 5-hour utilization percentage (0-100) from rate_limits, or None if unavailable.
+        seven_day_pct: 7-day utilization percentage (0-100) from rate_limits, or None if unavailable.
         compact: If True, use shorter labels (e.g., "5h 2%·w 60%").
 
     Returns:
@@ -747,7 +748,7 @@ def main() -> None:
     claude_version = get_claude_version()
 
     # Get context info
-    context_info = calculate_context_usage(input_data)
+    context_info, ctx_raw_pct = calculate_context_usage(input_data)
     if not context_info:
         # Fallback empty progress bar
         max_context = 200000
@@ -844,49 +845,12 @@ def main() -> None:
         row2_parts = [context_info, compact_usage]
     else:
         # Minimal: just percentage + compact usage (drop bar, emoji, cost, duration)
-        # Extract percentage from context_info by recalculating
         compact_usage = format_usage_percentages(
             five_hour_pct, seven_day_pct, compact=True
         )
-        # Build a minimal context display (just percentage, no bar)
-        session_id = input_data.get("session_id", "")
-        max_ctx = 200000
-        if "1M" in raw_model:
-            max_ctx = 1_000_000
-        # Try to get actual percentage from session data
-        ctx_pct = "0%"
-        if session_id:
-            session_file = find_session_file(
-                session_id,
-                input_data.get("cwd")
-                or input_data.get("workspace", {}).get("current_dir", ""),
-            )
-            if session_file:
-                try:
-                    last_reset_line = 0
-                    lines_list: list[str] = []
-                    with open(session_file, "r", encoding="utf-8") as f:
-                        for i, line in enumerate(f, 1):
-                            lines_list.append(line)
-                            if '"/clear"' in line or '"/compact"' in line:
-                                last_reset_line = i
-                    for line in lines_list[last_reset_line:]:
-                        try:
-                            entry = json.loads(line)
-                            usage_data = entry.get("message", {}).get("usage", {})
-                            if usage_data:
-                                total_in = (
-                                    usage_data.get("input_tokens", 0)
-                                    + usage_data.get("cache_read_input_tokens", 0)
-                                    + usage_data.get("cache_creation_input_tokens", 0)
-                                )
-                                if total_in > 0:
-                                    ctx_pct = f"{total_in * 100 / max_ctx:.0f}%"
-                        except json.JSONDecodeError:
-                            continue
-                except OSError:
-                    pass
-        row2_parts = [f"{ctx_pct}", compact_usage]
+        # Reuse raw percentage from calculate_context_usage() (no re-read)
+        ctx_pct = f"{ctx_raw_pct:.0f}%"
+        row2_parts = [ctx_pct, compact_usage]
 
     sys.stdout.write(" | ".join(row2_parts) + "\n")
 

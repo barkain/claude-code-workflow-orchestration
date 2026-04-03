@@ -10,6 +10,7 @@ Cross-platform Python version (works on Windows, macOS, Linux)
 
 import io
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -17,6 +18,9 @@ import tempfile
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Any
+
+logger = logging.getLogger(__name__)
 
 # Cache configuration
 COST_CACHE_TTL_SECONDS = 300  # Cache costs for 5 minutes (cost data changes slowly)
@@ -607,36 +611,125 @@ def _is_usage_refresh_locked() -> bool:
     return False
 
 
+def get_oauth_token() -> str | None:
+    """Find OAuth token from multiple sources.
+
+    Checks in order:
+    1. CLAUDE_CODE_OAUTH_TOKEN env var (most common for CLI sessions)
+    2. ~/.claude/.credentials.json -> .claudeAiOauth.accessToken (macOS/Linux)
+    3. %APPDATA%/claude/.credentials.json -> .claudeAiOauth.accessToken (Windows)
+
+    Returns:
+        OAuth access token string, or None if not found.
+    """
+    # Source 1: Environment variable
+    env_token = os.environ.get("CLAUDE_CODE_OAUTH_TOKEN")
+    if env_token:
+        debug_log("OAuth token found via CLAUDE_CODE_OAUTH_TOKEN env var")
+        return env_token
+
+    # Source 2: macOS/Linux credentials file
+    creds_path = Path.home() / ".claude" / ".credentials.json"
+    token = _read_token_from_creds(creds_path)
+    if token:
+        debug_log("OAuth token found via ~/.claude/.credentials.json")
+        return token
+
+    # Source 3: Windows credentials file
+    appdata = os.environ.get("APPDATA", "")
+    if appdata:
+        win_creds_path = Path(appdata) / "claude" / ".credentials.json"
+        token = _read_token_from_creds(win_creds_path)
+        if token:
+            debug_log("OAuth token found via APPDATA credentials")
+            return token
+
+    debug_log("No OAuth token found from any source")
+    return None
+
+
+def _read_token_from_creds(creds_path: Path) -> str | None:
+    """Extract OAuth access token from a credentials JSON file.
+
+    Args:
+        creds_path: Path to the .credentials.json file.
+
+    Returns:
+        Token string, or None if file missing/invalid/no token.
+    """
+    if not creds_path.exists():
+        return None
+    try:
+        creds = json.loads(creds_path.read_text(encoding="utf-8"))
+        return creds.get("claudeAiOauth", {}).get("accessToken") or None
+    except (json.JSONDecodeError, OSError) as e:
+        debug_log(f"Failed to read credentials from {creds_path}: {e}")
+        return None
+
+
+def _urlopen_with_ssl_fallback(req: Any, timeout: int = 10) -> bytes:
+    """Open a URL request with SSL certificate error fallback.
+
+    Tries in order:
+    1. Default SSL context
+    2. Explicit /etc/ssl/cert.pem context (macOS fallback)
+    3. Unverified SSL as last resort (with warning)
+
+    Args:
+        req: The urllib.request.Request object.
+        timeout: Request timeout in seconds.
+
+    Returns:
+        Response body bytes.
+    """
+    import ssl
+    import urllib.error
+    import urllib.request
+
+    # Attempt 1: default SSL
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
+            return resp.read()
+    except urllib.error.URLError as e:
+        if not isinstance(getattr(e, "reason", None), ssl.SSLError):
+            raise
+        debug_log(f"SSL error with default context: {e.reason}")
+
+    # Attempt 2: explicit cert bundle (common macOS path)
+    cert_pem = Path("/etc/ssl/cert.pem")
+    if cert_pem.exists():
+        try:
+            ctx = ssl.create_default_context(cafile=str(cert_pem))
+            with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:  # noqa: S310
+                return resp.read()
+        except urllib.error.URLError as e:
+            if not isinstance(getattr(e, "reason", None), ssl.SSLError):
+                raise
+            debug_log(f"SSL error with /etc/ssl/cert.pem: {e.reason}")
+
+    # Attempt 3: unverified SSL (last resort)
+    logger.warning("Falling back to unverified SSL for usage API request")
+    debug_log("WARNING: using unverified SSL context as last resort")
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:  # noqa: S310
+        return resp.read()
+
+
 def fetch_usage_data() -> tuple[float | None, float | None]:
     """Fetch usage data from Anthropic OAuth usage API.
 
-    Reads OAuth token from ~/.claude/.credentials.json and calls the API.
+    Reads OAuth token from multiple sources and calls the API.
 
     Returns:
         Tuple of (five_hour_pct, seven_day_pct) or (None, None) on failure.
     """
-    import urllib.request
     import urllib.error
+    import urllib.request
 
-    # Read OAuth token
-    creds_path = Path.home() / ".claude" / ".credentials.json"
-    if not creds_path.exists():
-        # Windows fallback
-        appdata = os.environ.get("APPDATA", "")
-        if appdata:
-            creds_path = Path(appdata) / "claude" / ".credentials.json"
-    if not creds_path.exists():
-        debug_log("No credentials file found for usage API")
-        return None, None
-
-    try:
-        creds = json.loads(creds_path.read_text(encoding="utf-8"))
-        token = creds.get("claudeAiOauth", {}).get("accessToken")
-        if not token:
-            debug_log("No OAuth access token found in credentials")
-            return None, None
-    except (json.JSONDecodeError, OSError) as e:
-        debug_log(f"Failed to read credentials: {e}")
+    token = get_oauth_token()
+    if not token:
         return None, None
 
     # Call the API
@@ -649,8 +742,8 @@ def fetch_usage_data() -> tuple[float | None, float | None]:
         },
     )
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310
-            data = json.loads(resp.read().decode("utf-8"))
+        body = _urlopen_with_ssl_fallback(req, timeout=10)
+        data = json.loads(body.decode("utf-8"))
         five_hour = data.get("five_hour", {}).get("utilization")
         seven_day = data.get("seven_day", {}).get("utilization")
         debug_log(f"Usage API: 5h={five_hour}%, 7d={seven_day}%")
@@ -676,7 +769,7 @@ def spawn_usage_background_refresh() -> None:
     debug_log("Spawning usage background refresh process")
 
     refresh_script = f"""
-import json, time, sys, os
+import json, time, sys, os, ssl, logging
 import urllib.request
 import urllib.error
 from pathlib import Path
@@ -685,41 +778,83 @@ lock_file = Path({str(USAGE_REFRESH_LOCK)!r})
 cache_file = Path({str(USAGE_CACHE_FILE)!r})
 BACKOFF_SECONDS = {USAGE_429_BACKOFF_SECONDS}
 
+def get_token():
+    # Source 1: env var
+    t = os.environ.get("CLAUDE_CODE_OAUTH_TOKEN")
+    if t:
+        return t
+    # Source 2: macOS/Linux creds
+    cp = Path.home() / ".claude" / ".credentials.json"
+    t = _read(cp)
+    if t:
+        return t
+    # Source 3: Windows creds
+    ad = os.environ.get("APPDATA", "")
+    if ad:
+        t = _read(Path(ad) / "claude" / ".credentials.json")
+        if t:
+            return t
+    return None
+
+def _read(p):
+    if not p.exists():
+        return None
+    try:
+        c = json.loads(p.read_text(encoding="utf-8"))
+        return c.get("claudeAiOauth", {{}}).get("accessToken") or None
+    except Exception:
+        return None
+
+def urlopen_ssl(req, timeout=10):
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return r.read()
+    except urllib.error.URLError as e:
+        if not isinstance(getattr(e, "reason", None), ssl.SSLError):
+            raise
+    cp = Path("/etc/ssl/cert.pem")
+    if cp.exists():
+        try:
+            ctx = ssl.create_default_context(cafile=str(cp))
+            with urllib.request.urlopen(req, timeout=timeout, context=ctx) as r:
+                return r.read()
+        except urllib.error.URLError as e:
+            if not isinstance(getattr(e, "reason", None), ssl.SSLError):
+                raise
+    logging.warning("Falling back to unverified SSL")
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    with urllib.request.urlopen(req, timeout=timeout, context=ctx) as r:
+        return r.read()
+
 try:
     lock_file.write_text(str(time.time()))
-
-    creds_path = Path.home() / ".claude" / ".credentials.json"
-    if not creds_path.exists():
-        appdata = os.environ.get("APPDATA", "")
-        if appdata:
-            creds_path = Path(appdata) / "claude" / ".credentials.json"
 
     five_hour_pct = None
     seven_day_pct = None
     error_429 = False
 
-    if creds_path.exists():
-        creds = json.loads(creds_path.read_text(encoding="utf-8"))
-        token = creds.get("claudeAiOauth", {{}}).get("accessToken")
-        if token:
-            url = "https://api.anthropic.com/api/oauth/usage"
-            req = urllib.request.Request(
-                url,
-                headers={{
-                    "Authorization": f"Bearer {{token}}",
-                    "anthropic-beta": "oauth-2025-04-20",
-                }},
-            )
-            try:
-                with urllib.request.urlopen(req, timeout=10) as resp:
-                    data = json.loads(resp.read().decode("utf-8"))
-                five_hour_pct = data.get("five_hour", {{}}).get("utilization")
-                seven_day_pct = data.get("seven_day", {{}}).get("utilization")
-            except urllib.error.HTTPError as e:
-                if e.code == 429:
-                    error_429 = True
-            except Exception:
-                pass
+    token = get_token()
+    if token:
+        url = "https://api.anthropic.com/api/oauth/usage"
+        req = urllib.request.Request(
+            url,
+            headers={{
+                "Authorization": f"Bearer {{token}}",
+                "anthropic-beta": "oauth-2025-04-20",
+            }},
+        )
+        try:
+            body = urlopen_ssl(req, timeout=10)
+            data = json.loads(body.decode("utf-8"))
+            five_hour_pct = data.get("five_hour", {{}}).get("utilization")
+            seven_day_pct = data.get("seven_day", {{}}).get("utilization")
+        except urllib.error.HTTPError as e:
+            if e.code == 429:
+                error_429 = True
+        except Exception:
+            pass
 
     cache = {{
         "five_hour_pct": five_hour_pct,

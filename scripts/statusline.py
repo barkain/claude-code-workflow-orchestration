@@ -241,8 +241,30 @@ def shorten_cwd(full_path: str) -> str:
     return f".../{Path(full_path).name}"
 
 
+def truncate_str(s: str, max_len: int) -> str:
+    """Truncate a string to max_len, showing start + ellipsis + end if too long."""
+    if len(s) <= max_len:
+        return s
+    if max_len <= 3:
+        return s[:max_len]
+    # Show roughly first 40% and last 50% with ellipsis
+    head = max_len * 2 // 5
+    tail = max_len - head - 1
+    return s[:head] + "\u2026" + s[len(s) - tail :]
+
+
+def get_terminal_width() -> int:
+    """Get terminal width, defaulting to 120 if detection fails."""
+    try:
+        import shutil
+
+        return shutil.get_terminal_size(fallback=(120, 24)).columns
+    except Exception:
+        return 120
+
+
 def get_git_branch() -> str:
-    """Get the current git branch."""
+    """Get the current git branch (raw name, no emoji)."""
     try:
         result = subprocess.run(
             ["git", "branch", "--show-current"],  # noqa: S607, S603
@@ -251,13 +273,10 @@ def get_git_branch() -> str:
             timeout=5,
         )
         if result.returncode == 0 and result.stdout.strip():
-            branch = result.stdout.strip()
-            if len(branch) > 60:
-                branch = branch[:60] + "..."
-            return f"🌿 {branch} ⚡"
+            return result.stdout.strip()
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
         pass
-    return "🌿 no-git"
+    return "no-git"
 
 
 def load_cost_cache() -> dict:
@@ -721,8 +740,8 @@ def main() -> None:
         progress_bar = create_progress_bar(0, 0, max_context)
         context_info = f"🧠 {progress_bar}"
 
-    # Get git status
-    git_status = get_git_branch()
+    # Get git branch (raw name)
+    branch_raw = get_git_branch()
 
     # Get shortened CWD
     cwd = shorten_cwd(os.getcwd())
@@ -732,7 +751,7 @@ def main() -> None:
 
     # Format costs: daily cost only
     daily_amount = daily_cost
-    cost_display = f"{GREEN}💰 {daily_amount}{RESET}"
+    cost_display = f"{GREEN}\U0001f4b0 {daily_amount}{RESET}"
 
     # Calculate usage percentages
     daily_limit = float(os.environ.get("CLAUDE_DAILY_LIMIT", "200"))
@@ -742,16 +761,62 @@ def main() -> None:
         daily_cost_val, weekly_cost_val, daily_limit, weekly_limit
     )
 
-    # Output statusline (print is required for statusline output)
-    # Row 1 (static per session): version, model, project dir, git branch
-    cwd_display = f"{SHINY_AQUA}📁 {cwd}{RESET}"
+    # Detect terminal width for responsive layout
+    term_width = get_terminal_width()
+
+    # --- Row 1: version | model | dir | branch ---
+    # Apply initial truncation limits
+    dir_max = 25
+    branch_max = 20
+    cwd_trunc = truncate_str(cwd, dir_max)
+    branch_trunc = truncate_str(branch_raw, branch_max)
+
+    # Estimate visible length of row 1 (exclude ANSI codes, emoji ~2 chars each)
+    # Format: "vX.X.X | 🤖 model | 📁 dir | 🌿 branch ⚡"
+    def _row1_visible_len(d: str, b: str) -> int:
+        return (
+            len(claude_version)
+            + 3  # " | "
+            + 2
+            + len(raw_model)  # "🤖 " + model
+            + 3  # " | "
+            + 2
+            + len(d)  # "📁 " + dir
+            + 3  # " | "
+            + 2
+            + len(b)
+            + 2  # "🌿 " + branch + " ⚡"
+        )
+
+    # Progressive shortening if row 1 exceeds terminal width
+    est_len = _row1_visible_len(cwd_trunc, branch_trunc)
+    if est_len > term_width:
+        # First: shorten branch more aggressively
+        branch_trunc = truncate_str(
+            branch_raw, max(10, branch_max - (est_len - term_width))
+        )
+        est_len = _row1_visible_len(cwd_trunc, branch_trunc)
+    if est_len > term_width:
+        # Second: shorten directory more aggressively
+        cwd_trunc = truncate_str(cwd, max(10, dir_max - (est_len - term_width)))
+
+    git_status = f"\U0001f33f {branch_trunc} \u26a1"
+    cwd_display = f"{SHINY_AQUA}\U0001f4c1 {cwd_trunc}{RESET}"
+
+    # Output Row 1
     sys.stdout.write(
-        f"{BLUE}{claude_version}{RESET} | {SHINY_AQUA}🤖 {raw_model}{RESET} | {cwd_display} | {YELLOW}{git_status}{RESET}\n"
+        f"{BLUE}{claude_version}{RESET} | {SHINY_AQUA}\U0001f916 {raw_model}{RESET} | {cwd_display} | {YELLOW}{git_status}{RESET}\n"
     )
-    # Row 2 (dynamic metrics): costs, context bar, usage percentages, turn duration
-    row2_parts = [cost_display, context_info, usage_display]
-    if turn_duration:
-        row2_parts.append(f"{YELLOW}⏱️ {turn_duration}{RESET}")
+
+    # --- Row 2: context bar | usage | cost | duration ---
+    # Priority order: context_info, usage_display, cost_display, duration
+    # Build parts with priority-based dropping for narrow terminals
+    row2_parts = [context_info, usage_display]
+    if term_width >= 80:
+        row2_parts.append(cost_display)
+    if term_width >= 60 and turn_duration:
+        row2_parts.append(f"{YELLOW}\u23f1\ufe0f {turn_duration}{RESET}")
+
     sys.stdout.write(" | ".join(row2_parts) + "\n")
 
 

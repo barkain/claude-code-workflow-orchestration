@@ -664,9 +664,9 @@ def format_usage_percentages(
     reset = "\033[0m"
 
     def color_for_pct(pct: float) -> str:
-        if pct > 75:
+        if pct >= 75:
             return "\033[31m"  # Red
-        elif pct > 50:
+        elif pct >= 50:
             return "\033[33m"  # Yellow
         return "\033[32m"  # Green
 

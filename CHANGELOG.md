@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.15.1] - 2026-04-04
+
+### Fixed
+- **Worktree directory/branch detection**: Statusline now uses `cwd` from Claude Code's stdin JSON instead of `os.getcwd()`, correctly reflecting the working directory when Claude switches to a git worktree
+
 ## [1.15.0] - 2026-04-03
 
 ### Added

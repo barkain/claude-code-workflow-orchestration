@@ -286,7 +286,7 @@ def get_git_branch(cwd: str | None = None) -> str:
         )
         if result.returncode == 0 and result.stdout.strip():
             return result.stdout.strip()
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError, TypeError):
         pass
     return "no-git"
 
@@ -739,7 +739,8 @@ def main() -> None:
 
     # Get current working directory for project-based cost tracking
     # Prefer cwd from stdin JSON (reflects worktrees) over os.getcwd()
-    effective_cwd = input_data.get("cwd") or os.getcwd()
+    raw_cwd = input_data.get("cwd") if isinstance(input_data, dict) else None
+    effective_cwd = raw_cwd if isinstance(raw_cwd, str) and raw_cwd else os.getcwd()
     full_cwd = effective_cwd
 
     # Get daily and session costs (with caching for fast statusline refresh)

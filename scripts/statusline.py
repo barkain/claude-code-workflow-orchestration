@@ -274,7 +274,7 @@ def get_terminal_width() -> int:
         return 120
 
 
-def get_git_branch() -> str:
+def get_git_branch(cwd: str | None = None) -> str:
     """Get the current git branch (raw name, no emoji)."""
     try:
         result = subprocess.run(
@@ -282,6 +282,7 @@ def get_git_branch() -> str:
             capture_output=True,
             text=True,
             timeout=5,
+            cwd=cwd,
         )
         if result.returncode == 0 and result.stdout.strip():
             return result.stdout.strip()
@@ -737,7 +738,9 @@ def main() -> None:
     debug_log(f"Model: {raw_model}")
 
     # Get current working directory for project-based cost tracking
-    full_cwd = os.getcwd()
+    # Prefer cwd from stdin JSON (reflects worktrees) over os.getcwd()
+    effective_cwd = input_data.get("cwd") or os.getcwd()
+    full_cwd = effective_cwd
 
     # Get daily and session costs (with caching for fast statusline refresh)
     daily_cost, session_cost, daily_cost_val, weekly_cost_val = get_costs_cached(
@@ -757,11 +760,11 @@ def main() -> None:
         progress_bar = create_progress_bar(0, 0, max_context)
         context_info = f"🧠 {progress_bar}"
 
-    # Get git branch (raw name)
-    branch_raw = get_git_branch()
+    # Get git branch (raw name) — use effective_cwd so worktrees show correct branch
+    branch_raw = get_git_branch(cwd=effective_cwd)
 
     # Get shortened CWD
-    cwd = shorten_cwd(os.getcwd())
+    cwd = shorten_cwd(effective_cwd)
 
     # Get turn duration if available
     turn_duration = get_turn_duration()

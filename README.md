@@ -206,10 +206,10 @@ Temporarily disable delegation enforcement if needed:
 export DELEGATION_HOOK_DISABLE=1
 
 # From within a Claude Code session (interactive toggle)
-/bypass
+/workflow-orchestrator:bypass
 ```
 
-The `/bypass` command allows toggling delegation enforcement on/off from within a Claude Code session without restarting.
+The `/workflow-orchestrator:bypass` command allows toggling delegation enforcement on/off from within a Claude Code session without restarting.
 
 ## Environment Variables
 
@@ -259,7 +259,7 @@ The `plugin-hooks.json` configures the delegation enforcement hooks using cross-
 | **PreToolUse** | `validate_task_graph_compliance.py`, `require_delegation.py`, `token_rewrite_hook.py` (Bash only) | Validate task graph compliance; block non-delegated tools; rewrite Bash commands for token efficiency (cd && pattern, eslint, next, tsc support) |
 | **PostToolUse** | `python_posttooluse_hook.py` (Edit/Write), `remind_skill_continuation.py` (ExitPlanMode/Skill/SlashCommand), `validate_task_graph_depth.py` (Agent/Task), `remind_todo_after_task.py` (Agent/Task, async) | Python validation (Ruff/Pyright); workflow continuation state; depth-3 enforcement; task reminders |
 | **UserPromptSubmit** | `clear-delegation-sessions.py` | Clear delegation/team state, record turn timestamp |
-| **SessionStart** | `inject_workflow_orchestrator.py`, `inject-output-style.py`, `inject_token_efficiency.py` | Inject conditional orchestrator (stub on startup, full on /delegate), output style, token efficiency guidance |
+| **SessionStart** | `inject_workflow_orchestrator.py`, `inject-output-style.py`, `inject_token_efficiency.py` | Inject conditional orchestrator (stub on startup, full on /workflow-orchestrator:delegate), output style, token efficiency guidance |
 | **SubagentStop** | `remind_todo_update.py` (async), `trigger_verification.py` | Remind to update tasks, suggest verification |
 | **Stop** | `python_stop_hook.py` | Turn duration tracking, workflow continuation |
 
@@ -270,8 +270,8 @@ Multi-step workflow orchestration requires the workflow_orchestrator system prom
 **Automatic (via SessionStart hook):**
 
 The `inject_workflow_orchestrator.py` hook uses conditional injection:
-- **On startup/resume:** Injects a lightweight stub that registers `/delegate` and `/bypass` commands without loading the full orchestrator prompt, keeping baseline token overhead minimal.
-- **On `/delegate` invocation:** The full `workflow_orchestrator.md` system prompt is loaded on-demand, providing the complete planning and execution logic only when needed.
+- **On startup/resume:** Injects a lightweight stub that registers `/workflow-orchestrator:delegate` and `/workflow-orchestrator:bypass` commands without loading the full orchestrator prompt, keeping baseline token overhead minimal.
+- **On `/workflow-orchestrator:delegate` invocation:** The full `workflow_orchestrator.md` system prompt is loaded on-demand, providing the complete planning and execution logic only when needed.
 
 **What this enables:**
 - Multi-step task detection via pattern matching
@@ -290,7 +290,7 @@ Blocks most tools and forces delegation to specialized agents. Cross-platform Py
 **Allowed tools:**
 - `AskUserQuestion` - Ask users for clarification
 - `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet` - Track task progress with structured metadata
-- `Skill`, `SlashCommand` - Execute slash commands (including `/delegate`)
+- `Skill`, `SlashCommand` - Execute slash commands (including `/workflow-orchestrator:delegate`)
 - `Agent`, `SubagentTask`, `AgentTask` - Spawn subagents
 
 **Note:** `TaskOutput` is prohibited to prevent context exhaustion. Agents write to `$CLAUDE_SCRATCHPAD_DIR` and return `DONE|{path}` only.
@@ -298,7 +298,7 @@ Blocks most tools and forces delegation to specialized agents. Cross-platform Py
 **All other tools are blocked** and show:
 ```
 🚫 Tool blocked by delegation policy
-✅ REQUIRED: Use /delegate command immediately
+✅ REQUIRED: Use /workflow-orchestrator:delegate command immediately
 ```
 
 ### 2. Specialized Agents (`agents/`)
@@ -316,25 +316,12 @@ Blocks most tools and forces delegation to specialized agents. Cross-platform Py
 
 **Note:** The `delegation-orchestrator` agent has been deprecated. Its orchestration and routing functionality is now provided by native plan mode (EnterPlanMode/ExitPlanMode), which handles both planning and execution orchestration directly within the main agent.
 
-### 3. Breadth Reader Skill (`skills/breadth-reader/`)
+### 3. Delegation Command (`commands/delegate.md`)
 
-For read-only breadth tasks (explore, review, summarize), the `breadth-reader` skill provides optimized handling:
-
-```bash
-/breadth-reader explore ~/dev/project/
-```
-
-- Runs in forked context (isolated from main agent)
-- Claude auto-optimizes parallelism internally
-- Returns summary only to main agent
-- No orchestration overhead
-
-### 4. Delegation Command (`commands/delegate.md`)
-
-The `/delegate` command provides intelligent task delegation with integrated planning:
+The `/workflow-orchestrator:delegate` command provides intelligent task delegation with integrated planning:
 
 ```bash
-/delegate <task description>
+/workflow-orchestrator:delegate <task description>
 ```
 
 **How it works:**
@@ -346,7 +333,7 @@ The `/delegate` command provides intelligent task delegation with integrated pla
 6. Creates task list via TaskCreate
 7. Exits plan mode (ExitPlanMode) and executes phases as directed by the plan
 
-### 5. Workflow Orchestration System Prompt (`system-prompts/workflow_orchestrator.md`)
+### 4. Workflow Orchestration System Prompt (`system-prompts/workflow_orchestrator.md`)
 
 Enables multi-step workflow detection and preparation for complex tasks. Works in conjunction with native plan mode (EnterPlanMode/ExitPlanMode).
 
@@ -508,7 +495,7 @@ The framework minimizes command output to reduce context consumption and preserv
 
 3. **Conditional System Prompt Injection** — The orchestrator is injected conditionally:
    - On session startup: Stub version (~200 tokens) provides minimal direction
-   - On first plan mode entry (via /delegate or detected multi-step): Full version (~11K tokens) for complete planning capability
+   - On first plan mode entry (via /workflow-orchestrator:delegate or detected multi-step): Full version (~11K tokens) for complete planning capability
    - Saves tokens for single-step and read-only tasks
 
 ### Disable Token Efficiency

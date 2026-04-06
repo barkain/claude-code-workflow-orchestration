@@ -5,7 +5,7 @@
 """
 PreToolUse Hook: Require Delegation (cross-platform)
 
-Block tools unless /delegate was used, but ALWAYS allow delegation tools.
+Block tools unless /workflow-orchestrator:delegate was used, but ALWAYS allow delegation tools.
 Tool name is passed via stdin as JSON.
 
 This Python version works on Windows, macOS, and Linux.
@@ -36,28 +36,6 @@ _handler = logging.StreamHandler(sys.stderr)
 _handler.setFormatter(logging.Formatter("%(message)s"))
 logger.addHandler(_handler)
 
-# P0 FIX: Skip hook entirely for subagents
-# Subagents have CLAUDE_PARENT_SESSION_ID set, main agent does not
-parent_session_id = os.environ.get("CLAUDE_PARENT_SESSION_ID", "")
-if parent_session_id:
-    # Subagent - allow all tools EXCEPT TeamCreate (no nested teams)
-    try:
-        stdin_data = sys.stdin.read()
-        data = json.loads(stdin_data) if stdin_data else {}
-        tool_name = str(data.get("tool_name", ""))
-        if tool_name == "TeamCreate":
-            logger.warning(
-                "Nested teams not supported. Teammates cannot create teams.",
-            )
-            sys.exit(2)
-    except Exception as exc:  # noqa: BLE001
-        # Can't parse stdin; allow tool to avoid breaking subagents
-        logger.warning(
-            "subagent TeamCreate guard failed to parse stdin: %s",
-            exc,
-        )
-    sys.exit(0)
-
 # Debug mode
 DEBUG_HOOK = os.environ.get("DEBUG_DELEGATION_HOOK", "0") == "1"
 DEBUG_FILE = (
@@ -78,8 +56,8 @@ def debug_log(message: str) -> None:
 
 
 def get_state_dir() -> Path:
-    """Get the state directory path."""
-    project_dir = Path(os.environ.get("CLAUDE_PROJECT_DIR", Path.cwd()))
+    """Get the state directory path, with normalized path resolution."""
+    project_dir = Path(os.environ.get("CLAUDE_PROJECT_DIR", str(Path.cwd()))).resolve()
     state_dir = project_dir / ".claude" / "state"
     state_dir.mkdir(parents=True, exist_ok=True)
     return state_dir
@@ -119,7 +97,7 @@ AGENT_TEAMS_TOOLS = {
 def block_tool(tool_name: str) -> int:
     """Block a tool and print the error message."""
     name = tool_name or "<unknown>"
-    msg = f"Tool blocked: {name}. Use /delegate <task> immediately. Do NOT retry other tools."
+    msg = f"Tool blocked: {name}. Use /workflow-orchestrator:delegate <task> immediately. Do NOT retry other tools."
     logger.warning("%s", msg)
     return 2
 
@@ -127,6 +105,32 @@ def block_tool(tool_name: str) -> int:
 def main() -> int:
     """Main entry point."""
     debug_log("=== PreToolUse Hook START ===")
+
+    # Skip hook entirely for subagents
+    # Multiple signals indicate subagent context — check all of them.
+    # It's better to accidentally allow a subagent tool call than to deadlock.
+    _is_subagent = bool(
+        os.environ.get("CLAUDE_PARENT_SESSION_ID") or os.environ.get("CLAUDE_AGENT_ID")
+    )
+    if _is_subagent:
+        # Subagent - allow all tools EXCEPT TeamCreate (no nested teams)
+        try:
+            stdin_data = sys.stdin.read()
+            data = json.loads(stdin_data) if stdin_data else {}
+            tool_name = str(data.get("tool_name", ""))
+            if tool_name == "TeamCreate":
+                logger.warning(
+                    "Nested teams not supported. Teammates cannot create teams.",
+                )
+                return 2
+        except Exception as exc:  # noqa: BLE001
+            # Can't parse stdin; allow tool to avoid breaking subagents
+            logger.warning(
+                "subagent TeamCreate guard failed to parse stdin: %s",
+                exc,
+            )
+        debug_log("ALLOWED: Subagent detected (env var)")
+        return 0
 
     state_dir = get_state_dir()
     delegation_disabled_file = state_dir / "delegation_disabled"

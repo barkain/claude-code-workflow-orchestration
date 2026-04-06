@@ -114,8 +114,8 @@ docs/
 ### Commands
 
 ```bash
-/delegate <task>           # Route task to specialized agent
-/ask <question>            # Read-only question answering
+/workflow-orchestrator:delegate <task>   # Route task to specialized agent
+/workflow-orchestrator:ask <question>    # Read-only question answering
 ```
 
 ### Debug Commands

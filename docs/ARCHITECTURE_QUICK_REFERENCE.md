@@ -19,25 +19,25 @@
 
 ## Decision Trees
 
-### Should I Use /delegate?
+### Should I Use /workflow-orchestrator:delegate?
 
 ```
 Is the task blocked by PreToolUse hook?
-├── YES → Use /delegate immediately
+├── YES → Use /workflow-orchestrator:delegate immediately
 │         Do NOT try alternative tools
 │
 └── NO → 3-Step Routing Check:
          │
          Step 1: Does task require Write/Edit?
-         ├── NO → Use breadth-reader skill (read-only)
+         ├── NO → Use /workflow-orchestrator:delegate (spawns Explore agents or codebase-context-analyzer)
          │
          └── YES → Step 2: Is this a breadth task (many files)?
-                   ├── YES → Use breadth-reader skill
+                   ├── YES → Use /workflow-orchestrator:delegate (parallel Explore agents)
                    │
                    └── NO → Step 3: Is task simple?
                             ├── YES → DIRECT EXECUTION (bypass plan mode)
                             │
-                            └── NO → Use /delegate for complex tasks
+                            └── NO → Use /workflow-orchestrator:delegate for complex tasks
 ```
 
 ### Which Agent Will Handle My Task?
@@ -159,7 +159,6 @@ ALL criteria met?
 
 | Agent | Read | Write | Edit | Bash | Agent | Glob | Grep |
 |-------|:----:|:-----:|:----:|:----:|:----:|:----:|:----:|
-| breadth-reader (skill) | Y | - | - | - | - | Y | Y |
 | codebase-context-analyzer | Y | - | - | Y | - | Y | Y |
 | tech-lead-architect | Y | Y | Y | Y | - | Y | Y |
 | task-completion-verifier | Y | - | - | Y | - | Y | Y |
@@ -439,7 +438,7 @@ rm -f .claude/state/team_mode_active .claude/state/team_config.json
 ### Tools Not Working
 
 - [ ] Is session registered? Check `.claude/state/delegated_sessions.txt`
-- [ ] Was `/delegate` used? Use it immediately when blocked
+- [ ] Was `/workflow-orchestrator:delegate` used? Use it immediately when blocked
 - [ ] Are hooks installed? Check `ls -la ~/.claude/hooks/*/`
 - [ ] Are hooks executable? Run `chmod +x ~/.claude/hooks/*/*.sh`
 - [ ] Check hook syntax: `bash -n <hook_script>`
@@ -511,10 +510,10 @@ rm -f .claude/state/team_mode_active .claude/state/team_config.json
 
 ```bash
 # Single task
-/delegate Create a calculator.py with add and subtract functions
+/workflow-orchestrator:delegate Create a calculator.py with add and subtract functions
 
 # Read-only question
-/ask How does the authentication system work?
+/workflow-orchestrator:ask How does the authentication system work?
 ```
 
 ### Multi-Step Workflow
@@ -532,7 +531,7 @@ claude --append-system-prompt "$(cat ~/.claude/system-prompts/workflow_orchestra
 export DEBUG_DELEGATION_HOOK=1
 
 # Run delegation
-/delegate Create test.py
+/workflow-orchestrator:delegate Create test.py
 
 # Watch logs (separate terminal)
 tail -f /tmp/delegation_hook_debug.log

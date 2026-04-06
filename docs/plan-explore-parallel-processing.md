@@ -1,6 +1,6 @@
 # Parallel Explore Agents for Large Data Processing
 
-**Status:** Implemented via `breadth-reader` skill and 3-step routing in `workflow_orchestrator.md`.
+**Status:** Implemented via 3-step routing in `workflow_orchestrator.md`. Read-only breadth tasks are handled by spawning parallel Explore agents or codebase-context-analyzer directly.
 
 ## Background
 
@@ -215,15 +215,10 @@ Example Task invocation for Explore:
 
 ### Implementation (Completed)
 
-1. **`breadth-reader` skill** (`skills/breadth-reader/SKILL.md`)
-   - `context: fork` property for isolated execution
-   - Receives read/explore/review prompts
-   - Returns summary only to main agent
-
-2. **3-step routing in `workflow_orchestrator.md`**
-   - Step 1: Write detection (skip breadth-reader if write indicators found)
+1. **3-step routing in `workflow_orchestrator.md`**
+   - Step 1: Write detection (skip direct Explore routing if write indicators found)
    - Step 2: Breadth task detection (single verb + broad scope)
-   - Step 3: Route decision (breadth-reader, plan mode, or direct execution)
+   - Step 3: Route decision (parallel Explore agents, plan mode, or direct execution)
 
 3. **Direct execution for breadth+write tasks**
    - Spawns multiple general-purpose agents in a single message

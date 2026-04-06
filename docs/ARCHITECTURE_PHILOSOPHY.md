@@ -91,7 +91,7 @@ Each specialized agent has a restricted tool set that matches its domain:
 |  All other tools: BLOCKED                                          |
 +-------------------------------------------------------------------+
                               |
-                        /delegate
+                  /workflow-orchestrator:delegate
                               |
 +-------------------------------------------------------------------+
 |                    DELEGATION BOUNDARY                             |
@@ -361,11 +361,11 @@ The system uses a 3-step routing check before planning:
 | Step 1: Write Detection                                            |
 |   - Does task require file modifications (Write/Edit)?             |
 |   - YES → Continue to Step 2                                       |
-|   - NO → Route to breadth-reader skill (read-only)                 |
+|   - NO → Spawn parallel Explore agents or codebase-context-analyzer|
 |                                                                    |
 | Step 2: Breadth Task Detection                                     |
 |   - Is this a breadth task (analyze many files)?                   |
-|   - YES → Route to breadth-reader skill                            |
+|   - YES → Spawn parallel Explore agents                            |
 |   - NO → Continue to Step 3                                        |
 |                                                                    |
 | Step 3: Route Decision                                             |
@@ -445,7 +445,6 @@ return max(candidates, key=lambda a: a.match_count)
 
 | Agent | Keywords | Tool Access | Use Case |
 |-------|----------|-------------|----------|
-| breadth-reader (skill) | analyze, explore, read-only | Read, Glob, Grep | Breadth tasks (many files) |
 | codebase-context-analyzer | analyze, understand, explore, architecture | Read, Glob, Grep, Bash | Code exploration |
 | tech-lead-architect | design, approach, research, best practices | Read, Write, Edit, Glob, Grep, Bash | Solution design |
 | task-completion-verifier | verify, validate, test, check, review | Read, Bash, Glob, Grep | QA and validation |
@@ -521,7 +520,7 @@ sess_def456
 ```
 
 **Lifecycle:**
-1. Created when first `/delegate` triggers session registration
+1. Created when first `/workflow-orchestrator:delegate` triggers session registration
 2. Populated with session IDs on each delegation
 3. Cleared by UserPromptSubmit hook before each user prompt
 4. Cleaned of stale sessions (>1 hour) by Stop hook
@@ -782,8 +781,9 @@ Delegation privileges automatically decay:
 
 +-------------------------------------------------------------------------+
 |                              USER INTERFACE                              |
-|  Commands: /delegate, /ask, /bypass, /add-statusline                    |
-|  Skills: breadth-reader | Planning: native plan mode                     |
+|  Commands: /workflow-orchestrator:delegate, /workflow-orchestrator:ask,   |
+|  /workflow-orchestrator:bypass, /workflow-orchestrator:add-statusline    |
+|  Planning: native plan mode                                              |
 |  StatusLine: [MODE] Active: N Wave W | Last: Event                      |
 +-------------------------------------------------------------------------+
                                       |
@@ -811,10 +811,6 @@ Delegation privileges automatically decay:
 |  +-------------------------------------------------------------------+  |
 |  |                    Plan Mode (native, unified)                   |  |
 |  |  Intent Parsing -> Decomposition -> Agent Selection -> Waves      |  |
-|  +-------------------------------------------------------------------+  |
-|  +-------------------------------------------------------------------+  |
-|  |                    breadth-reader (skill)                         |  |
-|  |  Read-only analysis for breadth tasks (many files)                |  |
 |  +-------------------------------------------------------------------+  |
 |  +-------------------------------------------------------------------+  |
 |  |                    workflow_orchestrator (system prompt)          |  |

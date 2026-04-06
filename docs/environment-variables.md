@@ -79,7 +79,7 @@ The system uses Claude Code's native Tasks API for progress tracking. This secti
 export CLAUDE_CODE_ENABLE_TASKS=false
 
 # Run workflow (will use TodoWrite)
-/delegate "Create calculator.py"
+/workflow-orchestrator:delegate "Create calculator.py"
 
 # Re-enable Tasks API
 export CLAUDE_CODE_ENABLE_TASKS=true
@@ -138,7 +138,7 @@ claude "Create part B"
 export CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1
 
 # Run workflow (no background reminders or cleanup)
-/delegate "Long-running task"
+/workflow-orchestrator:delegate "Long-running task"
 
 # Re-enable background tasks
 unset CLAUDE_CODE_DISABLE_BACKGROUND_TASKS
@@ -172,7 +172,7 @@ unset CLAUDE_CODE_DISABLE_BACKGROUND_TASKS
 export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
 
 # Run a collaborative workflow (planning phase may select team mode)
-/delegate "Build auth module with API and tests collaboratively"
+/workflow-orchestrator:delegate "Build auth module with API and tests collaboratively"
 
 # Disable Agent Teams mode
 export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=0
@@ -242,7 +242,7 @@ Enables detailed debug logging for delegation policy enforcement. When enabled, 
 export DEBUG_DELEGATION_HOOK=1
 
 # Run delegation workflow
-/delegate "Create calculator.py"
+/workflow-orchestrator:delegate "Create calculator.py"
 
 # Tail debug log in another terminal
 tail -f /tmp/delegation_hook_debug.log
@@ -307,7 +307,7 @@ mv /tmp/delegation_hook_debug.log /tmp/delegation_hook_debug.$(date +%Y%m%d).log
 
 ### Purpose
 
-Emergency bypass to completely disable delegation enforcement. When enabled, all tools are allowed without requiring `/delegate`.
+Emergency bypass to completely disable delegation enforcement. When enabled, all tools are allowed without requiring `/workflow-orchestrator:delegate`.
 
 ### Values
 
@@ -320,7 +320,7 @@ Emergency bypass to completely disable delegation enforcement. When enabled, all
 # Emergency bypass (disable delegation enforcement)
 export DELEGATION_HOOK_DISABLE=1
 
-# Use tools directly without /delegate
+# Use tools directly without /workflow-orchestrator:delegate
 claude "Create calculator.py"
 
 # Re-enable delegation enforcement
@@ -401,7 +401,7 @@ Override the project directory for state file storage. By default, state files a
 export CLAUDE_PROJECT_DIR=/Users/user/my-project
 
 # State files written to /Users/user/my-project/.claude/state/
-/delegate "Create calculator.py"
+/workflow-orchestrator:delegate "Create calculator.py"
 
 # Verify state location
 ls -la /Users/user/my-project/.claude/state/
@@ -426,11 +426,11 @@ Without `CLAUDE_PROJECT_DIR`, state follows the current directory:
 ```bash
 # Without CLAUDE_PROJECT_DIR
 cd /Users/user/project-a
-/delegate "Task A"
+/workflow-orchestrator:delegate "Task A"
 # State: /Users/user/project-a/.claude/state/
 
 cd /Users/user/project-b
-/delegate "Task B"
+/workflow-orchestrator:delegate "Task B"
 # State: /Users/user/project-b/.claude/state/
 ```
 
@@ -443,11 +443,11 @@ With `CLAUDE_PROJECT_DIR`, state is centralized:
 export CLAUDE_PROJECT_DIR=/Users/user/main-project
 
 cd /Users/user/project-a
-/delegate "Task A"
+/workflow-orchestrator:delegate "Task A"
 # State: /Users/user/main-project/.claude/state/
 
 cd /Users/user/project-b
-/delegate "Task B"
+/workflow-orchestrator:delegate "Task B"
 # State: /Users/user/main-project/.claude/state/ (same location)
 ```
 
@@ -488,7 +488,7 @@ Controls the maximum number of parallel agents that can run simultaneously durin
 export CLAUDE_MAX_CONCURRENT=4
 
 # Run workflow - waves batch at 4 agents max
-/delegate "Review all documentation"
+/workflow-orchestrator:delegate "Review all documentation"
 
 # Increase concurrency for powerful machines
 export CLAUDE_MAX_CONCURRENT=12
@@ -660,7 +660,7 @@ export CLAUDE_PROJECT_DIR=$PWD        # Current directory
 tail -f /tmp/delegation_hook_debug.log &
 
 # Run problematic workflow
-/delegate "Task that's failing"
+/workflow-orchestrator:delegate "Task that's failing"
 
 # Check state files
 cat .claude/state/delegated_sessions.txt
@@ -683,7 +683,7 @@ export DELEGATION_HOOK_DISABLE=0
 
 # Investigate root cause
 export DEBUG_DELEGATION_HOOK=1
-/delegate "Test delegation"
+/workflow-orchestrator:delegate "Test delegation"
 tail /tmp/delegation_hook_debug.log
 ```
 
@@ -777,11 +777,11 @@ ls -la ~/.claude/tasks/
 
 The delegation system provides an interactive in-session mechanism for toggling delegation enforcement without requiring environment variables.
 
-### The /bypass Command
+### The /workflow-orchestrator:bypass Command
 
 **Usage:**
 ```bash
-/bypass
+/workflow-orchestrator:bypass
 ```
 
 Toggles delegation enforcement on/off from within a Claude Code session. Uses an interactive prompt to let you choose between:
@@ -803,7 +803,7 @@ Toggles delegation enforcement on/off from within a Claude Code session. Uses an
 
 ### Comparison with DELEGATION_HOOK_DISABLE
 
-| Aspect | DELEGATION_HOOK_DISABLE | /bypass |
+| Aspect | DELEGATION_HOOK_DISABLE | /workflow-orchestrator:bypass |
 |--------|------------------------|---------|
 | Type | Environment variable | Flag file |
 | Set from | Outside session (bash) | Inside session (interactive) |

@@ -123,10 +123,31 @@ def find_session_file(session_id: str, current_dir: str) -> Path | None:
 def calculate_context_usage(input_data: dict) -> tuple[str | None, float]:
     """Calculate actual context usage from session file.
 
+    If ``context_window`` is present in *input_data* (provided by stdin JSON),
+    it is used directly — avoiding the expensive JSONL scan entirely.
+
     Returns:
         Tuple of (formatted_string, raw_pct) where raw_pct is the usage
         percentage as a float (e.g. 57.1), or 0.0 if unavailable.
     """
+    # --- Fast path: use context_window from stdin JSON if available ---
+    ctx_window = (
+        input_data.get("context_window", {}) if isinstance(input_data, dict) else {}
+    )
+    if isinstance(ctx_window, dict) and ctx_window:
+        used = ctx_window.get("used_tokens") or ctx_window.get("used", 0)
+        limit = ctx_window.get("total_tokens") or ctx_window.get("limit", 0)
+        if (
+            isinstance(used, (int, float))
+            and isinstance(limit, (int, float))
+            and limit > 0
+        ):
+            usage_rate = float(used) * 100 / float(limit)
+            progress_bar = create_progress_bar(usage_rate, int(used), int(limit))
+            debug_log(f"Context from stdin JSON: {used}/{limit} ({usage_rate:.1f}%)")
+            return f"🧠 {progress_bar}", usage_rate
+
+    # --- Slow path: scan session JSONL file ---
     session_id = input_data.get("session_id", "")
     current_dir = input_data.get("cwd") or input_data.get("workspace", {}).get(
         "current_dir", ""
@@ -285,8 +306,22 @@ def get_git_branch(cwd: str | None = None) -> str:
     return "no-git"
 
 
-def get_claude_version() -> str:
-    """Get the Claude Code version."""
+def get_claude_version_cached() -> str:
+    """Get Claude Code version from a cached temp file (1-hour TTL).
+
+    Only called when stdin JSON does not provide a ``version`` field.
+    """
+    cache_file = Path(tempfile.gettempdir()) / "claude_version_cache.json"
+    try:
+        if cache_file.exists():
+            data = json.loads(cache_file.read_text(encoding="utf-8"))
+            ts = data.get("ts", 0)
+            if datetime.now().timestamp() - ts < 3600:
+                return data.get("version", "v?")
+    except (OSError, json.JSONDecodeError, ValueError):
+        pass
+
+    version = "v?"
     try:
         result = subprocess.run(  # noqa: S603
             ["claude", "--version"],  # noqa: S607
@@ -295,14 +330,19 @@ def get_claude_version() -> str:
             timeout=5,
         )
         if result.returncode == 0 and result.stdout.strip():
-            # Output is like "2.1.25 (Claude Code)"
-            version = result.stdout.strip()
-            # Extract just the version number (e.g., "2.1.25")
-            version_num = version.split()[0] if version else "unknown"
-            return f"v{version_num}"
+            version_num = result.stdout.strip().split()[0]
+            version = f"v{version_num}" if version_num else "v?"
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
         pass
-    return "v?"
+
+    try:
+        cache_file.write_text(
+            json.dumps({"version": version, "ts": datetime.now().timestamp()}),
+            encoding="utf-8",
+        )
+    except OSError:
+        pass
+    return version
 
 
 def get_turn_duration() -> str | None:
@@ -441,8 +481,17 @@ def main() -> None:
         f"\U0001f4b0 ${session_cost_usd:.2f}" if session_cost_usd else "\U0001f4b0 $..."
     )
 
-    # Get Claude version
-    claude_version = get_claude_version()
+    # Get Claude version — prefer stdin JSON, fall back to cached subprocess
+    stdin_version = (
+        input_data.get("version", "") if isinstance(input_data, dict) else ""
+    )
+    if stdin_version:
+        # Normalize: add "v" prefix if missing
+        claude_version = (
+            stdin_version if stdin_version.startswith("v") else f"v{stdin_version}"
+        )
+    else:
+        claude_version = get_claude_version_cached()
 
     # Get context info
     context_info, ctx_raw_pct = calculate_context_usage(input_data)

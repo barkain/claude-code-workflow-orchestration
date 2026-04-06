@@ -24,7 +24,7 @@ Multi-step workflow orchestration for Claude Code. Main agent enters plan mode (
 
 **Write indicators:** create, write, save, generate, produce, output, report, build, make, implement, fix, update
 
-**If ANY write indicator found → Continue to Step 2 (don't use breadth-reader)**
+**If ANY write indicator found → Continue to Step 2**
 
 ### Step 2: Breadth Task Detection
 
@@ -38,7 +38,7 @@ Multi-step workflow orchestration for Claude Code. Main agent enters plan mode (
 |---------|-------|---------|
 | Breadth + Write (same op × many items, with output) | **DIRECT EXECUTION** (skip plan mode) | "review 16 files, create reports" |
 | Multi-phase workflow (create → test → deploy) | plan mode (EnterPlanMode) | "create calculator with tests and verify" |
-| Read-only breadth (no write indicators) | `/breadth-reader {prompt}` | "explore code in X", "summarize files in X" |
+| Read-only breadth (no write indicators) | Spawn parallel Explore agents or codebase-context-analyzer | "explore code in X", "summarize files in X" |
 | Single simple task | general-purpose agent | "fix this bug" |
 
 **This four-step check is MANDATORY and must happen FIRST before any other action.**

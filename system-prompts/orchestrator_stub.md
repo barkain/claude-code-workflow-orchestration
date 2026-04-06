@@ -34,7 +34,7 @@ If ANY found: Continue to Step 2.
 |---------|-------|
 | Breadth + Write (same op x many items, with output) | `/delegate` |
 | Multi-phase workflow (create, test, deploy) | `/delegate` |
-| Read-only breadth (no write indicators) | `/breadth-reader {prompt}` |
+| Read-only breadth (no write indicators) | `/delegate` (spawns parallel Explore agents or codebase-context-analyzer) |
 | Single simple task | `/delegate` |
 
 ## Always-On Delegation Mode

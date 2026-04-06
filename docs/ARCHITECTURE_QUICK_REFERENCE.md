@@ -29,10 +29,10 @@ Is the task blocked by PreToolUse hook?
 └── NO → 3-Step Routing Check:
          │
          Step 1: Does task require Write/Edit?
-         ├── NO → Use breadth-reader skill (read-only)
+         ├── NO → Use /delegate (spawns Explore agents or codebase-context-analyzer)
          │
          └── YES → Step 2: Is this a breadth task (many files)?
-                   ├── YES → Use breadth-reader skill
+                   ├── YES → Use /delegate (parallel Explore agents)
                    │
                    └── NO → Step 3: Is task simple?
                             ├── YES → DIRECT EXECUTION (bypass plan mode)
@@ -159,7 +159,6 @@ ALL criteria met?
 
 | Agent | Read | Write | Edit | Bash | Agent | Glob | Grep |
 |-------|:----:|:-----:|:----:|:----:|:----:|:----:|:----:|
-| breadth-reader (skill) | Y | - | - | - | - | Y | Y |
 | codebase-context-analyzer | Y | - | - | Y | - | Y | Y |
 | tech-lead-architect | Y | Y | Y | Y | - | Y | Y |
 | task-completion-verifier | Y | - | - | Y | - | Y | Y |

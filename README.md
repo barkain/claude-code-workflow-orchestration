@@ -316,20 +316,7 @@ Blocks most tools and forces delegation to specialized agents. Cross-platform Py
 
 **Note:** The `delegation-orchestrator` agent has been deprecated. Its orchestration and routing functionality is now provided by native plan mode (EnterPlanMode/ExitPlanMode), which handles both planning and execution orchestration directly within the main agent.
 
-### 3. Breadth Reader Skill (`skills/breadth-reader/`)
-
-For read-only breadth tasks (explore, review, summarize), the `breadth-reader` skill provides optimized handling:
-
-```bash
-/breadth-reader explore ~/dev/project/
-```
-
-- Runs in forked context (isolated from main agent)
-- Claude auto-optimizes parallelism internally
-- Returns summary only to main agent
-- No orchestration overhead
-
-### 4. Delegation Command (`commands/delegate.md`)
+### 3. Delegation Command (`commands/delegate.md`)
 
 The `/delegate` command provides intelligent task delegation with integrated planning:
 
@@ -346,7 +333,7 @@ The `/delegate` command provides intelligent task delegation with integrated pla
 6. Creates task list via TaskCreate
 7. Exits plan mode (ExitPlanMode) and executes phases as directed by the plan
 
-### 5. Workflow Orchestration System Prompt (`system-prompts/workflow_orchestrator.md`)
+### 4. Workflow Orchestration System Prompt (`system-prompts/workflow_orchestrator.md`)
 
 Enables multi-step workflow detection and preparation for complex tasks. Works in conjunction with native plan mode (EnterPlanMode/ExitPlanMode).
 

@@ -64,7 +64,6 @@ CI workflow exists (`.github/workflows/ci.yml`) but tests are currently disabled
 /ask <question>            # Read-only question answering (forked context)
 /bypass                    # Toggle delegation enforcement on/off (persists until toggled)
 /add-statusline            # Enable workflow status display
-/breadth-reader <prompt>   # Read-only breadth tasks (explore, review, summarize)
 ```
 
 **Installation:**
@@ -144,11 +143,7 @@ Special cases:
 | Subagent auto-bypass | `CLAUDE_PARENT_SESSION_ID` set | Automatic for subagents |
 | Delegation active flag | `.claude/state/delegation_active` created on Skill/Agent/Task use | Per-delegation |
 
-### Skills (forked context)
-
-- **breadth-reader** (`skills/breadth-reader/SKILL.md`): Lightweight read-only breadth tasks. Spawns `Explore` subagents (Haiku). Returns summary only.
-
-**Note:** The `task-planner` skill has been removed. Its orchestration and planning functionality is now provided by native plan mode (EnterPlanMode/ExitPlanMode), which handles both planning and execution orchestration directly within the main agent context.
+**Note:** The `task-planner` and `breadth-reader` skills have been removed. Planning and orchestration are provided by native plan mode (EnterPlanMode/ExitPlanMode). Read-only breadth tasks are handled by spawning parallel Explore agents or the codebase-context-analyzer directly.
 
 ### Specialized Agents (8)
 

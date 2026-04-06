@@ -2,13 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.15.2] - 2026-04-04
+## [1.16.0] - 2026-04-06
 
 ### Fixed
 - **Session cost from stdin**: Replaced all daily cost self-calculation (JSONL scanning, background refresh, cost cache) with simple `cost.total_cost_usd` read from stdin JSON -- zero I/O, real-time session cost
 - **Delegation hook subagent deadlock**: Expanded subagent bypass to check `CLAUDE_AGENT_ID` and `CLAUDE_SCRATCHPAD_DIR` in addition to `CLAUDE_PARENT_SESSION_ID`; added redundant safety net inside `main()`; normalized `CLAUDE_PROJECT_DIR` path resolution with `Path.resolve()`
+- **`/delegate` plugin prefix**: Fixed all references to use full plugin prefix `/workflow-orchestrator:delegate`
 
 ### Removed
+- **`skills/breadth-reader/`**: Removed breadth-reader skill directory and all references
 - `_find_todays_session_files()`, `_sum_session_cost()`, `_cost_from_usage()`, `fetch_costs_raw()`, `spawn_background_refresh()`, `load_cost_cache()`, `save_cost_cache()`, `is_cache_valid()`, `_is_refresh_locked()` -- all replaced by stdin session cost
 - Cost cache constants (`COST_CACHE_FILE`, `COST_CACHE_TTL_SECONDS`, `COST_REFRESH_LOCK`) and lock file logic
 - `time` import (no longer needed)

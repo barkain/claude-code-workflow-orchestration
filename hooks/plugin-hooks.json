@@ -84,18 +84,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run --no-project --script \"${CLAUDE_PLUGIN_ROOT}/hooks/SessionStart/inject_workflow_orchestrator.py\"",
+            "command": "uv run --no-project --script \"${CLAUDE_PLUGIN_ROOT}/hooks/SessionStart/inject_all.py\"",
             "timeout": 20
-          },
-          {
-            "type": "command",
-            "command": "uv run --no-project --script \"${CLAUDE_PLUGIN_ROOT}/hooks/SessionStart/inject-output-style.py\"",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "uv run --no-project --script \"${CLAUDE_PLUGIN_ROOT}/hooks/SessionStart/inject_token_efficiency.py\"",
-            "timeout": 10
           }
         ]
       }

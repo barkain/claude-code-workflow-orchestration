@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.17.0] - 2026-04-06
+
+### Changed
+- **SessionStart hooks consolidated**: Combined `inject_workflow_orchestrator.py`, `inject-output-style.py`, `inject_token_efficiency.py` into single `inject_all.py` — reads stdin once, outputs merged additionalContext (~0.7s faster startup)
+- **Statusline version from stdin**: Reads `version` field from stdin JSON instead of spawning `claude --version` subprocess (920ms → 0ms per render)
+- **Statusline context from stdin**: Reads `context_window` from stdin JSON instead of parsing JSONL files (~1s faster per render)
+- **Cached version fallback**: Falls back to cached `claude --version` with 1-hour TTL when stdin unavailable
+
 ## [1.16.0] - 2026-04-06
 
 ### Fixed

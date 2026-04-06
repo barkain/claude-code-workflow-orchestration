@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 When ANY tool is blocked by the delegation policy hook:
 
 1. **DO NOT try alternative approaches** - just delegate immediately
-2. **IMMEDIATELY use `/delegate <task>`** on first tool block
+2. **IMMEDIATELY use `/workflow-orchestrator:delegate <task>`** on first tool block
 3. **The entire user request must be delegated**, not just the blocked tool
 
 ### Recognition Pattern
@@ -21,8 +21,8 @@ Error: PreToolUse:* hook error: [...] Tool blocked by delegation policy
 Tool: <ToolName>
 
 STOP: Do NOT try alternative tools.
-REQUIRED: Use /delegate command immediately:
-   /delegate <full task description>
+REQUIRED: Use /workflow-orchestrator:delegate command immediately:
+   /workflow-orchestrator:delegate <full task description>
 ```
 
 First tool block = immediate delegation. Don't try alternatives, don't explain — just delegate.
@@ -60,17 +60,17 @@ CI workflow exists (`.github/workflows/ci.yml`) but tests are currently disabled
 ## Available Commands
 
 ```bash
-/delegate <task>           # Plan and execute task via native plan mode
-/ask <question>            # Read-only question answering (forked context)
-/bypass                    # Toggle delegation enforcement on/off (persists until toggled)
-/add-statusline            # Enable workflow status display
+/workflow-orchestrator:delegate <task>   # Plan and execute task via native plan mode
+/workflow-orchestrator:ask <question>    # Read-only question answering (forked context)
+/workflow-orchestrator:bypass            # Toggle delegation enforcement on/off (persists until toggled)
+/workflow-orchestrator:add-statusline    # Enable workflow status display
 ```
 
 **Installation:**
 - Plugin: `claude plugin install workflow-orchestrator@barkain-plugins`
 - Manual: `./install.sh [--scope=user|project]`
 
-In plugin mode, agent/skill names use prefix `workflow-orchestrator:` (e.g., `workflow-orchestrator:task-completion-verifier`).
+In plugin mode, all commands and agent names use the `workflow-orchestrator:` prefix.
 
 ---
 
@@ -114,7 +114,7 @@ User prompt
 | **PreToolUse** (`*`, `Bash`) | `validate_task_graph_compliance.py`, `require_delegation.py`, `token_rewrite_hook.py` (Bash only) | Validate Agent/Task invocations against active task graph; block non-allowed tools (compressed error messages); rewrite Bash commands for token efficiency (cd && pattern, eslint, next, tsc) |
 | **PostToolUse** | `python_posttooluse_hook.py` (Edit/Write/MultiEdit), `remind_skill_continuation.py` (ExitPlanMode\|Skill\|SlashCommand), `validate_task_graph_depth.py` + `remind_todo_after_task.py` (Agent/Task) | Python validation (Ruff, Pyright, security), workflow continuation state (triggers on ExitPlanMode for plan mode flows), depth-3 enforcement, task reminders |
 | **UserPromptSubmit** | `clear-delegation-sessions.py` | Clear delegation state, record turn start timestamp, clear team state (`team_mode_active`, `team_config.json`), rotate logs |
-| **SessionStart** (`startup\|resume\|clear\|compact`) | `inject_workflow_orchestrator.py`, `inject-output-style.py`, `inject_token_efficiency.py` | Inject conditional orchestrator (stub on startup, full on /delegate), output style, token efficiency guidance |
+| **SessionStart** (`startup\|resume\|clear\|compact`) | `inject_workflow_orchestrator.py`, `inject-output-style.py`, `inject_token_efficiency.py` | Inject conditional orchestrator (stub on startup, full on /workflow-orchestrator:delegate), output style, token efficiency guidance |
 | **SubagentStop** (`*`) | `remind_todo_update.py` (async), `trigger_verification.py` | Remind to update tasks, suggest verification |
 | **Stop** | `python_stop_hook.py` | Turn duration, workflow continuation (block stop + inject "continue"), quality analysis |
 
@@ -139,7 +139,7 @@ Special cases:
 | Mechanism | How | Scope |
 |-----------|-----|-------|
 | Env var | `DELEGATION_HOOK_DISABLE=1` | Session-wide |
-| `/bypass` command | Creates `.claude/state/delegation_disabled` | Persists until toggled |
+| `/workflow-orchestrator:bypass` command | Creates `.claude/state/delegation_disabled` | Persists until toggled |
 | Subagent auto-bypass | `CLAUDE_PARENT_SESSION_ID` set | Automatic for subagents |
 | Delegation active flag | `.claude/state/delegation_active` created on Skill/Agent/Task use | Per-delegation |
 

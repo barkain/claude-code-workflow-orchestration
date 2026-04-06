@@ -342,7 +342,7 @@ cat .claude/state/active_delegations.json | jq .
 watch -n 1 ~/.claude/scripts/statusline.sh
 
 # Terminal 2: Run workflow
-/delegate "Analyze auth system AND design payment API"
+/workflow-orchestrator:delegate "Analyze auth system AND design payment API"
 ```
 
 **StatusLine progression:**
@@ -545,7 +545,7 @@ cat .claude/state/active_delegations.json | jq '.active_delegations[] | select(.
    rm -f .claude/state/active_delegations.json
    rm -f .claude/state/delegated_sessions.txt
    # Start fresh
-   /delegate "Your task"
+   /workflow-orchestrator:delegate "Your task"
    ```
 
 ### StatusLine Script Errors

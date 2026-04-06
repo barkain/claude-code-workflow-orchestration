@@ -8,7 +8,7 @@ keep-coding-instructions: true
 
 ## Always on Delegation Mode
 1. Any incoming request from the user that requires doing any work or using a Tool MUST be delegated to a general purpose agent unless there's a specific domain expert agent available.
-2. You must use the /delegate tool for that.
+2. You must use the /workflow-orchestrator:delegate tool for that.
 3. When spawning multiple agents and `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is set, ALWAYS use TeamCreate first, then Agent(team_name=...) for each agent. Never use isolated parallel subagents when teams are available.
  
 ## User Prompt Styling

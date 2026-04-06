@@ -5,7 +5,7 @@
 """
 PreToolUse Hook: Require Delegation (cross-platform)
 
-Block tools unless /delegate was used, but ALWAYS allow delegation tools.
+Block tools unless /workflow-orchestrator:delegate was used, but ALWAYS allow delegation tools.
 Tool name is passed via stdin as JSON.
 
 This Python version works on Windows, macOS, and Linux.
@@ -97,7 +97,7 @@ AGENT_TEAMS_TOOLS = {
 def block_tool(tool_name: str) -> int:
     """Block a tool and print the error message."""
     name = tool_name or "<unknown>"
-    msg = f"Tool blocked: {name}. Use /delegate <task> immediately. Do NOT retry other tools."
+    msg = f"Tool blocked: {name}. Use /workflow-orchestrator:delegate <task> immediately. Do NOT retry other tools."
     logger.warning("%s", msg)
     return 2
 

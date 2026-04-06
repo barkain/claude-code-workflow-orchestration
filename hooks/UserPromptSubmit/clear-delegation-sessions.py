@@ -4,7 +4,7 @@ UserPromptSubmit Hook: Clear Delegation Sessions (cross-platform)
 
 Purpose: Clear stale delegation session state on every user prompt.
 This hook ensures that delegation state doesn't persist across user
-interactions, forcing explicit /delegate usage for each workflow.
+interactions, forcing explicit /workflow-orchestrator:delegate usage for each workflow.
 
 Timing: Fires BEFORE each user message is processed by Claude Code
 

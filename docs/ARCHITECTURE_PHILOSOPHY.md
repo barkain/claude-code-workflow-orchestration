@@ -91,7 +91,7 @@ Each specialized agent has a restricted tool set that matches its domain:
 |  All other tools: BLOCKED                                          |
 +-------------------------------------------------------------------+
                               |
-                        /delegate
+                  /workflow-orchestrator:delegate
                               |
 +-------------------------------------------------------------------+
 |                    DELEGATION BOUNDARY                             |
@@ -520,7 +520,7 @@ sess_def456
 ```
 
 **Lifecycle:**
-1. Created when first `/delegate` triggers session registration
+1. Created when first `/workflow-orchestrator:delegate` triggers session registration
 2. Populated with session IDs on each delegation
 3. Cleared by UserPromptSubmit hook before each user prompt
 4. Cleaned of stale sessions (>1 hour) by Stop hook
@@ -781,7 +781,8 @@ Delegation privileges automatically decay:
 
 +-------------------------------------------------------------------------+
 |                              USER INTERFACE                              |
-|  Commands: /delegate, /ask, /bypass, /add-statusline                    |
+|  Commands: /workflow-orchestrator:delegate, /workflow-orchestrator:ask,   |
+|  /workflow-orchestrator:bypass, /workflow-orchestrator:add-statusline    |
 |  Planning: native plan mode                                              |
 |  StatusLine: [MODE] Active: N Wave W | Last: Event                      |
 +-------------------------------------------------------------------------+

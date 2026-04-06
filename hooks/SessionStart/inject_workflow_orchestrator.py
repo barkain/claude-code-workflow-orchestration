@@ -7,7 +7,7 @@ SessionStart Hook: Inject orchestrator routing stub (cross-platform)
 
 This hook runs on session startup/resume/clear/compact and injects the
 orchestrator_stub.md routing prompt into Claude's context. The full
-workflow_orchestrator.md is loaded on-demand by /delegate.
+workflow_orchestrator.md is loaded on-demand by /workflow-orchestrator:delegate.
 
 This Python version works on Windows, macOS, and Linux.
 """
@@ -58,7 +58,7 @@ def find_orchestrator_file() -> Path | None:
     3. Repository src/ location (for development)
     4. Local .claude directory (project-specific override)
 
-    The full workflow_orchestrator.md is loaded on-demand by /delegate.
+    The full workflow_orchestrator.md is loaded on-demand by /workflow-orchestrator:delegate.
     """
     plugin_dir = get_plugin_root()
     project_dir = Path(os.environ.get("CLAUDE_PROJECT_DIR", Path.cwd()))

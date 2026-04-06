@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.15.2] - 2026-04-04
+
+### Fixed
+- **$0.00 cost display**: Use `cost.total_cost_usd` from stdin JSON for real-time session cost; daily cost already uses JSONL self-calculation (no ccusage dependency)
+- **Delegation hook subagent deadlock**: Expanded subagent bypass to check `CLAUDE_AGENT_ID` and `CLAUDE_SCRATCHPAD_DIR` in addition to `CLAUDE_PARENT_SESSION_ID`; added redundant safety net inside `main()`; normalized `CLAUDE_PROJECT_DIR` path resolution with `Path.resolve()`
+
 ## [1.15.1] - 2026-04-04
 
 ### Fixed

@@ -37,9 +37,14 @@ _handler.setFormatter(logging.Formatter("%(message)s"))
 logger.addHandler(_handler)
 
 # P0 FIX: Skip hook entirely for subagents
-# Subagents have CLAUDE_PARENT_SESSION_ID set, main agent does not
-parent_session_id = os.environ.get("CLAUDE_PARENT_SESSION_ID", "")
-if parent_session_id:
+# Multiple signals indicate subagent context — check all of them.
+# It's better to accidentally allow a subagent tool call than to deadlock.
+_is_subagent = bool(
+    os.environ.get("CLAUDE_PARENT_SESSION_ID")
+    or os.environ.get("CLAUDE_AGENT_ID")
+    or os.environ.get("CLAUDE_SCRATCHPAD_DIR")
+)
+if _is_subagent:
     # Subagent - allow all tools EXCEPT TeamCreate (no nested teams)
     try:
         stdin_data = sys.stdin.read()
@@ -78,8 +83,8 @@ def debug_log(message: str) -> None:
 
 
 def get_state_dir() -> Path:
-    """Get the state directory path."""
-    project_dir = Path(os.environ.get("CLAUDE_PROJECT_DIR", Path.cwd()))
+    """Get the state directory path, with normalized path resolution."""
+    project_dir = Path(os.environ.get("CLAUDE_PROJECT_DIR", str(Path.cwd()))).resolve()
     state_dir = project_dir / ".claude" / "state"
     state_dir.mkdir(parents=True, exist_ok=True)
     return state_dir
@@ -133,6 +138,16 @@ def main() -> int:
 
     debug_log(f"State dir: {state_dir}")
     debug_log(f"delegation_disabled exists: {delegation_disabled_file.exists()}")
+
+    # Redundant subagent safety net — the module-level check should catch this,
+    # but if it somehow didn't (e.g., env var set after import), bail out here.
+    if (
+        os.environ.get("CLAUDE_PARENT_SESSION_ID")
+        or os.environ.get("CLAUDE_AGENT_ID")
+        or os.environ.get("CLAUDE_SCRATCHPAD_DIR")
+    ):
+        debug_log("ALLOWED: Subagent safety net (env var detected inside main)")
+        return 0
 
     # Quick bypass for emergencies
     if os.environ.get("DELEGATION_HOOK_DISABLE", "0") == "1":

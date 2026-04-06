@@ -15,7 +15,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
 # Cache configuration
@@ -354,80 +354,171 @@ def is_cache_valid(cache: dict, cwd: str) -> bool:
     return age < COST_CACHE_TTL_SECONDS and cache_cwd == cwd
 
 
-def fetch_costs_raw(cwd: str) -> tuple[str, str, float, float]:
-    """Fetch daily, session, and weekly costs from ccusage calls.
+def _cost_from_usage(usage: dict, model: str) -> float:
+    """Calculate USD cost for a single API response from token usage.
 
-    Uses the `-i` flag which returns per-project breakdown that also includes
-    daily totals, allowing both values to be extracted from one response.
-    Also fetches weekly data for usage percentage calculation.
+    Uses published Claude API pricing (per million tokens).
+    Cached input is charged at 10% of base input price.
 
     Args:
-        cwd: Current working directory, used to identify the project.
+        usage: Token usage dict with input_tokens, output_tokens, etc.
+        model: Model identifier string (e.g. "claude-opus-4-6").
+
+    Returns:
+        Estimated cost in USD for this single API call.
+    """
+    # Pricing per 1M tokens (input, cache_read, cache_create, output)
+    # https://docs.anthropic.com/en/docs/about-claude/models
+    pricing: dict[str, tuple[float, float, float, float]] = {
+        "opus": (15.0, 1.5, 18.75, 75.0),
+        "sonnet": (3.0, 0.3, 3.75, 15.0),
+        "haiku": (0.25, 0.025, 0.3, 1.25),
+    }
+
+    # Match model to tier
+    model_lower = model.lower()
+    tier = "sonnet"  # default
+    for key in pricing:
+        if key in model_lower:
+            tier = key
+            break
+
+    inp_price, cache_read_price, cache_create_price, out_price = pricing[tier]
+
+    input_tokens = usage.get("input_tokens", 0)
+    cache_read = usage.get("cache_read_input_tokens", 0)
+    cache_create = usage.get("cache_creation_input_tokens", 0)
+    output_tokens = usage.get("output_tokens", 0)
+
+    cost = (
+        input_tokens * inp_price
+        + cache_read * cache_read_price
+        + cache_create * cache_create_price
+        + output_tokens * out_price
+    ) / 1_000_000
+
+    return cost
+
+
+def _sum_session_cost(session_file: Path) -> float:
+    """Sum total cost from all API turns in a session JSONL file.
+
+    JSONL files contain streaming snapshots where token counts are cumulative
+    within a turn. We detect turn boundaries (when output_tokens drops) and
+    only count the final snapshot of each turn to avoid double-counting.
+
+    Args:
+        session_file: Path to a session JSONL file.
+
+    Returns:
+        Total estimated cost in USD.
+    """
+    total = 0.0
+    prev_usage: dict | None = None
+    prev_model = ""
+    prev_output = 0
+
+    try:
+        with open(session_file, "r", encoding="utf-8") as f:
+            for line in f:
+                try:
+                    entry = json.loads(line)
+                    msg = entry.get("message", {})
+                    if not isinstance(msg, dict):
+                        continue
+                    usage = msg.get("usage")
+                    if not usage:
+                        continue
+
+                    cur_output = usage.get("output_tokens", 0)
+                    # Detect turn boundary: output drops means new API call started
+                    if cur_output < prev_output and prev_usage is not None:
+                        total += _cost_from_usage(prev_usage, prev_model)
+
+                    prev_usage = usage
+                    prev_model = msg.get("model", "")
+                    prev_output = cur_output
+                except (json.JSONDecodeError, AttributeError):
+                    continue
+
+        # Count the final turn
+        if prev_usage is not None:
+            total += _cost_from_usage(prev_usage, prev_model)
+    except OSError:
+        pass
+    return total
+
+
+def _find_todays_session_files() -> list[Path]:
+    """Find all session JSONL files modified today across all project dirs.
+
+    Uses file mtime for fast filtering without reading file contents.
+    Only scans project directories (not global sessions) for speed.
+
+    Returns:
+        List of Path objects for today's session files.
+    """
+    claude_dir = Path.home() / ".claude"
+    today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_ts = today_start.timestamp()
+    result: list[Path] = []
+
+    projects_dir = claude_dir / "projects"
+    if not projects_dir.exists():
+        return result
+
+    for project_dir in projects_dir.iterdir():
+        if not project_dir.is_dir():
+            continue
+        for jsonl_file in project_dir.glob("*.jsonl"):
+            try:
+                if jsonl_file.stat().st_mtime >= today_ts:
+                    result.append(jsonl_file)
+            except OSError:
+                continue
+
+    # Also check global sessions
+    sessions_dir = claude_dir / "sessions"
+    if sessions_dir.exists():
+        for jsonl_file in sessions_dir.glob("*.jsonl"):
+            try:
+                if jsonl_file.stat().st_mtime >= today_ts:
+                    result.append(jsonl_file)
+            except OSError:
+                continue
+
+    return result
+
+
+def fetch_costs_raw(cwd: str) -> tuple[str, str, float, float]:
+    """Calculate daily and session costs directly from session JSONL files.
+
+    Parses token usage from JSONL entries and applies known Claude API pricing.
+    Much faster than ccusage which scans all historical files (~8000+).
+
+    Daily cost: sum of all session files modified today.
+    Session cost: not calculated (removed from display in v1.15.0).
+
+    Args:
+        cwd: Current working directory (unused, kept for API compatibility).
 
     Returns:
         Tuple of (daily_cost, session_cost, daily_cost_val, weekly_cost_val)
-        where daily_cost/session_cost are formatted strings like "$X.XX"
-        and daily_cost_val/weekly_cost_val are raw float values.
+        where daily_cost is formatted "$X.XX" and session_cost is always "$0.00".
     """
-    today = datetime.now().strftime("%Y%m%d")
-
-    # Convert cwd to project name format (replace / with -)
-    project_name = cwd.replace("/", "-").replace("\\", "-") if cwd else ""
-
     daily_cost_val = 0.0
-    weekly_cost_val = 0.0
 
-    # Try bunx (bun) first, then npx - single call with -i flag gets both values
-    for cmd in [["bunx", "ccusage@latest"], ["npx", "ccusage@latest"]]:
-        try:
-            # Fetch today's costs
-            result = subprocess.run(  # noqa: S603, S607
-                [*cmd, "daily", "--json", "--since", today, "-i"],
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                data = json.loads(result.stdout)
+    try:
+        todays_files = _find_todays_session_files()
+        debug_log(f"Found {len(todays_files)} session files modified today")
 
-                # Extract daily total from the same response
-                daily_cost_val = data.get("totals", {}).get("totalCost", 0)
-                daily_cost = f"${daily_cost_val:.2f}"
+        for session_file in todays_files:
+            daily_cost_val += _sum_session_cost(session_file)
+    except OSError as e:
+        debug_log(f"Error scanning session files: {e}")
 
-                # Extract session/project cost
-                session_cost = "$0.00"
-                if project_name:
-                    projects = data.get("projects", {})
-                    if project_name in projects:
-                        project_data = projects[project_name]
-                        if project_data and len(project_data) > 0:
-                            total_cost = sum(
-                                entry.get("totalCost", 0) for entry in project_data
-                            )
-                            session_cost = f"${total_cost:.2f}"
-
-                # Fetch weekly costs (last 7 days)
-                week_ago = (datetime.now() - timedelta(days=6)).strftime("%Y%m%d")
-                weekly_result = subprocess.run(  # noqa: S603, S607
-                    [*cmd, "daily", "--json", "--since", week_ago, "-i"],
-                    capture_output=True,
-                    text=True,
-                    timeout=30,
-                )
-                if weekly_result.returncode == 0 and weekly_result.stdout.strip():
-                    weekly_data = json.loads(weekly_result.stdout)
-                    weekly_cost_val = weekly_data.get("totals", {}).get("totalCost", 0)
-
-                return daily_cost, session_cost, daily_cost_val, weekly_cost_val
-        except (
-            subprocess.TimeoutExpired,
-            FileNotFoundError,
-            json.JSONDecodeError,
-            OSError,
-        ):
-            continue
-
-    return "$0.00", "$0.00", 0.0, 0.0
+    daily_cost = f"${daily_cost_val:.2f}"
+    return daily_cost, "$0.00", daily_cost_val, 0.0
 
 
 def _is_refresh_locked() -> bool:
@@ -457,12 +548,12 @@ def spawn_background_refresh(cwd: str) -> None:
 
     Uses subprocess.Popen to run a small Python script that:
     1. Creates a lock file to prevent concurrent refreshes
-    2. Runs the ccusage command
-    3. Parses the result and writes to the cache file
+    2. Scans today's session JSONL files and calculates costs from token usage
+    3. Writes results to the cache file
     4. Removes the lock file
 
     Args:
-        cwd: Current working directory for session cost lookup.
+        cwd: Current working directory for cache key.
     """
     if _is_refresh_locked():
         debug_log("Background refresh already running, skipping")
@@ -472,63 +563,85 @@ def spawn_background_refresh(cwd: str) -> None:
 
     # Build the inline Python script for background execution
     refresh_script = f"""
-import json, subprocess, time, sys
+import json, time
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime
 
 lock_file = Path({str(COST_REFRESH_LOCK)!r})
 cache_file = Path({str(COST_CACHE_FILE)!r})
 cwd = {cwd!r}
 
+PRICING = {{
+    "opus": (15.0, 1.5, 18.75, 75.0),
+    "sonnet": (3.0, 0.3, 3.75, 15.0),
+    "haiku": (0.25, 0.025, 0.3, 1.25),
+}}
+
+def cost_from_usage(usage, model):
+    model_lower = model.lower()
+    tier = "sonnet"
+    for key in PRICING:
+        if key in model_lower:
+            tier = key
+            break
+    inp_p, cr_p, cc_p, out_p = PRICING[tier]
+    return (
+        usage.get("input_tokens", 0) * inp_p
+        + usage.get("cache_read_input_tokens", 0) * cr_p
+        + usage.get("cache_creation_input_tokens", 0) * cc_p
+        + usage.get("output_tokens", 0) * out_p
+    ) / 1_000_000
+
 try:
-    # Create lock file
     lock_file.write_text(str(time.time()))
 
-    today = datetime.now().strftime("%Y%m%d")
-    week_ago = (datetime.now() - timedelta(days=6)).strftime("%Y%m%d")
-    project_name = cwd.replace("/", "-").replace("\\\\", "-") if cwd else ""
-
-    daily_cost = "$0.00"
-    session_cost = "$0.00"
+    today_ts = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+    claude_dir = Path.home() / ".claude"
     daily_cost_val = 0.0
-    weekly_cost_val = 0.0
 
-    for cmd in [["bunx", "ccusage@latest"], ["npx", "ccusage@latest"]]:
-        try:
-            result = subprocess.run(
-                [*cmd, "daily", "--json", "--since", today, "-i"],
-                capture_output=True, text=True, timeout=30,
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                data = json.loads(result.stdout)
-                daily_cost_val = data.get("totals", {{}}).get("totalCost", 0)
-                daily_cost = f"${{daily_cost_val:.2f}}"
-                if project_name:
-                    projects = data.get("projects", {{}})
-                    if project_name in projects:
-                        project_data = projects[project_name]
-                        if project_data and len(project_data) > 0:
-                            total_cost = sum(e.get("totalCost", 0) for e in project_data)
-                            session_cost = f"${{total_cost:.2f}}"
-
-                # Fetch weekly costs
-                weekly_result = subprocess.run(
-                    [*cmd, "daily", "--json", "--since", week_ago, "-i"],
-                    capture_output=True, text=True, timeout=30,
-                )
-                if weekly_result.returncode == 0 and weekly_result.stdout.strip():
-                    weekly_data = json.loads(weekly_result.stdout)
-                    weekly_cost_val = weekly_data.get("totals", {{}}).get("totalCost", 0)
-
-                break
-        except Exception:
+    for search_dir in [claude_dir / "projects", claude_dir / "sessions"]:
+        if not search_dir.exists():
             continue
+        dirs = [search_dir] if search_dir.name == "sessions" else [d for d in search_dir.iterdir() if d.is_dir()]
+        for d in dirs:
+            for f in d.glob("*.jsonl"):
+                try:
+                    if f.stat().st_mtime < today_ts:
+                        continue
+                except OSError:
+                    continue
+                try:
+                    prev_usage = None
+                    prev_model = ""
+                    prev_output = 0
+                    with open(f, "r", encoding="utf-8") as fh:
+                        for line in fh:
+                            try:
+                                entry = json.loads(line)
+                                msg = entry.get("message", {{}})
+                                if not isinstance(msg, dict):
+                                    continue
+                                usage = msg.get("usage")
+                                if not usage:
+                                    continue
+                                cur_output = usage.get("output_tokens", 0)
+                                if cur_output < prev_output and prev_usage is not None:
+                                    daily_cost_val += cost_from_usage(prev_usage, prev_model)
+                                prev_usage = usage
+                                prev_model = msg.get("model", "")
+                                prev_output = cur_output
+                            except (json.JSONDecodeError, AttributeError):
+                                continue
+                    if prev_usage is not None:
+                        daily_cost_val += cost_from_usage(prev_usage, prev_model)
+                except OSError:
+                    continue
 
     cache = {{
-        "daily_cost": daily_cost,
-        "session_cost": session_cost,
+        "daily_cost": f"${{daily_cost_val:.2f}}",
+        "session_cost": "$0.00",
         "daily_cost_val": daily_cost_val,
-        "weekly_cost_val": weekly_cost_val,
+        "weekly_cost_val": 0.0,
         "timestamp": time.time(),
         "cwd": cwd,
     }}
@@ -743,10 +856,24 @@ def main() -> None:
     effective_cwd = raw_cwd if isinstance(raw_cwd, str) and raw_cwd else os.getcwd()
     full_cwd = effective_cwd
 
-    # Get daily and session costs (with caching for fast statusline refresh)
-    daily_cost, session_cost, daily_cost_val, weekly_cost_val = get_costs_cached(
+    # Session cost: prefer cost.total_cost_usd from stdin JSON (real-time, no I/O)
+    stdin_cost = input_data.get("cost", {})
+    session_cost_usd: float | None = None
+    if isinstance(stdin_cost, dict):
+        raw_val = stdin_cost.get("total_cost_usd")
+        if isinstance(raw_val, int | float):
+            session_cost_usd = float(raw_val)
+
+    # Get daily cost (with caching for fast statusline refresh)
+    daily_cost, _session_cost, daily_cost_val, weekly_cost_val = get_costs_cached(
         full_cwd
     )
+
+    # Use stdin session cost if available, otherwise fall back to cache
+    if session_cost_usd is not None:
+        session_cost = f"${session_cost_usd:.2f}"
+    else:
+        session_cost = _session_cost
 
     # Get Claude version
     claude_version = get_claude_version()
@@ -770,9 +897,11 @@ def main() -> None:
     # Get turn duration if available
     turn_duration = get_turn_duration()
 
-    # Format costs: daily cost only
-    daily_amount = daily_cost
-    cost_display = f"{GREEN}\U0001f4b0 {daily_amount}{RESET}"
+    # Format costs: daily + session (when available from stdin)
+    if session_cost_usd is not None and session_cost_usd > 0:
+        cost_display = f"{GREEN}\U0001f4b0 {daily_cost} ({session_cost}){RESET}"
+    else:
+        cost_display = f"{GREEN}\U0001f4b0 {daily_cost}{RESET}"
 
     # Extract rate limits from statusLine JSON input
     rate_limits = input_data.get("rate_limits", {})

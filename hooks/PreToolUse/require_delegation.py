@@ -36,33 +36,6 @@ _handler = logging.StreamHandler(sys.stderr)
 _handler.setFormatter(logging.Formatter("%(message)s"))
 logger.addHandler(_handler)
 
-# P0 FIX: Skip hook entirely for subagents
-# Multiple signals indicate subagent context — check all of them.
-# It's better to accidentally allow a subagent tool call than to deadlock.
-_is_subagent = bool(
-    os.environ.get("CLAUDE_PARENT_SESSION_ID")
-    or os.environ.get("CLAUDE_AGENT_ID")
-    or os.environ.get("CLAUDE_SCRATCHPAD_DIR")
-)
-if _is_subagent:
-    # Subagent - allow all tools EXCEPT TeamCreate (no nested teams)
-    try:
-        stdin_data = sys.stdin.read()
-        data = json.loads(stdin_data) if stdin_data else {}
-        tool_name = str(data.get("tool_name", ""))
-        if tool_name == "TeamCreate":
-            logger.warning(
-                "Nested teams not supported. Teammates cannot create teams.",
-            )
-            sys.exit(2)
-    except Exception as exc:  # noqa: BLE001
-        # Can't parse stdin; allow tool to avoid breaking subagents
-        logger.warning(
-            "subagent TeamCreate guard failed to parse stdin: %s",
-            exc,
-        )
-    sys.exit(0)
-
 # Debug mode
 DEBUG_HOOK = os.environ.get("DEBUG_DELEGATION_HOOK", "0") == "1"
 DEBUG_FILE = (
@@ -133,21 +106,37 @@ def main() -> int:
     """Main entry point."""
     debug_log("=== PreToolUse Hook START ===")
 
+    # Skip hook entirely for subagents
+    # Multiple signals indicate subagent context — check all of them.
+    # It's better to accidentally allow a subagent tool call than to deadlock.
+    _is_subagent = bool(
+        os.environ.get("CLAUDE_PARENT_SESSION_ID") or os.environ.get("CLAUDE_AGENT_ID")
+    )
+    if _is_subagent:
+        # Subagent - allow all tools EXCEPT TeamCreate (no nested teams)
+        try:
+            stdin_data = sys.stdin.read()
+            data = json.loads(stdin_data) if stdin_data else {}
+            tool_name = str(data.get("tool_name", ""))
+            if tool_name == "TeamCreate":
+                logger.warning(
+                    "Nested teams not supported. Teammates cannot create teams.",
+                )
+                return 2
+        except Exception as exc:  # noqa: BLE001
+            # Can't parse stdin; allow tool to avoid breaking subagents
+            logger.warning(
+                "subagent TeamCreate guard failed to parse stdin: %s",
+                exc,
+            )
+        debug_log("ALLOWED: Subagent detected (env var)")
+        return 0
+
     state_dir = get_state_dir()
     delegation_disabled_file = state_dir / "delegation_disabled"
 
     debug_log(f"State dir: {state_dir}")
     debug_log(f"delegation_disabled exists: {delegation_disabled_file.exists()}")
-
-    # Redundant subagent safety net — the module-level check should catch this,
-    # but if it somehow didn't (e.g., env var set after import), bail out here.
-    if (
-        os.environ.get("CLAUDE_PARENT_SESSION_ID")
-        or os.environ.get("CLAUDE_AGENT_ID")
-        or os.environ.get("CLAUDE_SCRATCHPAD_DIR")
-    ):
-        debug_log("ALLOWED: Subagent safety net (env var detected inside main)")
-        return 0
 
     # Quick bypass for emergencies
     if os.environ.get("DELEGATION_HOOK_DISABLE", "0") == "1":

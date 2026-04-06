@@ -434,7 +434,7 @@ def main() -> None:
     stdin_cost = input_data.get("cost", {}) if isinstance(input_data, dict) else {}
     if isinstance(stdin_cost, dict):
         raw_val = stdin_cost.get("total_cost_usd")
-        if isinstance(raw_val, int | float):
+        if isinstance(raw_val, (int, float)):
             session_cost_usd = float(raw_val)
 
     cost_str = (

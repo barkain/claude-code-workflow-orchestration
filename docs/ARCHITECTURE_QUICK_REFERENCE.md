@@ -98,26 +98,11 @@ Is TeamCreate tool available?
 ├── NO → SUBAGENT MODE (always)
 │        (Tool not available when CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS not set)
 │
-└── YES → Calculate team_mode_score:
-          │
-          Start at 0, add/subtract:
-          │
-          Phase count > 8?              → +2
-          Tier 3 complexity (score > 15)?→ +2
-          Cross-phase data flow?         → +3
-          Review-fix cycles?             → +3
-          Iterative refinement?          → +2
-          User says "team/collaborate"?  → +5
-          Breadth task?                  → -5
-          Phase count <= 3?              → -3
-          │
-          Score >= 5?
-          ├── YES → TEAM MODE
-          │         TeamCreate + Agent(team_name=...) for all phases
-          │         Teammates communicate via SendMessage
-          │
-          └── NO  → SUBAGENT MODE
-                    Agent() for each phase (isolated, no communication)
+└── YES → TEAM MODE
+          TeamCreate + Agent(team_name=...) for all phases
+          Teammates communicate via SendMessage
+          
+          (No scoring — tool availability is the only signal)
 ```
 
 ### Is Task Atomic?
@@ -202,27 +187,55 @@ ALL criteria met?
 
 ## State File Reference
 
-### delegated_sessions.txt
+### delegation_violations.json
 
-**Location:** `.claude/state/delegated_sessions.txt`
+**Location:** `.claude/state/delegation_violations.json`
 
-**Format:** One session ID per line
-```
-sess_abc123
-sess_def456
+**Format:** Per-turn nudge counter
+```json
+{
+  "violations": 2,
+  "delegations": 0,
+  "turn_id": "turn_2025_04_07_143022"
+}
 ```
 
 **Operations:**
 ```bash
-# Check registered sessions
-cat .claude/state/delegated_sessions.txt
+# Check current nudge counter
+cat .claude/state/delegation_violations.json
 
-# Clear all sessions
-> .claude/state/delegated_sessions.txt
-
-# Check if session is registered
-grep "sess_abc123" .claude/state/delegated_sessions.txt
+# Reset counter to 0
+echo '{"violations": 0, "delegations": 0}' > .claude/state/delegation_violations.json
 ```
+
+**Lifecycle:**
+- Reset to 0 on each new user prompt (UserPromptSubmit hook)
+- Increments on each work-tool call (PreToolUse hook)
+- Resets to 0 when `/workflow-orchestrator:delegate` runs (remind_skill_continuation.py hook)
+
+### delegation_active
+
+**Location:** `.claude/state/delegation_active`
+
+**Format:** Empty marker file (presence indicates active delegation)
+
+**Operations:**
+```bash
+# Check if delegation is active
+test -f .claude/state/delegation_active && echo "ACTIVE" || echo "INACTIVE"
+
+# Manually activate (emergency)
+touch .claude/state/delegation_active
+
+# Manually deactivate
+rm -f .claude/state/delegation_active
+```
+
+**Lifecycle:**
+- Created when delegation begins (nudges suppressed)
+- Deleted when delegation ends
+- Suppresses work-tool nudges while active
 
 ### active_delegations.json
 
@@ -381,42 +394,46 @@ rm -f .claude/state/team_mode_active .claude/state/team_config.json
 
 | Hook | Trigger | Key Actions | Async | Timeout |
 |------|---------|-------------|-------|---------|
-| SessionStart | startup, resume, clear, compact | Inject workflow_orchestrator.md | - | 20s |
-| UserPromptSubmit | Before user message | Clear delegation + team state | - | 2s |
-| PreToolUse (*) | Before every tool | Validate task graph, check allowlist | - | 5s each |
-| PostToolUse (Write/Edit) | After Python file changes | Ruff + Pyright validation | - | default |
-| PostToolUse (Task) | After Agent tool | Depth validation, wave update, DAG viz | - | 5-10s each |
-| SubagentStop | Subagent completes | Task reminder, verification trigger | Yes* | 2-5s each |
-| Stop | Session ends | Cleanup stale sessions, background tasks | Yes* | default |
+| SessionStart | startup, resume, clear, compact | Inject stub + optional token guide | - | 20s |
+| UserPromptSubmit | Before user message | Reset nudge counter, clear state | - | 2s |
+| PreToolUse (*) | Before every tool | Soft nudges on work tools, task graph validation, Bash rewrite | - | 5s each |
+| PostToolUse (Write/Edit) | After Python file changes | Ruff + Pyright validation (hard-blocking) | - | default |
+| PostToolUse (Task/Skill/SlashCommand) | After Agent, Task, or command | Workflow signals, reset nudge counter on delegation | - | 2s |
+| PostToolUse (Agent/Task) | After Agent or Task tool | Depth validation, task metadata | - | 5s each |
+| SubagentStop | Subagent completes | Task reminder (async), verification trigger | Yes | 2-5s |
+| Stop | Session ends | Turn duration, workflow continuation | Yes | default |
 
 **Async Hooks (controlled by CLAUDE_CODE_DISABLE_BACKGROUND_TASKS):**
 - `remind_todo_after_task.py` - Reminder after task execution (async)
 - `remind_todo_update.py` - Reminder on task updates (async)
 - `python_stop_hook.py` - Cleanup on session stop (async)
 
-### Allowlist Reference
+### Allowlist & Nudge Reference
 
-**Always Allowed (no delegation required):**
+**Always Allowed (never tracked for nudges):**
 - `AskUserQuestion` - Read-only questions
 - `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet` - Native task tracking with structured metadata
-- `SlashCommand` - Triggers session registration
-- `Agent`/`SubagentTask`/`AgentTask` - Delegation mechanism
+- `SlashCommand` - Commands (resets nudge counter if delegation runs)
 - `Skill` - Skill invocation
 - `ToolSearch` - Discover and load deferred tools
+- `Agent`/`SubagentTask`/`AgentTask` - Delegation mechanism
+
+**Work Tools (tracked for soft nudges, NEVER blocked):**
+- `Bash` - Shell commands
+- `Edit` - File editing
+- `Write` - File creation
+- `Read` - File reading
+- `Glob` - File pattern matching
+- `Grep` - File searching
+- `MultiEdit` - Batch file editing
+- `NotebookEdit` - Jupyter editing
 
 **Conditionally Allowed (Agent Teams, requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`):**
 - `TeamCreate` - Create a named agent team
 - `SendMessage` - Inter-teammate communication
 - Any tool name containing "team" or "teammate" (case-insensitive safety net)
 
-**Blocked Until Delegated:**
-- Read, Write, Edit, MultiEdit
-- Glob, Grep
-- Bash
-- NotebookEdit
-- All other tools
-
-**Write Tool Exceptions (Always Allowed):**
+**Write Tool Safe Paths (always allowed):**
 - `/tmp/` - Temporary files
 - `/private/tmp/` - macOS private temp
 - `/var/folders/` - macOS user temp
@@ -427,8 +444,8 @@ rm -f .claude/state/team_mode_active .claude/state/team_config.json
 **Note:** Tasks API replaced TodoWrite. Task metadata includes: wave, phase_id, agent, and parallel flag for structured execution tracking.
 
 **PROHIBITED (Context Exhaustion):**
-- `TaskOutput` - Causes context window exhaustion
-- `TaskList` polling - Use completion notifications instead
+- `TaskOutput` - Causes context window exhaustion (~20K per agent)
+- `TaskList` polling loops - Use completion notifications instead
 - Agents returning full results - Return `DONE|{path}` only
 
 ---
@@ -473,12 +490,11 @@ rm -f .claude/state/team_mode_active .claude/state/team_config.json
 ### Team Mode Not Activating
 
 - [ ] Is `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` set? Check `echo $CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`
-- [ ] Does the task meet `team_mode_score >= 5`? Check plan mode output for score breakdown
+- [ ] Can you invoke TeamCreate? If blocked, env var not set correctly
 - [ ] Does `team_mode_active` exist? Check `ls -la .claude/state/team_mode_active`
 - [ ] Does `team_config.json` exist? Check `cat .claude/state/team_config.json | jq .`
-- [ ] Is TeamCreate available? Try manual invocation
-- [ ] Try adding team keywords: "collaborate", "team", "work together"
-- [ ] Check if plan mode fell back to subagent mode (score < 5)
+- [ ] Enable debug logging: `export DEBUG_DELEGATION_HOOK=1` and check `/tmp/delegation_hook_debug.log`
+- [ ] Check if TeamCreate is available by attempting it in a message
 
 ### Team Mode Failing Mid-Workflow
 
@@ -671,16 +687,18 @@ score = file_count*2 + lines/50 + concerns*1.5 + ext_deps + (arch_decisions ? 3 
 ### Team Mode Lifecycle Quick Reference
 
 ```
-1. Plan mode calculates team_mode_score
-2. Score >= 5 → execution_mode: "team" in plan
+1. Plan mode checks if TeamCreate is available
+2. If available → execution_mode: "team" in plan
 3. Lead asks user for confirmation (AskUserQuestion)
 4. TeamCreate(team_name="workflow-{timestamp}")
-5. For each wave: Agent(team_name=...) per phase (parallel in same message)
+5. For each wave: Agent(team_name=..., subagent_type=...) per phase (NO run_in_background)
 6. Wait for completion notifications
 7. SendMessage shutdown_request to each teammate
 8. TaskUpdate for completed phases
 9. rm .claude/state/team_mode_active .claude/state/team_config.json
 ```
+
+**Key difference from subagents:** Teammates spawned without `run_in_background: true` (they're persistent in the team session).
 
 ### Two Team Workflow Patterns
 
@@ -689,19 +707,14 @@ score = file_count*2 + lines/50 + concerns*1.5 + ext_deps + (arch_decisions ? 3 
 | **Simple team** | Multi-perspective exploration | Single phase with `phase_type: "team"` + `teammates` array | "Analyze auth from security, performance, and UX angles" |
 | **Complex team** | Collaborative implementation | Multiple phases across waves, `execution_mode: "team"` at plan level | "Build notification system collaboratively" |
 
-### team_mode_score Quick Calculator
+### Team Mode Selection (ONE RULE)
 
-| Factor | Points | Check |
-|--------|--------|-------|
-| Phase count > 8 | +2 | Count total phases in plan |
-| Tier 3 complexity | +2 | Complexity score > 15 |
-| Cross-phase data flow | +3 | Phase B reads + decides based on Phase A output |
-| Review-fix cycles | +3 | Review then fix/refactor on same artifact |
-| Iterative refinement | +2 | Success criterion with retry loops |
-| User keyword | +5 | "collaborate", "team", "work together" |
-| Breadth task | -5 | Same operation across multiple items |
-| Phase count <= 3 | -3 | Simple workflow |
-| **Threshold** | **>= 5** | **Team mode activates** |
+**No scoring.** Tool availability is the only signal:
+
+- **If TeamCreate tool available** → `execution_mode: "team"`
+- **If TeamCreate tool NOT available** → `execution_mode: "subagent"`
+
+Setting `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` makes TeamCreate available, enabling team mode. Without it, PreToolUse hook blocks TeamCreate (and thus team mode is not possible).
 
 ### Team Mode Commands
 

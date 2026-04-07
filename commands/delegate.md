@@ -12,19 +12,13 @@ Multi-step workflow orchestration for Claude Code. Main agent enters plan mode (
 
 ---
 
+## EXECUTION MODE (ONE RULE)
+
+**If `TeamCreate` is in your available tools -> `execution_mode: "team"`. Otherwise -> `"subagent"`.** No scoring, no exceptions. Do not run Bash to check env vars -- tool availability is the signal.
+
 ## ROUTING (CHECK FIRST - MANDATORY)
 
-**Four-step routing check. MUST follow this order:**
-
-### Step 0: Team/Collaboration Detection (CHECK FIRST)
-
-**Team indicators (case-insensitive):** team, collaborate, agent team, teammate, work together, different angles, multiple perspectives, devil's advocate, brainstorm together
-
-**If ANY team indicator found:**
-- Enter plan mode via `EnterPlanMode` to analyze and plan
-- Evaluate team_mode_score and set execution_mode accordingly
-- DO NOT create a team directly using native team tools (TeamCreate, Task with team_name, etc.)
-- After plan mode: if `execution_mode: "team"` -> follow Team Mode execution; if `"subagent"` -> parallel subagents
+**Three-step routing check. MUST follow this order:**
 
 ### Step 1: Write Detection
 
@@ -364,24 +358,7 @@ Decompose by function/component, NOT by file:
 
 ### Execution Mode Selection
 
-**Detection:** If `TeamCreate` is in your available tools, teams are enabled. Do NOT run Bash commands to check env vars.
-
-If teams are NOT available (no `TeamCreate` tool) -> always `"subagent"` mode.
-
-**team_mode_score:**
-
-| Factor | Points |
-|--------|--------|
-| Phase count > 8 | +2 |
-| Tier 3 complexity | +2 |
-| Cross-phase data flow | +3 |
-| Review-fix cycles | +3 |
-| Iterative refinement | +2 |
-| User keyword "collaborate"/"team" | +5 |
-| Breadth task | -5 |
-| Phase count <= 3 | -3 |
-
-**Decision:** ALWAYS set `execution_mode: "team"` in the plan when `TeamCreate` is available. The ONLY exception is breadth-only tasks where score <= -3. If TeamCreate fails at runtime, the fallback section handles it automatically. Without teams available: always parallel subagent (>=2 subtasks mandatory).
+See **EXECUTION MODE (ONE RULE)** at the top. `TeamCreate` available -> `"team"`. Not available -> `"subagent"`. That's it.
 
 When `execution_mode: "team"`, include `team_config` in output:
 ```json
@@ -445,11 +422,13 @@ When `execution_mode: "team"`:
 
 **Step 0: Create team** -- `TeamCreate(team_name="<name from plan>")`
 
-**Step 1: Execute as teammates** -- For EACH phase, spawn with `team_name`:
+**Step 1: Execute as teammates** -- For EACH phase, spawn with `team_name` and **WITHOUT** `run_in_background`:
 ```
-Agent(team_name: "<name>", subagent_type: "<agent>", prompt: "<context>", run_in_background: true)
+Agent(team_name: "<name>", subagent_type: "<agent>", name: "<teammate-name>", prompt: "<context>")
 ```
-Same wave = spawn in same message (parallel). Next wave = wait for current to complete.
+**CRITICAL:** Do NOT set `run_in_background: true` for team members. Background Agent tasks are short-lived and exit on completion -- they are NOT persistent teammates and will not appear in the tmux swarm session. Real teammates are long-lived processes attached to the swarm; you must omit `run_in_background` so the Agent call registers as a persistent teammate. Parallelism in team mode comes from teammates running concurrently in the swarm, not from `run_in_background`.
+
+Same wave = spawn all teammates in the same message (they become concurrent members of the swarm). Next wave = wait for current wave's teammates to report DONE via SendMessage.
 
 For **simple team** (single phase with `teammates` array): one Agent per teammate.
 For **complex team** (many phases): one Agent per phase, all with `team_name`.

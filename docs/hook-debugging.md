@@ -40,16 +40,17 @@ find ~/.claude/hooks -type f -name "*.sh" ! -perm -u+x
 find ~/.claude/hooks -type f -name "*.sh" -exec chmod +x {} \;
 ```
 
-### Step 2: Test Hook Syntax
+### Step 2: Verify Python Hooks
 
 ```bash
-# Test each hook for syntax errors
-bash -n ~/.claude/hooks/SessionStart/log_session_start.sh
-bash -n ~/.claude/hooks/UserPromptSubmit/clear-delegation-sessions.sh
-bash -n ~/.claude/hooks/PreToolUse/require_delegation.sh
-bash -n ~/.claude/hooks/PostToolUse/python_posttooluse_hook.sh
-bash -n ~/.claude/hooks/SubagentStop/log_subagent_stop.sh
-bash -n ~/.claude/hooks/stop/python_stop_hook.sh
+# All hooks are now Python scripts (cross-platform compatible)
+# Check they exist and are readable
+ls -la ~/.claude/hooks/SessionStart/
+ls -la ~/.claude/hooks/UserPromptSubmit/
+ls -la ~/.claude/hooks/PreToolUse/
+ls -la ~/.claude/hooks/PostToolUse/
+ls -la ~/.claude/hooks/SubagentStop/
+ls -la ~/.claude/hooks/stop/
 ```
 
 ### Step 3: Enable Debug Logging
@@ -75,112 +76,74 @@ cat ~/.claude/settings.json | jq '.hooks'
 
 ## SessionStart Hook Debugging
 
-**Location:** `src/hooks/SessionStart/log_session_start.sh`
+**Location:** `hooks/SessionStart/inject_all.py`
 
 **Trigger:** Beginning of each Claude Code session (main or subagent)
 
-### Problem: Session not logged at startup
+**What it does:**
+1. Injects orchestrator routing stub (orchestrator_stub.md, ~1.1KB)
+2. Optionally injects token-efficient CLI guide (if CLAUDE_TOKEN_EFFICIENCY=1)
+3. Output style is loaded natively from plugin.json (no injection)
+
+### Problem: Stub not injected or hooks not running
 
 **Diagnosis:**
 
 ```bash
-# Check session log file exists
-ls -la /tmp/claude_session_log.txt
+# Verify hook is registered in plugin-hooks.json
+cat ~/.claude/hooks/plugin-hooks.json | jq '.hooks.SessionStart'
 
-# Check recent session starts
-tail -20 /tmp/claude_session_log.txt | grep SESSION_START
+# Check if Python can run the script
+python3 ~/.claude/hooks/SessionStart/inject_all.py --help 2>&1 || echo "Script has issue"
 
-# Manually trigger hook
-export CLAUDE_SESSION_ID=test_session
-bash ~/.claude/hooks/SessionStart/log_session_start.sh
-
-# Verify test entry in log
-grep test_session /tmp/claude_session_log.txt
+# Enable debug logging to see what was injected
+DEBUG_DELEGATION_HOOK=1 claude
+# Then check /tmp/delegation_hook_debug.log for SessionStart activity
 ```
 
 ### Common Issues
 
 | Issue | Solution |
 |-------|----------|
-| Log file permissions | `chmod 666 /tmp/claude_session_log.txt` |
-| CLAUDE_SESSION_ID not set | Hook needs session ID from Claude Code |
-| Hook not executable | `chmod +x ~/.claude/hooks/SessionStart/log_session_start.sh` |
+| Plugin not installed | Run `claude plugin install workflow-orchestrator@barkain-plugins` |
+| plugin-hooks.json missing | Verify plugin installation completed |
+| Python version too old | Ensure Python 3.12+ installed |
 
-### Expected Log Format
+### What Gets Injected
 
-```
-[2025-01-11 14:30:22] SESSION_START session_id=sess_abc123 type=main
-```
+- **Always:** Orchestrator stub (registers `/workflow-orchestrator:delegate` and `/workflow-orchestrator:bypass`)
+- **Conditional:** Token-efficient CLI guide (if `CLAUDE_TOKEN_EFFICIENCY=1`, default enabled)
+- **Native load:** Output style (`technical-adaptive`) loaded from plugin.json, no injection
 
 ---
 
 ## UserPromptSubmit Hook Debugging
 
-**Location:** `src/hooks/UserPromptSubmit/clear-delegation-sessions.sh`
+**Location:** `hooks/UserPromptSubmit/clear-delegation-sessions.py`
 
 **Trigger:** Before each user message is processed
 
-### Problem: Delegation state not cleared between prompts
+**What it does:**
+1. Resets per-turn nudge counter (`.claude/state/delegation_violations.json`)
+2. Clears delegation active flag (`.claude/state/delegation_active`)
+3. Cleans up team state files (`.claude/state/team_mode_active`, `.claude/state/team_config.json`)
+4. Records turn start timestamp
+
+### Problem: Per-turn state not being reset
 
 **Diagnosis:**
 
 ```bash
-# Check state file before and after prompt
-cat .claude/state/delegated_sessions.txt
+# Check current nudge counter
+cat .claude/state/delegation_violations.json
 
-# Manually trigger hook
-bash ~/.claude/hooks/UserPromptSubmit/clear-delegation-sessions.sh
+# Check if delegation_active flag exists
+ls .claude/state/delegation_active
 
-# Verify file cleared
-cat .claude/state/delegated_sessions.txt  # Should be empty
-```
-
-### Common Issues
-
-| Issue | Solution |
-|-------|----------|
-| State directory doesn't exist | `mkdir -p .claude/state` |
-| File permissions | `chmod 644 .claude/state/delegated_sessions.txt` |
-| CLAUDE_PROJECT_DIR mismatch | Verify `echo $CLAUDE_PROJECT_DIR` |
-
-### Agent Teams State Cleanup
-
-The UserPromptSubmit hook also cleans up Agent Teams state files on each new user prompt:
-
-- `.claude/state/team_mode_active` -- Deleted if present
-- `.claude/state/team_config.json` -- Deleted if present
-
-This ensures team state does not persist across user interactions, matching the same lifecycle as other delegation state files.
-
-### Security Note
-
-This hook is critical for security - it prevents privilege persistence across user prompts. Each new user message starts with a clean delegation state.
-
----
-
-## PreToolUse Hook Debugging
-
-**Location:** `src/hooks/PreToolUse/require_delegation.sh`
-
-**Trigger:** Before EVERY tool invocation
-
-### Problem: Tools not blocked or session not registered
-
-**Diagnosis:**
-
-```bash
-# Enable debug mode
-export DEBUG_DELEGATION_HOOK=1
-
-# Check allowlist configuration
-grep -A 10 "ALLOWED_TOOLS" ~/.claude/hooks/PreToolUse/require_delegation.sh
-
-# Manually test hook (requires tool name argument)
-export CLAUDE_SESSION_ID=test_session
-export CLAUDE_TOOL_NAME=Read
-bash ~/.claude/hooks/PreToolUse/require_delegation.sh
-
-# Check debug log
+# Enable debug logging
+DEBUG_DELEGATION_HOOK=1 claude
+# Then prompt with any message
+# Check log for "UserPromptSubmit" entries
 tail /tmp/delegation_hook_debug.log
 ```
 
@@ -188,40 +151,74 @@ tail /tmp/delegation_hook_debug.log
 
 | Issue | Solution |
 |-------|----------|
-| Allowlist too broad | Verify ALLOWED_TOOLS array contains only intended tools |
-| Session not registered | Check `.claude/state/delegated_sessions.txt` has session ID |
-| File path issues | Verify script uses correct state file path |
+| State directory doesn't exist | `mkdir -p .claude/state` |
+| File permissions | `chmod 666 .claude/state/delegation_violations.json` |
+| CLAUDE_PROJECT_DIR mismatch | Verify `echo $CLAUDE_PROJECT_DIR` |
+| Team state not clearing | Ensure UserPromptSubmit hook is registered in plugin-hooks.json |
 
-### Manual Session Registration Test
+### Security Note
+
+This hook is critical for security - it resets per-turn nudge counter and clears delegation/team state on each user message. Each new user interaction starts fresh.
+
+---
+
+## PreToolUse Hook Debugging
+
+**Location:** `hooks/PreToolUse/require_delegation.py`
+
+**Trigger:** Before EVERY tool invocation
+
+**What it does (soft enforcement):**
+1. Checks if tool is in the work-tool set (`Bash`, `Edit`, `Write`, `Read`, `Glob`, `Grep`, `MultiEdit`, `NotebookEdit`)
+2. If work-tool: increments per-turn violation counter and emits escalating stderr nudge
+3. If subagent or delegation active: skip all checks
+4. If Team tool + env var not set: block with instructions
+5. All other tools: allow (no nudges for non-work tools)
+
+### Problem: Nudges not appearing or appearing too aggressively
+
+**Diagnosis:**
 
 ```bash
-# Create test session
-mkdir -p .claude/state
-echo "test_session_123" > .claude/state/delegated_sessions.txt
+# Check current nudge counter
+cat .claude/state/delegation_violations.json
 
-# Test tool access with registered session
-export CLAUDE_SESSION_ID=test_session_123
-export CLAUDE_TOOL_NAME=Read
-bash ~/.claude/hooks/PreToolUse/require_delegation.sh
-# Should exit 0 (allowed)
+# Check if delegation is active
+ls .claude/state/delegation_active && echo "ACTIVE" || echo "INACTIVE"
 
-# Test tool access with unregistered session
-export CLAUDE_SESSION_ID=unregistered_session
-bash ~/.claude/hooks/PreToolUse/require_delegation.sh
-# Should exit 1 (blocked)
+# Enable debug mode for detailed logging
+export DEBUG_DELEGATION_HOOK=1
+
+# Test with a work tool (should increment counter)
+Read some_file.py
+# stderr should show nudge based on current counter
+
+# Check debug log for counter state
+tail /tmp/delegation_hook_debug.log
 ```
 
-### Allowlist Reference
+### Common Issues
 
-The following tools are always allowed without delegation:
+| Issue | Solution |
+|-------|----------|
+| Nudges always silent | Check `.claude/state/delegation_violations.json` — may be stuck at 0 |
+| Nudges showing when shouldn't | Check if `delegation_active` flag file exists or if CLAUDE_PARENT_SESSION_ID is set |
+| Counter not resetting | Verify UserPromptSubmit hook runs on new user message |
+| Team tools blocked | Set `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` to enable team tools |
 
-- `AskUserQuestion` - Read-only questions
-- `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet` - Task tracking via Tasks API
-- `SlashCommand` - Triggers session registration
-- `Agent`/`SubagentTask`/`AgentTask` - Triggers session registration
-- `ToolSearch` - Discover and load deferred tools
+### Work Tools Reference
 
-All other tools are BLOCKED unless session is registered.
+These 8 tools are tracked for nudges (soft enforcement, never blocked):
+- `Bash` - Shell commands
+- `Edit` - File editing
+- `Write` - File creation
+- `Read` - File reading
+- `Glob` - File pattern matching
+- `Grep` - File searching
+- `MultiEdit` - Batch file editing
+- `NotebookEdit` - Jupyter notebook editing
+
+**All other tools** (including `AskUserQuestion`, Tasks API, `Skill`, `SlashCommand`, `Agent`, `TeamCreate`, `SendMessage`) never trigger nudges — they're always allowed.
 
 ### Agent Teams Tool Gating
 
@@ -291,11 +288,17 @@ If the file is persistently missing during an active team workflow, verify:
 
 ## PostToolUse Hook Debugging
 
-**Location:** `src/hooks/PostToolUse/python_posttooluse_hook.sh`
+**Location:** `hooks/PostToolUse/python_posttooluse_hook.py`
 
 **Trigger:** After Python file Write/Edit operations
 
-### Problem: Python validation not running or failing incorrectly
+**What it does (only hard-blocking hook):**
+1. Runs Ruff linting for specific rule subset (F, E711, E712, UP006, UP007, UP035, UP037, T201, S)
+2. Runs Pyright type checking in basic mode
+3. Blocks if Ruff/Pyright fail (exit code 1 or 2)
+4. Only runs on `.py` files in Write/Edit/MultiEdit tools
+
+### Problem: Python validation failing or not running
 
 **Diagnosis:**
 
@@ -304,22 +307,26 @@ If the file is persistently missing during an active team workflow, verify:
 which ruff
 which pyright
 
-# Test hook manually with Python file
-export CLAUDE_TOOL_NAME=Write
-export CLAUDE_TOOL_ARGUMENTS='{"file_path":"/tmp/test.py","content":"print(\"hello\")"}'
-bash ~/.claude/hooks/PostToolUse/python_posttooluse_hook.sh
+# Check which Python files trigger validation
+# (only .py files in Write/Edit/MultiEdit)
 
-# Check exit code
-echo $?  # 0 = success, 1 = validation failed
+# Test validation manually
+cd /tmp
+cat > test.py << 'EOF'
+def hello() -> str:
+    return "world"
+EOF
 
-# Test critical security check
-cat > /tmp/test_bad.py << 'EOF'
+# Simulate Write tool
+uvx ruff check --select F,E711,E712,UP006,UP007,UP035,UP037,T201,S test.py
+uvx pyright test.py
+
+# Test security check
+cat > test_bad.py << 'EOF'
 import pickle
 data = pickle.loads(user_input)  # S301: Unsafe deserialization
 EOF
-
-export CLAUDE_TOOL_ARGUMENTS='{"file_path":"/tmp/test_bad.py"}'
-bash ~/.claude/hooks/PostToolUse/python_posttooluse_hook.sh
+uvx ruff check --select S test_bad.py
 # Should fail with S301 error
 ```
 
@@ -327,160 +334,120 @@ bash ~/.claude/hooks/PostToolUse/python_posttooluse_hook.sh
 
 | Issue | Solution |
 |-------|----------|
-| Ruff not installed | `uv tool install ruff` or `pip install ruff` |
-| Pyright not installed | `npm install -g pyright` |
-| Tool name not Write/Edit | Hook only runs for Write/Edit operations |
-| JSON parsing error | Verify CLAUDE_TOOL_ARGUMENTS is valid JSON |
+| Ruff not installed | `uvx ruff check --version` or `uv tool install ruff` |
+| Pyright not installed | `uvx pyright --version` or `npm install -g pyright` |
+| False positives | Check `.ruff.toml` or `pyproject.toml` for rule configuration |
+| Check disabled unexpectedly | Verify `CHECK_RUFF=1` and `CHECK_PYRIGHT=1` (defaults) |
 
 ### Skip Specific Checks
 
 ```bash
-# Skip Ruff validation
+# Skip Ruff validation (still run Pyright)
 export CHECK_RUFF=0
-bash ~/.claude/hooks/PostToolUse/python_posttooluse_hook.sh
 
-# Skip Pyright validation
+# Skip Pyright validation (still run Ruff)
 export CHECK_PYRIGHT=0
-bash ~/.claude/hooks/PostToolUse/python_posttooluse_hook.sh
+
+# Skip all Python validation
+export CLAUDE_SKIP_PYTHON_VALIDATION=1
 ```
 
-### Validation Stages
+### Validation Rules
 
-1. **Critical Security Check** - Fast pattern matching for immediate vulnerabilities
-2. **Ruff Validation** - Comprehensive linting for syntax, security, and quality
-3. **Pyright Type Checking** - Type annotation validation (basic mode)
+- **Ruff subset:** F (pyflakes), E711/E712 (comparison), UP006/UP007/UP035/UP037 (modernization), T201 (print), S (security)
+- **Pyright:** Type checking in basic mode
+- **Enforcement:** Blocks Edit/Write on failure (hardest-blocking hook in system)
 
 ---
 
 ## SubagentStop Hook Debugging
 
-**Location:** `src/hooks/SubagentStop/log_subagent_stop.sh`
+**Location:** `hooks/SubagentStop/remind_todo_update.py` and `hooks/SubagentStop/trigger_verification.py`
 
-**Trigger:** When a subagent (Task-spawned agent) completes
+**Trigger:** When a subagent (Agent-spawned agent) completes
 
-### Problem: Subagent completion not logged or parallel state not updated
+**What these hooks do:**
+- `remind_todo_update.py`: Async reminder to update task status (non-blocking)
+- `trigger_verification.py`: Prompt for verification step after subagent completion
+
+### Problem: Subagent completion not triggering reminders or verification
 
 **Diagnosis:**
 
 ```bash
-# Check session log for subagent stops
-tail -50 /tmp/claude_session_log.txt | grep SUBAGENT_STOP
+# Check if SubagentStop hooks are registered
+cat ~/.claude/hooks/plugin-hooks.json | jq '.hooks.SubagentStop'
 
-# Check parallel execution state
-cat .claude/state/active_delegations.json | jq .
+# Enable debug logging
+export DEBUG_DELEGATION_HOOK=1
 
-# Manually trigger hook
-export CLAUDE_SESSION_ID=test_subagent
-export CLAUDE_PARENT_SESSION_ID=test_parent
-bash ~/.claude/hooks/SubagentStop/log_subagent_stop.sh
+# Watch for SubagentStop in logs
+tail -f /tmp/delegation_hook_debug.log &
 
-# Verify log entry
-grep test_subagent /tmp/claude_session_log.txt
+# Let a subagent complete and observe
+# (Either through /workflow-orchestrator:delegate or Agent tool)
 ```
 
 ### Common Issues
 
 | Issue | Solution |
 |-------|----------|
-| Parent session ID missing | Hook needs CLAUDE_PARENT_SESSION_ID |
-| active_delegations.json corrupted | Check JSON syntax with `jq` |
-| Wave synchronization failure | Verify all Wave N subagents have SUBAGENT_STOP entries |
+| Hooks not triggering | Verify `CLAUDE_PARENT_SESSION_ID` is set (set by Claude Code for subagents) |
+| Reminders not appearing | Check if `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` is set (disables async hooks) |
+| Async hooks blocked | On Windows, async may not work; disable with `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` if problematic |
 
-### Test Wave Synchronization
+### Related
 
-```bash
-# Create test parallel workflow state
-cat > .claude/state/active_delegations.json << 'EOF'
-{
-  "version": "2.0",
-  "workflow_id": "test_workflow",
-  "execution_mode": "parallel",
-  "active_delegations": [
-    {"delegation_id": "d1", "session_id": "s1", "wave": 1, "status": "active"},
-    {"delegation_id": "d2", "session_id": "s2", "wave": 1, "status": "active"}
-  ]
-}
-EOF
-
-# Simulate first subagent stop
-export CLAUDE_SESSION_ID=s1
-bash ~/.claude/hooks/SubagentStop/log_subagent_stop.sh
-
-# Check d1 marked complete
-cat .claude/state/active_delegations.json | jq '.active_delegations[] | select(.delegation_id=="d1")'
-
-# Simulate second subagent stop (should trigger wave sync)
-export CLAUDE_SESSION_ID=s2
-bash ~/.claude/hooks/SubagentStop/log_subagent_stop.sh
-
-# Check both complete
-cat .claude/state/active_delegations.json | jq '.active_delegations'
-```
-
-### Expected Log Format
-
-```
-[2025-01-11 14:32:15] SUBAGENT_STOP session_id=sess_def456 parent=sess_abc123 duration=113s exit_code=0
-```
+- `remind_todo_update.py` — Async, reminds to call TaskUpdate (safe to disable)
+- `trigger_verification.py` — Suggests verification step before next wave
 
 ---
 
 ## Stop Hook Debugging
 
-**Location:** `src/hooks/stop/python_stop_hook.sh`
+**Location:** `hooks/stop/python_stop_hook.py`
 
 **Trigger:** End of main Claude Code session
+
+**What it does:**
+1. Calculates session duration (if start timestamp exists)
+2. Logs quality metrics and workflow continuation signals
+3. Cleans up stale task state files
+4. Runs asynchronously (non-blocking)
 
 ### Problem: Session cleanup not occurring
 
 **Diagnosis:**
 
 ```bash
-# Check session log for STOP entries
-tail -50 /tmp/claude_session_log.txt | grep SESSION_STOP
+# Check if Stop hook is registered
+cat ~/.claude/hooks/plugin-hooks.json | jq '.hooks.Stop'
 
-# Check stale session cleanup
-ls -la .claude/state/delegated_sessions.txt
-stat .claude/state/delegated_sessions.txt  # Check file age
+# Check turn duration state
+cat .claude/state/last_turn_duration.txt
+cat .claude/state/turn_durations.json
 
-# Manually trigger hook
-export CLAUDE_SESSION_ID=test_session
-bash ~/.claude/hooks/stop/python_stop_hook.sh
+# Check for workflow continuation signal
+cat .claude/state/workflow_continuation_needed.json 2>/dev/null && echo "Continuation needed" || echo "No continuation needed"
 
-# Verify log entry
-grep "SESSION_STOP.*test_session" /tmp/claude_session_log.txt
+# Enable debug logging
+export DEBUG_DELEGATION_HOOK=1
+# Then end a session and check /tmp/delegation_hook_debug.log
 ```
 
 ### Common Issues
 
 | Issue | Solution |
 |-------|----------|
-| Hook not running on exit | Verify hook registration in settings.json |
-| Stale sessions not cleaned | Check cleanup logic (removes sessions >1 hour old) |
-| State validation errors | Check parallel workflow state schema |
+| Hook not running on session exit | Verify hook registration in plugin-hooks.json |
+| Async nature | Stop hook is async, so output may not display. Check state files instead. |
+| Stale state not cleaning | Hook runs asynchronously; cleanup happens in background |
 
-### Test Stale Session Cleanup
+### Turn Duration Tracking
 
-```bash
-# Create old session entry
-mkdir -p .claude/state
-echo "old_session_123" > .claude/state/delegated_sessions.txt
-
-# Age the file (macOS/BSD syntax)
-touch -t 202501010000 .claude/state/delegated_sessions.txt
-
-# Run stop hook (should remove old session)
-bash ~/.claude/hooks/stop/python_stop_hook.sh
-
-# Verify file cleaned
-cat .claude/state/delegated_sessions.txt  # Should be empty or removed
-```
-
-### Expected Log Format
-
-```
-[2025-01-11 14:35:00] SESSION_STOP session_id=sess_abc123 duration=278s
-```
+The Stop hook records turn duration in:
+- `.claude/state/last_turn_duration.txt` — Most recent turn duration
+- `.claude/state/turn_durations.json` — Last 10 durations (for sparkline in statusline)
 
 ---
 
@@ -494,92 +461,109 @@ This test validates the entire hook system end-to-end:
 # Enable debug logging
 export DEBUG_DELEGATION_HOOK=1
 
-# 1. SessionStart: Initialize
-export CLAUDE_SESSION_ID=integration_test_001
-bash ~/.claude/hooks/SessionStart/log_session_start.sh
-grep SESSION_START /tmp/claude_session_log.txt | tail -1
+# 1. SessionStart: Inject stub on session start
+# (happens automatically at session begin)
+echo "Check debug log for SessionStart activity"
+tail /tmp/delegation_hook_debug.log | grep SessionStart
 
-# 2. UserPromptSubmit: Clear state
-bash ~/.claude/hooks/UserPromptSubmit/clear-delegation-sessions.sh
-cat .claude/state/delegated_sessions.txt  # Should be empty
+# 2. UserPromptSubmit: Reset per-turn state (happens on new user message)
+# Submit any message to Claude Code
+# Then check state was reset
+cat .claude/state/delegation_violations.json  # Counter should be 0 or low
 
-# 3. PreToolUse: Block Read (not registered)
-export CLAUDE_TOOL_NAME=Read
-bash ~/.claude/hooks/PreToolUse/require_delegation.sh && echo "FAIL: Should block" || echo "PASS: Blocked"
+# 3. PreToolUse: Nudge on work-tool calls
+# Call a work tool (e.g., Read)
+Read some_file.py
+# Should show nudge on stderr based on counter
+cat .claude/state/delegation_violations.json  # Counter should increment
 
-# 4. PreToolUse: Allow SlashCommand (triggers registration)
-export CLAUDE_TOOL_NAME=SlashCommand
-bash ~/.claude/hooks/PreToolUse/require_delegation.sh && echo "PASS: Allowed" || echo "FAIL: Should allow"
-cat .claude/state/delegated_sessions.txt  # Should contain integration_test_001
+# 4. PreToolUse: Skip checks for delegation
+/workflow-orchestrator:delegate "Create test.py"
+# Debug log should show delegation_active flag set
+cat .claude/state/delegation_violations.json  # Counter should reset to 0
 
-# 5. PreToolUse: Allow Read (now registered)
-export CLAUDE_TOOL_NAME=Read
-bash ~/.claude/hooks/PreToolUse/require_delegation.sh && echo "PASS: Allowed" || echo "FAIL: Should allow"
-
-# 6. PostToolUse: Validate Python file
+# 5. PostToolUse: Validate Python file
+# (happens automatically after Write on .py files)
 cat > /tmp/integration_test.py << 'EOF'
 def hello() -> str:
     return "world"
 EOF
-export CLAUDE_TOOL_NAME=Write
-export CLAUDE_TOOL_ARGUMENTS='{"file_path":"/tmp/integration_test.py"}'
-bash ~/.claude/hooks/PostToolUse/python_posttooluse_hook.sh && echo "PASS: Validation" || echo "FAIL: Validation"
+Write /tmp/integration_test.py
+# Should complete without blocking (valid Python)
 
-# 7. SubagentStop: Log completion
-export CLAUDE_PARENT_SESSION_ID=integration_test_001
-export CLAUDE_SESSION_ID=integration_test_subagent
-bash ~/.claude/hooks/SubagentStop/log_subagent_stop.sh
-grep SUBAGENT_STOP /tmp/claude_session_log.txt | tail -1
+# 6. Test security validation
+cat > /tmp/test_bad.py << 'EOF'
+import pickle
+data = pickle.loads(user_input)
+EOF
+Write /tmp/test_bad.py
+# Should fail with S301 security error (blocks)
 
-# 8. Stop: Cleanup
-export CLAUDE_SESSION_ID=integration_test_001
-bash ~/.claude/hooks/stop/python_stop_hook.sh
-grep SESSION_STOP /tmp/claude_session_log.txt | tail -1
+# 7. SubagentStop: Completion reminders (async, happens in background)
+# Agent tool completion should trigger reminders
 
-# Verify complete lifecycle in debug log
-tail -100 /tmp/delegation_hook_debug.log | grep integration_test
+# 8. Stop: Session cleanup (happens on session end)
+# Exit session and check state files are cleaned
 ```
 
-### Expected Output
+### Testing Soft Enforcement
 
+Test the nudge escalation:
+
+```bash
+# Enable debug logging
+export DEBUG_DELEGATION_HOOK=1
+
+# Turn 1: First work-tool call (silent or hint)
+Read file1.py
+# Check counter: .claude/state/delegation_violations.json
+
+# Turn 2: Second work-tool call (nudge escalates)
+# Prompt Claude with new message first
+Read file2.py
+# Watch stderr for escalated message
+
+# Turn 3: Third call (warning)
+Read file3.py
+# Note higher-token warning message
+
+# Use delegation to reset
+/workflow-orchestrator:delegate "Create something"
+# Counter resets to 0
+
+# Next turn: Fresh start
+Read file4.py
+# Back to silent/hint
 ```
-SESSION_START session_id=integration_test_001
-PASS: Blocked
-PASS: Allowed
-integration_test_001 (in delegated_sessions.txt)
-PASS: Allowed
-PASS: Validation
-SUBAGENT_STOP session_id=integration_test_subagent parent=integration_test_001
-SESSION_STOP session_id=integration_test_001
-```
 
-### Troubleshooting Failed Integration Tests
+### Troubleshooting Failed Tests
 
-If any step fails, check:
+If hooks aren't working:
 
-1. **Hook script syntax:** `bash -n <script>`
-2. **Permissions:** `ls -la`, `chmod +x`
-3. **Environment variables:** `env | grep CLAUDE`
-4. **Debug log:** `tail /tmp/delegation_hook_debug.log`
+1. **Verify plugin installation:** `ls -la ~/.claude/hooks/plugin-hooks.json`
+2. **Check Python availability:** `python3 --version` (need 3.12+)
+3. **Enable debug:** `export DEBUG_DELEGATION_HOOK=1` and watch `/tmp/delegation_hook_debug.log`
+4. **Check state directory:** `ls -la .claude/state/` (must be writable)
+5. **Verify env vars:** `echo $CLAUDE_PROJECT_DIR` (affects state file location)
 
 ### Hook Lifecycle Diagram
 
 ```
-SessionStart (initialize)
+SessionStart (inject stub + optional token guide)
          |
-UserPromptSubmit (clear delegation state)
+UserPromptSubmit (reset per-turn nudge counter, clear state)
          |
-Main Claude receives message
+User submits message
          |
-PreToolUse (check/block tools, register session)
+PreToolUse (nudge on work-tools, validate task graph, rewrite Bash)
          |
 Tool executes
          |
-PostToolUse (validate Python code if Write/Edit)
+PostToolUse (Python validation if Write/Edit, workflow signals, depth check)
          |
-SubagentStop (if subagent completes)
+SubagentStop (async reminders and verification)
          |
-Stop (cleanup on session exit)
+Stop (turn duration, cleanup)
 ```
 
 ---

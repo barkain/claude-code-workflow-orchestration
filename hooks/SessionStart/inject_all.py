@@ -10,8 +10,10 @@ Combines all SessionStart hooks into a single script to avoid
 
 Injects:
 1. Orchestrator routing stub (orchestrator_stub.md)
-2. Output style (technical-adaptive.md)
-3. Token-efficient CLI guidelines (token_efficient_cli.md, gated by env var)
+2. Token-efficient CLI guidelines (token_efficient_cli.md, gated by env var)
+
+Note: technical-adaptive output style is loaded natively by Claude Code from
+plugin.json's outputStyles field — no hook injection required.
 """
 
 import io
@@ -105,14 +107,9 @@ def main() -> int:
     if content := find_orchestrator_stub(plugin_dir):
         parts.append(content)
 
-    # 2. Output style
-    if content := read_file_safe(
-        plugin_dir / "output-styles" / "technical-adaptive.md",
-        "output-style",
-    ):
-        parts.append(content)
-
-    # 3. Token efficiency (gated by env var, default: enabled)
+    # 2. Token efficiency (gated by env var, default: enabled)
+    # Note: output-style (technical-adaptive.md) is loaded natively by Claude Code
+    # via plugin.json's outputStyles field — no injection needed here.
     if os.environ.get("CLAUDE_TOKEN_EFFICIENCY", "1") != "0":
         if content := read_file_safe(
             plugin_dir / "system-prompts" / "token_efficient_cli.md",

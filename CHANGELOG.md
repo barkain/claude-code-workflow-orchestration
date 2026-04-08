@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.0] - 2026-04-08
+
+Re-tag of `1.18.0` as a major release to honor semver. The same code, tagged honestly.
+
+### BREAKING CHANGES
+
+- **`/workflow-orchestrator:bypass` command removed.** `commands/bypass.md` is deleted. The command is no longer needed under soft enforcement (nothing to bypass) but anyone with it in muscle memory or in scripts will get "command not found".
+- **Hard-blocking delegation enforcement removed.** The delegation hook no longer blocks tool calls — it nudges. Workflows that relied on the framework physically preventing direct tool calls now find those calls go through. See "Soft enforcement" in the 1.18.0 notes below for the new behavior.
+- **`system-prompts/workflow_orchestrator.md` removed.** Anyone using `claude --append-system-prompt "$(cat ~/.claude/system-prompts/workflow_orchestrator.md)"` is broken. The full orchestrator logic now lives inline in `commands/delegate.md` and is loaded on-demand by the slash command.
+- **Tool allowlist removed.** There is no longer an allowlist to maintain. The hook tracks only the 8 stable work primitives (`Bash`, `Edit`, `Write`, `Read`, `Glob`, `Grep`, `MultiEdit`, `NotebookEdit`); new Claude Code tools never trigger nudges. Anyone who customized the allowlist needs to delete those customizations.
+- **Output style loading mechanism changed.** `output-styles/technical-adaptive.md` is now loaded natively from `plugin.json`'s `outputStyles` field instead of via a SessionStart hook. Custom integrations that injected the output style themselves should remove that injection.
+
+See `[1.18.0]` below for the full release notes — the content is identical.
+
 ## [1.18.0] - 2026-04-08
 
 ### Changed

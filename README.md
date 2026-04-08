@@ -272,14 +272,14 @@ The `plugin-hooks.json` configures the delegation enforcement hooks using cross-
 The `inject_all.py` hook consolidates 3 SessionStart hooks into 1 Python script:
 
 **On startup/resume (all sessions):**
-- Injects orchestrator stub (`orchestrator_stub.md`, ~1.1KB): registers `/workflow-orchestrator:delegate` and `/workflow-orchestrator:bypass` commands. Minimal overhead (~200 tokens).
+- Injects orchestrator routing stub (`orchestrator_stub.md`, ~1.1KB): points the main agent at `/workflow-orchestrator:delegate` for multi-step work. Minimal overhead (~200 tokens).
 - Optionally injects token-efficient CLI guide (`token_efficient_cli.md`, ~1.9KB, gated by `CLAUDE_TOKEN_EFFICIENCY=1` env var). Teaches compact flags and command patterns.
 - Output style loaded natively from plugin.json `outputStyles` field (no injection required). Saves ~1.5K tokens.
 
 **On first delegation (lazy load):**
-- Full `workflow_orchestrator.md` (~7.5KB) loaded only when `/workflow-orchestrator:delegate` runs or multi-step detected.
+- Full orchestrator logic (planning instructions, agent catalog, wave scheduling, team-mode execution) lives inline in `commands/delegate.md` and is loaded only when `/workflow-orchestrator:delegate` runs.
 
-**Net savings:** ~6.6K tokens off session startup. Sessions pay only for orchestrator when delegation is used.
+**Net savings:** ~6.6K tokens off session startup. Sessions pay the orchestration tax only when delegation is actually used.
 
 **What this enables:**
 - Multi-step task detection via pattern matching
@@ -347,9 +347,9 @@ The `/workflow-orchestrator:delegate` command provides intelligent task delegati
 6. Creates task list via TaskCreate
 7. Exits plan mode (ExitPlanMode) and executes phases as directed by the plan
 
-### 4. Workflow Orchestration System Prompt (`system-prompts/workflow_orchestrator.md`)
+### 4. Orchestrator Command (`commands/delegate.md`)
 
-Enables multi-step workflow detection and preparation for complex tasks. Works in conjunction with native plan mode (EnterPlanMode/ExitPlanMode).
+The `/workflow-orchestrator:delegate` slash command loads the full orchestrator logic on demand: multi-step detection, plan-mode instructions, agent catalog, wave scheduling, and team-mode execution. Works in conjunction with native plan mode (EnterPlanMode/ExitPlanMode).
 
 **Activate via:**
 Simply start a Claude code session

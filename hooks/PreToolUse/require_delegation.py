@@ -150,5 +150,8 @@ if __name__ == "__main__":
     try:
         sys.exit(main())
     except Exception as e:  # noqa: BLE001
+        # Surface internal errors per hook exit-code policy (1 = hook error).
+        # Exit 1 is a non-blocking error in Claude Code — the tool call still
+        # proceeds, but the failure is visible in debug output.
         logger.error("require_delegation hook error: %s", e)
-        sys.exit(0)  # Never block, even on internal errors
+        sys.exit(1)

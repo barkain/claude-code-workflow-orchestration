@@ -16,6 +16,7 @@ import json
 import logging
 import os
 import sys
+import tempfile
 from pathlib import Path
 
 # Force UTF-8 output on Windows (fixes emoji encoding errors)
@@ -23,11 +24,11 @@ if sys.platform == "win32":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
-# Setup debug logging
+# Setup debug logging (cross-platform temp path)
 DEBUG = os.environ.get("DEBUG_DELEGATION_HOOK", "0") == "1"
 if DEBUG:
     logging.basicConfig(
-        filename="/tmp/delegation_hook_debug.log",  # noqa: S108
+        filename=str(Path(tempfile.gettempdir()) / "delegation_hook_debug.log"),
         level=logging.DEBUG,
         format="%(asctime)s - remind_skill_continuation - %(message)s",
     )
@@ -65,7 +66,7 @@ def _create_continuation_state(reason: str) -> None:
             "additionalContext": CONTINUATION_CONTEXT,
         }
     }
-    print(json.dumps(output, ensure_ascii=False))  # noqa: T201 — hook stdout JSON
+    sys.stdout.write(json.dumps(output, ensure_ascii=False) + "\n")
 
 
 def _zero_violations_counter() -> None:

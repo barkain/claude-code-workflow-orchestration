@@ -171,7 +171,7 @@ Two team workflow patterns:
 - Agents use conditional COMMUNICATION MODE (teammate messaging vs `DONE|{path}`)
 - State files: `.claude/state/team_mode_active`, `.claude/state/team_config.json`
 
-Agent selection uses keyword matching (≥2 matches threshold, highest count wins). Falls back to general-purpose if 0-1 matches. See `system-prompts/workflow_orchestrator.md` for keyword lists.
+Agent selection uses keyword matching (≥2 matches threshold, highest count wins). Falls back to general-purpose if 0-1 matches. See `commands/delegate.md` (Available Specialized Agents section) for keyword lists.
 
 Agent config format: YAML frontmatter (`name`, `description`, optional `tools`/`model`/`color`) + markdown system prompt body. All agents enforce `DONE|{output_file}` return format. Custom agent instructions include:
 - Return format must be exactly `DONE|{output_file_path}` (no summaries or explanations)
@@ -270,7 +270,7 @@ ls .claude/state/delegation_active 2>/dev/null  # delegation in progress?
 ```
 
 **Multi-step not detected:**
-Ensure SessionStart hooks are installed (inject_workflow_orchestrator.py) so that workflow_orchestrator.md is injected and native plan mode (EnterPlanMode/ExitPlanMode) is available. Use connectors in prompts: "and then", "with", "including".
+Ensure the SessionStart hook is installed (`hooks/SessionStart/inject_all.py`) so `orchestrator_stub.md` is injected and the main agent knows to route multi-step work through `/workflow-orchestrator:delegate`. Use connectors in prompts: "and then", "with", "including".
 
 **TeamCreate blocked:**
 ```bash

@@ -168,7 +168,6 @@ and then prompt claude with:
   add a nice UI and use NextJS/Tailwind to build this out.
   the backend should be implemented in python as a modern uv project.
   add verification steps after each phase.
-  add ralph loop as a final verification step
 ```
 
 **What happens:**

@@ -472,7 +472,7 @@ rm -f .claude/state/team_mode_active .claude/state/team_config.json
 
 ### Multi-Step Not Detected
 
-- [ ] Is workflow_orchestrator.md appended? Use `--append-system-prompt`
+- [ ] Is the SessionStart hook installed? Check `ls ~/.claude/hooks/SessionStart/inject_all.py` — it injects `orchestrator_stub.md` which routes multi-step work through `/workflow-orchestrator:delegate`.
 - [ ] Does task have multi-step indicators?
   - Sequential connectors: "and then", "with", "including"
   - Multiple verbs: "create", "test", "verify"
@@ -535,9 +535,8 @@ rm -f .claude/state/team_mode_active .claude/state/team_config.json
 ### Multi-Step Workflow
 
 ```bash
-# Append orchestrator and run workflow
-claude --append-system-prompt "$(cat ~/.claude/system-prompts/workflow_orchestrator.md)" \
-  "Create calculator.py with tests and verify they pass"
+# Invoke the orchestrator via slash command — it loads commands/delegate.md on demand.
+/workflow-orchestrator:delegate Create calculator.py with tests and verify they pass
 ```
 
 ### Debug Mode

@@ -746,7 +746,7 @@ This file demonstrates:
 ## Related Documentation
 
 - **Validation System Implementation:** `docs/phase-b-validation-implementation.md`
-- **Workflow Orchestration:** `system-prompts/workflow_orchestrator.md`
+- **Workflow Orchestration:** `commands/delegate.md`
 - **Delegation Architecture:** `CLAUDE.md` (Architecture Overview section)
 - **State Management:** `.claude/state/` directory structure
 

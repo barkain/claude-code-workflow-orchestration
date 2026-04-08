@@ -4,28 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
-## Critical: Delegation Policy
+## Delegation Policy (Soft Enforcement)
 
-**MANDATORY IMMEDIATE DELEGATION ON TOOL BLOCK**
+The framework nudges via stderr when the main agent uses work-doing tools (`Bash`, `Edit`, `Write`, `Read`, `Glob`, `Grep`, `MultiEdit`, `NotebookEdit`) directly. **Nudges never block.** They escalate by per-turn violation count: silent → short hint → warning → strong reminder. The counter resets each turn and zeros when `/workflow-orchestrator:delegate` runs.
 
-When ANY tool is blocked by the delegation policy hook:
-
-1. **DO NOT try alternative approaches** - just delegate immediately
-2. **IMMEDIATELY use `/workflow-orchestrator:delegate <task>`** on first tool block
-3. **The entire user request must be delegated**, not just the blocked tool
-
-### Recognition Pattern
+The expected path for any multi-step or work-shaped request is:
 
 ```
-Error: PreToolUse:* hook error: [...] Tool blocked by delegation policy
-Tool: <ToolName>
-
-STOP: Do NOT try alternative tools.
-REQUIRED: Use /workflow-orchestrator:delegate command immediately:
-   /workflow-orchestrator:delegate <full task description>
+/workflow-orchestrator:delegate <task description>
 ```
 
-First tool block = immediate delegation. Don't try alternatives, don't explain — just delegate.
+Subagents are immune (they're executing a delegation). New tools added by Claude Code never trigger nudges — only the 8 stable work primitives are tracked.
 
 ---
 
@@ -62,7 +51,6 @@ CI workflow exists (`.github/workflows/ci.yml`) but tests are currently disabled
 ```bash
 /workflow-orchestrator:delegate <task>   # Plan and execute task via native plan mode
 /workflow-orchestrator:ask <question>    # Read-only question answering (forked context)
-/workflow-orchestrator:bypass            # Toggle delegation enforcement on/off (persists until toggled)
 /workflow-orchestrator:add-statusline    # Enable workflow status display
 ```
 
@@ -78,7 +66,7 @@ In plugin mode, all commands and agent names use the `workflow-orchestrator:` pr
 
 ### Execution Flow
 
-**Token overhead:** Conditional injection (stub ~200 tokens on startup, full ~11K tokens on first delegation) + per-agent delegation (~350 tokens)
+**Token overhead:** Conditional injection (stub ~200 tokens on startup, full ~7.5K tokens on first delegation, optional token-efficient guide ~1.9K) + per-agent delegation (~350 tokens)
 
 ```
 User prompt
@@ -111,37 +99,36 @@ User prompt
 
 | Event | Scripts | Purpose |
 |-------|---------|---------|
-| **PreToolUse** (`*`, `Bash`) | `validate_task_graph_compliance.py`, `require_delegation.py`, `token_rewrite_hook.py` (Bash only) | Validate Agent/Task invocations against active task graph; block non-allowed tools (compressed error messages); rewrite Bash commands for token efficiency (cd && pattern, eslint, next, tsc) |
-| **PostToolUse** | `python_posttooluse_hook.py` (Edit/Write/MultiEdit), `remind_skill_continuation.py` (ExitPlanMode\|Skill\|SlashCommand), `validate_task_graph_depth.py` + `remind_todo_after_task.py` (Agent/Task) | Python validation (Ruff, Pyright, security), workflow continuation state (triggers on ExitPlanMode for plan mode flows), depth-3 enforcement, task reminders |
-| **UserPromptSubmit** | `clear-delegation-sessions.py` | Clear delegation state, record turn start timestamp, clear team state (`team_mode_active`, `team_config.json`), rotate logs |
-| **SessionStart** (`startup\|resume\|clear\|compact`) | `inject_workflow_orchestrator.py`, `inject-output-style.py`, `inject_token_efficiency.py` | Inject conditional orchestrator (stub on startup, full on /workflow-orchestrator:delegate), output style, token efficiency guidance |
+| **PreToolUse** (`*`, `Bash`) | `validate_task_graph_compliance.py` (advisory), `require_delegation.py` (adaptive nudge), `token_rewrite_hook.py` (Bash only) | Hint on out-of-order Agent/Task spawns; emit per-turn escalating delegation nudge (silent → strong); rewrite Bash for token-efficient output |
+| **PostToolUse** | `python_posttooluse_hook.py` (Edit/Write/MultiEdit, **blocking**), `remind_skill_continuation.py` (ExitPlanMode\|Skill\|SlashCommand), `validate_task_graph_depth.py` (advisory) + `remind_todo_after_task.py` (Agent/Task) | Python validation (Ruff, Pyright, security — only hard-blocking hook); workflow continuation + zero violations counter on `/workflow-orchestrator:delegate`; depth hint; task reminders |
+| **UserPromptSubmit** | `clear-delegation-sessions.py` | Reset per-turn state (timestamp, violations counter), clear team state, rotate logs |
+| **SessionStart** (`startup\|resume\|clear\|compact`) | `inject_all.py` | Consolidated injection (orchestrator stub + token efficiency). Output style is loaded natively from plugin.json's `outputStyles` field |
 | **SubagentStop** (`*`) | `remind_todo_update.py` (async), `trigger_verification.py` | Remind to update tasks, suggest verification |
-| **Stop** | `python_stop_hook.py` | Turn duration, workflow continuation (block stop + inject "continue"), quality analysis |
+| **Stop** | `python_stop_hook.py` | Turn duration, workflow continuation, quality analysis |
 
 Hook config source of truth: `hooks/plugin-hooks.json` (not settings.json). All hooks are Python for cross-platform compatibility (Windows/macOS/Linux).
 
-### Tool Allowlist
+### Soft Enforcement (Adaptive Nudges)
 
-Main agent can only use: `AskUserQuestion`, `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet`, `Skill`, `SlashCommand`, `Agent`, `Task`, `SubagentTask`, `AgentTask`, `EnterPlanMode`, `ExitPlanMode`, `ToolSearch`, `CronCreate`, `CronDelete`, `CronList`
+There is no allowlist. `require_delegation.py` tracks per-turn direct work-tool calls and writes a stderr message that escalates by count:
 
-Special cases:
-- `Write` tool allowed for temp/scratchpad paths only (`/tmp/`, `/private/tmp/`, `/var/folders/`)
-- `TaskOutput` is **prohibited** (context exhaustion: ~20K tokens per agent)
-- `TaskList` polling loops are **prohibited** (use completion notifications instead)
+| Violations | Message | Tokens |
+|---|---|---|
+| 0 | (silent) | 0 |
+| 1 | `delegate?` | ~2 |
+| 2 | `nudge: use /workflow-orchestrator:delegate for multi-step work` | ~12 |
+| 3–4 | `WARNING: N direct tool calls bypassing delegation. Use /workflow-orchestrator:delegate <task>.` | ~25 |
+| 5+ | Strong reminder explaining what's being lost | ~55 |
 
-**Agent Teams tools** (conditional, requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`):
-- Explicit: `TeamCreate`, `SendMessage`
-- Teammates are spawned via `Agent` tool with `team_name` parameter (Agent is already in the main allowlist)
-- Pattern match: Any tool name containing `"team"` or `"teammate"` (case-insensitive) as safety net
+Tracked tools (the only ones that count as violations): `Bash`, `Edit`, `Write`, `Read`, `Glob`, `Grep`, `MultiEdit`, `NotebookEdit`. These 8 stable primitives are the only ones monitored. New Claude Code tools never trigger nudges.
 
-### Bypass Mechanisms
+The counter:
+- Resets each turn (`UserPromptSubmit`)
+- Zeros when `/workflow-orchestrator:delegate` runs (slate clean — model chose the right path)
+- Is bypassed entirely for subagents (they're executing a delegation; `CLAUDE_PARENT_SESSION_ID` / `CLAUDE_AGENT_ID` set)
+- Is bypassed when `.claude/state/delegation_active` exists (delegation already in progress)
 
-| Mechanism | How | Scope |
-|-----------|-----|-------|
-| Env var | `DELEGATION_HOOK_DISABLE=1` | Session-wide |
-| `/workflow-orchestrator:bypass` command | Creates `.claude/state/delegation_disabled` | Persists until toggled |
-| Subagent auto-bypass | `CLAUDE_PARENT_SESSION_ID` set | Automatic for subagents |
-| Delegation active flag | `.claude/state/delegation_active` created on Skill/Agent/Task use | Per-delegation |
+The only hook that still hard-blocks is `python_posttooluse_hook.py` (Ruff/Pyright on edited Python files — stable surface, fix-forward UX).
 
 **Note:** The `task-planner` and `breadth-reader` skills have been removed. Planning and orchestration are provided by native plan mode (EnterPlanMode/ExitPlanMode). Read-only breadth tasks are handled by spawning parallel Explore agents or the codebase-context-analyzer directly.
 
@@ -174,13 +161,9 @@ Two team workflow patterns:
 - **Team mode (simple):** Single AGENT TEAM phase with `phase_type: "team"` and `teammates` array -- used for multi-perspective exploration (e.g., "explore from different angles")
 - **Team mode (complex):** Multiple individual phases across waves, all executed as teammates via `Agent(team_name=...)` -- used for collaborative implementation (e.g., "implement project, tasks should be collaborative"). The plan has `execution_mode: "team"` at the top level; no individual phase needs `phase_type: "team"`
 
-**Mode selection** is based on TeamCreate tool availability (detected during plan mode):
-- **If TeamCreate tool is available** (CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 is set): Calculate `team_mode_score` to determine whether to use team mode or subagent mode
-  - Phase count >8: +2, Tier 3 complexity: +2, cross-phase data flow: +3
-  - Review-fix cycles: +3, iterative refinement: +2, user keyword "collaborate"/"team": +5
-  - Breadth task: -5, phase count <=3: -3
-  - Default to team mode (score not calculated, absent, or > -3); use subagent mode only when score <= -3
-- **If TeamCreate tool is not available** (env var not set): Always use subagent mode (≥2 subtasks mandatory)
+**Mode selection** is based on ONE RULE (detected during plan mode):
+- **If TeamCreate tool is available** (CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 is set): `execution_mode: "team"`
+- **If TeamCreate tool is not available** (env var not set): `execution_mode: "subagent"` (≥2 subtasks mandatory)
 
 **When team mode is active:**
 - `validate_task_graph_compliance.py` hook is bypassed (team handles dependencies)
@@ -188,7 +171,7 @@ Two team workflow patterns:
 - Agents use conditional COMMUNICATION MODE (teammate messaging vs `DONE|{path}`)
 - State files: `.claude/state/team_mode_active`, `.claude/state/team_config.json`
 
-Agent selection uses keyword matching (≥2 matches threshold, highest count wins). Falls back to general-purpose if 0-1 matches. See `system-prompts/workflow_orchestrator.md` for keyword lists.
+Agent selection uses keyword matching (≥2 matches threshold, highest count wins). Falls back to general-purpose if 0-1 matches. See `commands/delegate.md` (Available Specialized Agents section) for keyword lists.
 
 Agent config format: YAML frontmatter (`name`, `description`, optional `tools`/`model`/`color`) + markdown system prompt body. All agents enforce `DONE|{output_file}` return format. Custom agent instructions include:
 - Return format must be exactly `DONE|{output_file_path}` (no summaries or explanations)
@@ -199,9 +182,8 @@ Agent config format: YAML frontmatter (`name`, `description`, optional `tools`/`
 
 | File | Purpose | Lifecycle |
 |------|---------|-----------|
-| `.claude/state/delegated_sessions.txt` | Session registry | Cleared per user prompt |
-| `.claude/state/delegation_active` | Subagent session flag | Per-delegation |
-| `.claude/state/delegation_disabled` | Bypass flag | Until `/bypass` toggle |
+| `.claude/state/delegation_violations.json` | Per-turn nudge counter (`{violations, delegations, turn_id}`) | Reset per user prompt; zeroed on `/workflow-orchestrator:delegate` |
+| `.claude/state/delegation_active` | Active-delegation flag (suppresses nudges) | Per-delegation |
 | `.claude/state/active_delegations.json` | Parallel wave tracking | Per-workflow |
 | `.claude/state/active_task_graph.json` | Task graph for validation | Per-workflow |
 | `.claude/state/workflow_continuation_needed.json` | Signal stop hook to auto-continue | Per-plan-mode exit (ExitPlanMode) |
@@ -233,7 +215,6 @@ Agent config format: YAML frontmatter (`name`, `description`, optional `tools`/`
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `DELEGATION_HOOK_DISABLE` | `0` | Emergency bypass (`1` to disable enforcement) |
 | `DEBUG_DELEGATION_HOOK` | `0` | Enable hook debug logging to `/tmp/delegation_hook_debug.log` |
 | `CLAUDE_MAX_CONCURRENT` | `8` | Max parallel agents per batch |
 | `CHECK_RUFF` | `1` | Skip Ruff validation (`0` to disable) |
@@ -284,12 +265,12 @@ tail -f /tmp/delegation_hook_debug.log
 
 **Check delegation state:**
 ```bash
-cat .claude/state/delegated_sessions.txt
-cat .claude/state/delegation_disabled    # bypass active?
+cat .claude/state/delegation_violations.json   # current per-turn nudge counter
+ls .claude/state/delegation_active 2>/dev/null  # delegation in progress?
 ```
 
 **Multi-step not detected:**
-Ensure SessionStart hooks are installed (inject_workflow_orchestrator.py) so that workflow_orchestrator.md is injected and native plan mode (EnterPlanMode/ExitPlanMode) is available. Use connectors in prompts: "and then", "with", "including".
+Ensure the SessionStart hook is installed (`hooks/SessionStart/inject_all.py`) so `orchestrator_stub.md` is injected and the main agent knows to route multi-step work through `/workflow-orchestrator:delegate`. Use connectors in prompts: "and then", "with", "including".
 
 **TeamCreate blocked:**
 ```bash
@@ -299,7 +280,7 @@ export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
 The PreToolUse hook blocks all team tools (`TeamCreate`, `SendMessage`, pattern `*team*`/`*teammate*`) unless this env var is set. The hook auto-creates `.claude/state/team_mode_active` when the env var is "1" and a team tool is invoked.
 
 **Team mode not activating despite keywords:**
-Team mode is activated by tool availability detection during plan mode. Ensure `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is set before running a workflow that should use team mode. The planning phase evaluates `team_mode_score` based on task complexity and characteristics. Without the env var, plan mode always selects `"subagent"` mode (with ≥2 subtasks mandatory).
+Team mode is activated by tool availability detection during plan mode. Ensure `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is set before running a workflow that should use team mode. The planning phase checks if `TeamCreate` tool is available. If the env var is not set, `TeamCreate` is blocked by PreToolUse hook, so plan mode always selects `"subagent"` mode (with ≥2 subtasks mandatory).
 
 **Team state files stale after crash:**
 ```bash

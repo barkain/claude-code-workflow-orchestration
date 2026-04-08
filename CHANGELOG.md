@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.18.0] - 2026-04-08
+
+### Changed
+- **Soft enforcement replaces hard blocking**: `hooks/PreToolUse/require_delegation.py` no longer blocks tool calls. It emits per-turn escalating stderr nudges (silent → `delegate?` → `nudge: ...` → `WARNING: ...` → strong reminder) based on `.claude/state/delegation_violations.json`. The counter resets each turn and zeros when `/workflow-orchestrator:delegate` runs. Subagents are immune.
+- **Stable work-tool surface**: Only the 8 stable primitives (`Bash`, `Edit`, `Write`, `Read`, `Glob`, `Grep`, `MultiEdit`, `NotebookEdit`) are tracked. New Claude Code tools never trigger nudges — no more allowlist maintenance as Anthropic ships new tools.
+- **One-rule team mode selection**: Deleted the `team_mode_score` scoring table from `commands/delegate.md`. New rule — if `TeamCreate` is in the available tools, `execution_mode: "team"`; otherwise `"subagent"`. No scoring, no exceptions.
+- **Advisory-only validation hooks**: `validate_task_graph_compliance.py` and `validate_task_graph_depth.py` are now advisory (stderr hints, never block). `python_posttooluse_hook.py` (Ruff/Pyright) is the only remaining hard-blocking hook.
+
+### Fixed
+- **Team-mode persistent teammates**: Teammate `Agent(team_name=...)` calls must NOT use `run_in_background: true`. Background Agent tasks exit on completion and are not persistent swarm members, leaving the tmux session empty. Subagent-mode spawns still use `run_in_background: true`.
+
+### Removed
+- **`commands/bypass.md`**: No longer needed under soft enforcement.
+- **`system-prompts/workflow_orchestrator.md`**: Orphaned file (no Python loaded it). The full orchestrator logic lives inline in `commands/delegate.md` and is loaded on-demand by the slash command.
+
+### Documentation
+- **README walkthrough**: Replaced legacy 5-screenshot subagent flow with 4 team-mode screenshots (plan mode → dependency graph → tmux swarm → completion). New 4× speed demo gif (`assets/workflow-demo.gif`).
+- **Refreshed**: `README.md`, `CLAUDE.md`, `docs/hook-debugging.md`, `docs/ARCHITECTURE_QUICK_REFERENCE.md`, `docs/environment-variables.md`, `docs/plan-explore-parallel-processing.md`, `docs/validation-schema.md`.
+
+## [1.17.0] - 2026-04-06
+
+### Changed
+- **SessionStart hooks consolidated**: Combined `inject_workflow_orchestrator.py`, `inject-output-style.py`, `inject_token_efficiency.py` into single `inject_all.py` — reads stdin once, outputs merged additionalContext (~0.7s faster startup)
+- **Statusline version from stdin**: Reads `version` field from stdin JSON instead of spawning `claude --version` subprocess (920ms → 0ms per render)
+- **Statusline context from stdin**: Reads `context_window` from stdin JSON instead of parsing JSONL files (~1s faster per render)
+- **Cached version fallback**: Falls back to cached `claude --version` with 1-hour TTL when stdin unavailable
+
 ## [1.16.0] - 2026-04-06
 
 ### Fixed

@@ -48,15 +48,6 @@ def token_rewrite_hook() -> ModuleType:
 
 
 @pytest.fixture
-def inject_token_efficiency() -> ModuleType:
-    """Load inject_token_efficiency.py as a module."""
-    return load_module_from_file(
-        "inject_token_efficiency",
-        PROJECT_ROOT / "hooks" / "SessionStart" / "inject_token_efficiency.py",
-    )
-
-
-@pytest.fixture
 def run_hook():
     """Run a hook script via subprocess, returning (stdout, stderr, returncode)."""
 

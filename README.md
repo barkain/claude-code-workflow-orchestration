@@ -8,9 +8,9 @@ See the delegation system in action:
 
 ## 🆕 What's New
 
-🤝 **Agent Teams Integration** — Native dual-mode execution: workflows automatically select between isolated subagents and collaborative Agent Teams (via `TeamCreate` + `Agent(team_name=...)` + `SendMessage`) based on task complexity scoring. Teammates communicate in real-time, share task lists, and self-coordinate. Enable with `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`.
+⚡ **Soft Enforcement & Lean Startup** — Replaces hard-blocking enforcement with adaptive per-turn nudges (silent → hint → warning → strong reminder). SessionStart injection trimmed ~6.6K tokens: stub orchestrator (~1.1KB) injected on startup, full orchestrator loaded only on first delegation. Output style loaded natively from plugin.json (no injection). Net result: lean sessions with automatic escalation when delegation is needed.
 
-⚡ **Statusline Performance** — Cold start optimized from ~28s to <0.1s through merged API calls and non-blocking background cache refresh.
+🤝 **Agent Teams Integration** — Native dual-mode execution: workflows automatically select between isolated subagents and collaborative Agent Teams (via `TeamCreate` + `Agent(team_name=...)` + `SendMessage`) based on tool availability. Teammates communicate in real-time, share task lists, and self-coordinate. Enable with `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`.
 
 ## Overview
 
@@ -18,7 +18,8 @@ This system uses Claude Code's hook mechanism to create a delegation-enforced wo
 
 ### Key Features
 
-- **Enforced Delegation** - PreToolUse hooks block direct tool usage, forcing delegation to specialized agents
+- **Soft Enforcement via Adaptive Nudges** - No hard blocks. PreToolUse hook emits per-turn escalating stderr reminders (silent → hint → warning → strong) when main agent bypasses `/workflow-orchestrator:delegate`. Subagents immune. Nudge counter resets each turn and zeros when delegation runs.
+- **Lean SessionStart Injection** - Consolidated 3 hooks into 1 Python script. Stub orchestrator (~1.1KB) on startup + optional token-efficient CLI guide, full orchestrator (~7.5KB) loaded on-demand. Output style loaded natively from plugin.json (no injection). Saves ~6.6K tokens off session start.
 - **8 Specialized Agents** - Each agent has domain expertise (code cleanup, testing, architecture, DevOps, etc.)
 - **Native Plan Mode** - Built-in plan mode (EnterPlanMode/ExitPlanMode) handles planning, agent selection, and execution orchestration
 - **Intelligent Multi-Step Workflows** - Sequential execution for dependent phases, parallel for independent phases
@@ -27,7 +28,7 @@ This system uses Claude Code's hook mechanism to create a delegation-enforced wo
 - **Tasks API Integration** - Native task tracking via TaskCreate, TaskUpdate, TaskList, TaskGet with structured metadata
 - **Structured Task Metadata** - Wave assignments, phase IDs, agent assignments, and dependencies encoded in task metadata
 - **Async Hook Support** - Non-blocking background tasks for reminders and cleanup operations
-- **Stateful Session Management** - Fresh delegation enforcement per user message with session registry
+- **Stateful Session Management** - Fresh delegation enforcement per user message with per-turn nudge counter
 - **Smart Dependency Analysis** - Automatically analyzes phase dependencies to determine optimal execution mode
 - **Parallel Execution Support** - Executes independent phases concurrently with automatic wave synchronization
 - **Visualization & Debugging** - Comprehensive logging and debug tools for understanding delegation decisions
@@ -51,7 +52,7 @@ The system uses a two-stage execution pipeline:
   - **Team mode (experimental):** Native Agent Teams via `TeamCreate` + `Agent(team_name=...)`. Teammates share context, communicate via `SendMessage`, and self-coordinate through shared task lists. Requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`.
 - Results consolidated and summary provided
 
-**Execution Mode Selection:** Plan mode calculates a `team_mode_score` to choose between subagent mode (isolated, context-efficient) and team mode (collaborative, real-time communication). For subagent mode, it further selects sequential (context preservation, dependencies) or parallel (time savings, independence) based on phase dependency analysis.
+**Execution Mode Selection:** If `TeamCreate` is in available tools → `execution_mode: "team"`. Otherwise → `"subagent"`. Tool availability is the only signal (set `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` to enable). For subagent mode, plan mode further selects sequential (context preservation, dependencies) or parallel (time savings, independence) based on phase dependency analysis.
 
 
 ## Quick Start
@@ -167,49 +168,52 @@ and then prompt claude with:
   add a nice UI and use NextJS/Tailwind to build this out.
   the backend should be implemented in python as a modern uv project.
   add verification steps after each phase.
-  add ralph loop as a final verification step
 ```
 
 **What happens:**
-1. First, the main agent enters native plan mode (EnterPlanMode) to:
-   - Analyze task complexity (single-step vs multi-step)
-   - Decompose into atomic subtasks
-   - Assign specialized agents via keyword matching
-   - Create wave assignments for parallel/sequential execution
-   - Create tasks via TaskCreate and generate the execution plan
 
-   ![img_delegate.png](assets/img_delegate.png)
+1. The main agent enters native plan mode (`EnterPlanMode`) to decompose the request, assign specialized agents via keyword matching, schedule waves, and select an execution mode. Mode selection is one rule: if `TeamCreate` is available (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`), it picks **team mode**; otherwise **parallel subagents**.
 
-2. Once plan mode completes (ExitPlanMode), a task dependency graph is rendered and the user request is decomposed into parallel atomic subtasks:
+   ![plan mode](assets/img_plan_mode.png)
 
-    ![img_dependancy_graph.png](assets/img_dependancy_graph.png)
+2. After `ExitPlanMode` approval, a dependency graph is rendered showing the parallel waves and the agents assigned to each phase:
 
-3. Then, the sequential workflow with parallel subtasks can be initiated:
-   - wave 0:
+   ![dependency graph](assets/img_team_graph.png)
 
-   ![img_wave0.png](assets/img_wave0.png)
+3. In team mode, the lead calls `TeamCreate` once and then spawns each phase as a persistent teammate via `Agent(team_name=...)`. Teammates run concurrently in the swarm session and self-coordinate via `SendMessage`. Open the swarm view with `tmux -L claude-swarm-<id> a` to watch them work in real time:
 
-   - wave 1:
+   ![team swarm running](assets/img_team_swarm.png)
 
-   ![img_wave1.png](assets/img_wave1.png)
+4. As each wave completes, downstream phases unblock automatically. A final integration/verification phase confirms end-to-end correctness, then the team shuts down cleanly:
 
-4. Claude's native todo list is also getting updated in each step:
+   ![team complete](assets/img_team_complete.png)
 
-    ![img_toto_list.png](assets/img_todo_list.png)
+### Soft Enforcement in Action
 
-### Emergency Bypass
-
-Temporarily disable delegation enforcement if needed:
+The delegation system uses adaptive nudges instead of hard blocks:
 
 ```bash
-# From terminal (before starting Claude Code)
-export DELEGATION_HOOK_DISABLE=1
+# Turn 1: Direct tool call (silent)
+Read test.py
 
-# From within a Claude Code session (interactive toggle)
-/workflow-orchestrator:bypass
+# Turn 2: Another direct tool call (hint)
+Read other.py
+# stderr: "delegate?"
+
+# Turn 3: Third direct tool call (nudge)
+Edit file.py
+# stderr: "nudge: use /workflow-orchestrator:delegate for multi-step work"
+
+# Turn 4: Fourth direct tool call (warning)
+Bash command.sh
+# stderr: "WARNING: 3 direct tool calls bypassing delegation. Use /workflow-orchestrator:delegate <task>."
+
+# Delegation resets the counter (state clean)
+/workflow-orchestrator:delegate "Create feature"
+# Counter zeros. Next turn starts fresh.
 ```
 
-The `/workflow-orchestrator:bypass` command allows toggling delegation enforcement on/off from within a Claude Code session without restarting.
+Counter resets each user turn and zeros when `/workflow-orchestrator:delegate` runs. Subagents are immune. Use `/workflow-orchestrator:bypass` for emergency access without restarting.
 
 ## Environment Variables
 
@@ -256,22 +260,26 @@ The `plugin-hooks.json` configures the delegation enforcement hooks using cross-
 
 | Event | Scripts | Purpose |
 |-------|---------|---------|
-| **PreToolUse** | `validate_task_graph_compliance.py`, `require_delegation.py`, `token_rewrite_hook.py` (Bash only) | Validate task graph compliance; block non-delegated tools; rewrite Bash commands for token efficiency (cd && pattern, eslint, next, tsc support) |
-| **PostToolUse** | `python_posttooluse_hook.py` (Edit/Write), `remind_skill_continuation.py` (ExitPlanMode/Skill/SlashCommand), `validate_task_graph_depth.py` (Agent/Task), `remind_todo_after_task.py` (Agent/Task, async) | Python validation (Ruff/Pyright); workflow continuation state; depth-3 enforcement; task reminders |
-| **UserPromptSubmit** | `clear-delegation-sessions.py` | Clear delegation/team state, record turn timestamp |
-| **SessionStart** | `inject_workflow_orchestrator.py`, `inject-output-style.py`, `inject_token_efficiency.py` | Inject conditional orchestrator (stub on startup, full on /workflow-orchestrator:delegate), output style, token efficiency guidance |
+| **PreToolUse** | `validate_task_graph_compliance.py` (advisory), `require_delegation.py` (soft nudge), `token_rewrite_hook.py` (Bash only) | Validate task graph (skip in team mode); adaptive per-turn nudges on work-tool calls; rewrite Bash for token efficiency |
+| **PostToolUse** | `python_posttooluse_hook.py` (blocking), `remind_skill_continuation.py`, `validate_task_graph_depth.py` (advisory), `remind_todo_after_task.py` (async) | Python validation (Ruff/Pyright — only hard-blocking hook); workflow continuation + zero nudge counter on `/workflow-orchestrator:delegate`; depth-3 advisory; task reminders |
+| **UserPromptSubmit** | `clear-delegation-sessions.py` | Reset per-turn nudge counter, clear delegation/team state |
+| **SessionStart** | `inject_all.py` | Consolidated injection: orchestrator stub (~1.1KB) + optional token-efficient CLI guide (gated by env var). Output style loaded natively from plugin.json. |
 | **SubagentStop** | `remind_todo_update.py` (async), `trigger_verification.py` | Remind to update tasks, suggest verification |
 | **Stop** | `python_stop_hook.py` | Turn duration tracking, workflow continuation |
 
-### workflow_orchestrator Requirements
+### SessionStart Injection (Lean & On-Demand)
 
-Multi-step workflow orchestration requires the workflow_orchestrator system prompt to be appended:
+The `inject_all.py` hook consolidates 3 SessionStart hooks into 1 Python script:
 
-**Automatic (via SessionStart hook):**
+**On startup/resume (all sessions):**
+- Injects orchestrator routing stub (`orchestrator_stub.md`, ~1.1KB): points the main agent at `/workflow-orchestrator:delegate` for multi-step work. Minimal overhead (~200 tokens).
+- Optionally injects token-efficient CLI guide (`token_efficient_cli.md`, ~1.9KB, gated by `CLAUDE_TOKEN_EFFICIENCY=1` env var). Teaches compact flags and command patterns.
+- Output style loaded natively from plugin.json `outputStyles` field (no injection required). Saves ~1.5K tokens.
 
-The `inject_workflow_orchestrator.py` hook uses conditional injection:
-- **On startup/resume:** Injects a lightweight stub that registers `/workflow-orchestrator:delegate` and `/workflow-orchestrator:bypass` commands without loading the full orchestrator prompt, keeping baseline token overhead minimal.
-- **On `/workflow-orchestrator:delegate` invocation:** The full `workflow_orchestrator.md` system prompt is loaded on-demand, providing the complete planning and execution logic only when needed.
+**On first delegation (lazy load):**
+- Full orchestrator logic (planning instructions, agent catalog, wave scheduling, team-mode execution) lives inline in `commands/delegate.md` and is loaded only when `/workflow-orchestrator:delegate` runs.
+
+**Net savings:** ~6.6K tokens off session startup. Sessions pay the orchestration tax only when delegation is actually used.
 
 **What this enables:**
 - Multi-step task detection via pattern matching
@@ -285,21 +293,27 @@ The `inject_workflow_orchestrator.py` hook uses conditional injection:
 
 ### 1. Delegation Hook (`hooks/PreToolUse/require_delegation.py`)
 
-Blocks most tools and forces delegation to specialized agents. Cross-platform Python implementation.
+Soft enforcement: nudges (never blocks) when main agent uses work-doing tools directly. Tracks 8 stable primitives: `Bash`, `Edit`, `Write`, `Read`, `Glob`, `Grep`, `MultiEdit`, `NotebookEdit`. New Claude Code tools never trigger nudges.
 
-**Allowed tools:**
-- `AskUserQuestion` - Ask users for clarification
-- `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet` - Track task progress with structured metadata
-- `Skill`, `SlashCommand` - Execute slash commands (including `/workflow-orchestrator:delegate`)
-- `Agent`, `SubagentTask`, `AgentTask` - Spawn subagents
+**Allowed tools (no nudge):**
+- `AskUserQuestion`, `Skill`, `SlashCommand` - Explicit queries and commands
+- `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet` - Task tracking (structured metadata)
+- `Agent`, `SubagentTask`, `AgentTask` - Delegation mechanism
+- `TeamCreate`, `SendMessage` - Agent Teams (when `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`)
+- `ToolSearch` - Tool discovery
+- New Claude Code tools (by definition, never tracked)
 
-**Note:** `TaskOutput` is prohibited to prevent context exhaustion. Agents write to `$CLAUDE_SCRATCHPAD_DIR` and return `DONE|{path}` only.
+**Work tools (tracked for nudges, not blocked):**
+- `Bash`, `Edit`, `Write`, `Read`, `Glob`, `Grep`, `MultiEdit`, `NotebookEdit`
 
-**All other tools are blocked** and show:
-```
-🚫 Tool blocked by delegation policy
-✅ REQUIRED: Use /workflow-orchestrator:delegate command immediately
-```
+**Nudge escalation by violation count (per turn):**
+- 0 violations: silent
+- 1 violation: `delegate?` (~2 tokens)
+- 2 violations: `nudge: use /workflow-orchestrator:delegate for multi-step work` (~12 tokens)
+- 3-4 violations: `WARNING: N direct tool calls bypassing delegation...` (~25 tokens)
+- 5+ violations: Strong reminder (~55 tokens)
+
+**Note:** `TaskOutput` is prohibited (context exhaustion). Agents write to `$CLAUDE_SCRATCHPAD_DIR` and return `DONE|{path}` only. Counter resets each turn; subagents (via `CLAUDE_PARENT_SESSION_ID`) are exempt.
 
 ### 2. Specialized Agents (`agents/`)
 
@@ -333,9 +347,9 @@ The `/workflow-orchestrator:delegate` command provides intelligent task delegati
 6. Creates task list via TaskCreate
 7. Exits plan mode (ExitPlanMode) and executes phases as directed by the plan
 
-### 4. Workflow Orchestration System Prompt (`system-prompts/workflow_orchestrator.md`)
+### 4. Orchestrator Command (`commands/delegate.md`)
 
-Enables multi-step workflow detection and preparation for complex tasks. Works in conjunction with native plan mode (EnterPlanMode/ExitPlanMode).
+The `/workflow-orchestrator:delegate` slash command loads the full orchestrator logic on demand: multi-step detection, plan-mode instructions, agent catalog, wave scheduling, and team-mode execution. Works in conjunction with native plan mode (EnterPlanMode/ExitPlanMode).
 
 **Activate via:**
 Simply start a Claude code session
@@ -390,20 +404,11 @@ No other configuration is required. Plan mode automatically evaluates whether a 
 
 ### How Mode Selection Works
 
-During planning, plan mode checks if the TeamCreate tool is available (indicator that Agent Teams are enabled). If available, it calculates a `team_mode_score` based on task characteristics:
+During planning, plan mode checks tool availability:
 
-| Factor                                | Points | Condition                                              |
-|---------------------------------------|--------|--------------------------------------------------------|
-| Phase count > 8                       | +2     | Large workflows benefit from coordination               |
-| Tier 3 complexity                     | +2     | Complex tasks need real-time collaboration              |
-| Cross-phase data flow                 | +3     | Phases that share data benefit from messaging           |
-| Review-fix cycles                     | +3     | Iterative feedback loops need communication             |
-| Iterative refinement                  | +2     | Back-and-forth patterns suit team mode                  |
-| User keyword ("collaborate", "team")  | +5     | Explicit user intent                                    |
-| Breadth task                          | -5     | Simple exploration is better as subagents               |
-| Phase count <= 3                      | -3     | Small workflows don't need team overhead                |
+**ONE RULE:** If `TeamCreate` is in your available tools → `execution_mode: "team"`. Otherwise → `"subagent"`.
 
-Default to team mode when Agent Teams available (TeamCreate in tools). Falls back to subagent only when `team_mode_score <= -3` (breadth-only tasks). If TeamCreate tool is not available (env var not set), subagent mode is always selected.
+This is detected by attempting to use the tool. Setting `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` makes TeamCreate available, enabling team mode. Without it, only subagent mode is available.
 
 ### Subagent Mode vs Team Mode
 

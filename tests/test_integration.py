@@ -87,15 +87,15 @@ class TestTokenRewriteHookIntegration:
 
 
 # ---------------------------------------------------------------------------
-# inject_token_efficiency.py integration
+# inject_all.py (consolidated SessionStart) integration
 # ---------------------------------------------------------------------------
 
-INJECT_HOOK = PROJECT_ROOT / "hooks" / "SessionStart" / "inject_token_efficiency.py"
+INJECT_HOOK = PROJECT_ROOT / "hooks" / "SessionStart" / "inject_all.py"
 
 
 @pytest.mark.integration
-class TestInjectTokenEfficiencyIntegration:
-    """Integration tests for hooks/SessionStart/inject_token_efficiency.py."""
+class TestInjectAllIntegration:
+    """Integration tests for hooks/SessionStart/inject_all.py token-efficiency injection."""
 
     def test_default_outputs_json(self, run_hook) -> None:
         """Default: stdout is valid JSON with hookSpecificOutput."""
@@ -107,19 +107,22 @@ class TestInjectTokenEfficiencyIntegration:
         assert "additionalContext" in output["hookSpecificOutput"]  # noqa: S101
 
     def test_disabled_via_env_var(self, run_hook) -> None:
-        """CLAUDE_TOKEN_EFFICIENCY=0: empty stdout."""
+        """CLAUDE_TOKEN_EFFICIENCY=0: token-efficiency content omitted from merged context."""
         stdout, _stderr, rc = run_hook(
             INJECT_HOOK,
             env_override={"CLAUDE_TOKEN_EFFICIENCY": "0"},
         )
         assert rc == 0  # noqa: S101
-        assert stdout.strip() == ""  # noqa: S101
+        # Other sections (orchestrator stub, output style) still inject; token content must not.
+        if stdout.strip():
+            output = json.loads(stdout)
+            content = output["hookSpecificOutput"]["additionalContext"]
+            assert "git status -sb" not in content  # noqa: S101
 
     def test_contains_known_content(self, run_hook) -> None:
-        """JSON contains actual content from token_efficient_cli.md."""
+        """JSON contains actual content from token_efficient_cli.md when enabled."""
         stdout, _stderr, rc = run_hook(INJECT_HOOK)
         assert rc == 0  # noqa: S101
         output = json.loads(stdout)
         content = output["hookSpecificOutput"]["additionalContext"]
-        # Known string from the markdown file
-        assert "git status -sb" in content  # noqa: S101
+        assert "compact_run.py" in content  # noqa: S101

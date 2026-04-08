@@ -1,6 +1,6 @@
 # Parallel Explore Agents for Large Data Processing
 
-**Status:** Implemented via 3-step routing in `workflow_orchestrator.md`. Read-only breadth tasks are handled by spawning parallel Explore agents or codebase-context-analyzer directly.
+**Status:** Implemented via 3-step routing in `commands/delegate.md`. Read-only breadth tasks are handled by spawning parallel Explore agents or codebase-context-analyzer directly.
 
 ## Background
 
@@ -95,7 +95,7 @@ The distinction: **depth** tasks go to specialized agents, **breadth** tasks go 
 
 ## Changes Required
 
-### 1. `system-prompts/workflow_orchestrator.md` (Planning Instructions section)
+### 1. `commands/delegate.md` (Planning Instructions section)
 
 **Add Explore to Available Specialized Agents table:**
 
@@ -128,7 +128,7 @@ REQUIRED: Large data processing workflows MUST include a final aggregation wave.
 
 Add: "Explore agents use Haiku (cheap, fast). Higher concurrency is acceptable for Explore-only waves."
 
-### 2. `system-prompts/workflow_orchestrator.md`
+### 2. `commands/delegate.md`
 
 **Add Explore Agent Execution section:**
 
@@ -215,7 +215,7 @@ Example Task invocation for Explore:
 
 ### Implementation (Completed)
 
-1. **3-step routing in `workflow_orchestrator.md`**
+1. **3-step routing in `commands/delegate.md`**
    - Step 1: Write detection (skip direct Explore routing if write indicators found)
    - Step 2: Breadth task detection (single verb + broad scope)
    - Step 3: Route decision (parallel Explore agents, plan mode, or direct execution)

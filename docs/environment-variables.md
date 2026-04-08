@@ -537,8 +537,7 @@ Wave complete
 
 ### Related
 
-- See [Concurrency Limits](../system-prompts/workflow_orchestrator.md#concurrency-limits) for detailed execution rules
-- See [Workflow Orchestrator](../system-prompts/workflow_orchestrator.md) for task planning guidance
+- See [`commands/delegate.md`](../commands/delegate.md) for the full orchestrator logic, wave scheduling, and team-mode execution rules.
 
 ---
 

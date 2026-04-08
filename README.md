@@ -171,31 +171,22 @@ and then prompt claude with:
 ```
 
 **What happens:**
-1. First, the main agent enters native plan mode (EnterPlanMode) to:
-   - Analyze task complexity (single-step vs multi-step)
-   - Decompose into atomic subtasks
-   - Assign specialized agents via keyword matching
-   - Create wave assignments for parallel/sequential execution
-   - Create tasks via TaskCreate and generate the execution plan
 
-   ![img_delegate.png](assets/img_delegate.png)
+1. The main agent enters native plan mode (`EnterPlanMode`) to decompose the request, assign specialized agents via keyword matching, schedule waves, and select an execution mode. Mode selection is one rule: if `TeamCreate` is available (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`), it picks **team mode**; otherwise **parallel subagents**.
 
-2. Once plan mode completes (ExitPlanMode), a task dependency graph is rendered and the user request is decomposed into parallel atomic subtasks:
+   ![plan mode](assets/img_plan_mode.png)
 
-    ![img_dependancy_graph.png](assets/img_dependancy_graph.png)
+2. After `ExitPlanMode` approval, a dependency graph is rendered showing the parallel waves and the agents assigned to each phase:
 
-3. Then, the sequential workflow with parallel subtasks can be initiated:
-   - wave 0:
+   ![dependency graph](assets/img_team_graph.png)
 
-   ![img_wave0.png](assets/img_wave0.png)
+3. In team mode, the lead calls `TeamCreate` once and then spawns each phase as a persistent teammate via `Agent(team_name=...)`. Teammates run concurrently in the swarm session and self-coordinate via `SendMessage`. Open the swarm view with `tmux -L claude-swarm-<id> a` to watch them work in real time:
 
-   - wave 1:
+   ![team swarm running](assets/img_team_swarm.png)
 
-   ![img_wave1.png](assets/img_wave1.png)
+4. As each wave completes, downstream phases unblock automatically. A final integration/verification phase confirms end-to-end correctness, then the team shuts down cleanly:
 
-4. Claude's native todo list is also getting updated in each step:
-
-    ![img_toto_list.png](assets/img_todo_list.png)
+   ![team complete](assets/img_team_complete.png)
 
 ### Soft Enforcement in Action
 

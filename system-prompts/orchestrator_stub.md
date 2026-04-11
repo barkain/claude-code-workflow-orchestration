@@ -12,7 +12,7 @@ The main agent does not execute work tools directly. Use only: Tasks API, AskUse
 
 ## Exception — continuation after plan approval
 
-If your most recent tool call was `ExitPlanMode`, OR you received a "PLAN ALREADY APPROVED" / "continuing to STAGE 1" continuation message, **do NOT re-invoke `/workflow-orchestrator:delegate`** and **do NOT call `EnterPlanMode`** again. The orchestrator is already loaded and the plan is already approved — proceed directly to Stage 1 execution by rendering the dependency graph and spawning Wave 0 agents. The "all work → delegate" rule above does NOT apply during in-flight delegation.
+If you received a "PLAN ALREADY APPROVED" or "continuing to STAGE 1" continuation message from the Stop hook, **do NOT re-invoke `/workflow-orchestrator:delegate`** and **do NOT call `EnterPlanMode`** again. The orchestrator is already loaded and the plan is already approved — proceed directly to Stage 1 execution by rendering the dependency graph and spawning Wave 0 agents. In this exception path, the `Agent` tool (plus `TaskCreate`/`TaskUpdate`/`TaskGet` for status, and `TeamCreate`/`SendMessage` if running in team mode) is permitted — these are how Wave 0 phases are spawned. The "all work → delegate" rule above does NOT apply during in-flight delegation continuation.
 
 ## Team Mode
 

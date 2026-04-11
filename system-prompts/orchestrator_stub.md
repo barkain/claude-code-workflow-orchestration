@@ -10,6 +10,10 @@ Any user request that requires work — writing code, running tools, multi-step 
 
 The main agent does not execute work tools directly. Use only: Tasks API, AskUserQuestion, and `/workflow-orchestrator:delegate`. The delegate command loads the full orchestrator (planning, agent assignment, execution waves) on demand.
 
+## Exception — continuation after plan approval
+
+If your most recent tool call was `ExitPlanMode`, OR you received a "PLAN ALREADY APPROVED" / "continuing to STAGE 1" continuation message, **do NOT re-invoke `/workflow-orchestrator:delegate`** and **do NOT call `EnterPlanMode`** again. The orchestrator is already loaded and the plan is already approved — proceed directly to Stage 1 execution by rendering the dependency graph and spawning Wave 0 agents. The "all work → delegate" rule above does NOT apply during in-flight delegation.
+
 ## Team Mode
 
 If `TeamCreate` is in your available tools, agent teams are enabled. When you run `/workflow-orchestrator:delegate`, default to team mode (`TeamCreate` + `Agent(team_name=...)`) for multi-agent work. If `TeamCreate` is not available, the delegate flow falls back to parallel subagents automatically.

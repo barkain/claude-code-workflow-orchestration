@@ -173,8 +173,13 @@ def check_workflow_continuation() -> bool:
         # This mimics ralph-wiggum's loop mechanism
         output = {
             "decision": "block",
-            "reason": "continue",
-            "systemMessage": "⚡ Workflow continuation: Proceeding to STAGE 1 execution.",
+            "reason": (
+                "PLAN ALREADY APPROVED. Execute Stage 1 NOW directly from the existing "
+                "approved plan in context. DO NOT call /workflow-orchestrator:delegate. "
+                "DO NOT call EnterPlanMode. DO NOT re-enter plan mode. "
+                "Render the dependency graph and start spawning Wave 0 agents."
+            ),
+            "systemMessage": "⚡ Continuing to STAGE 1 execution (plan already approved).",
         }
         print(json.dumps(output))  # noqa: T201
         logger.debug("Output block decision with 'continue' reason")

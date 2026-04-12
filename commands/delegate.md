@@ -22,7 +22,7 @@ Multi-step workflow orchestration for Claude Code. Main agent enters plan mode (
 
 ## ROUTING (CHECK FIRST - MANDATORY)
 
-**Three-step routing check. MUST follow this order:**
+**Four-step routing check. MUST follow this order:**
 
 ### Step 1: Write Detection
 
@@ -36,12 +36,26 @@ Multi-step workflow orchestration for Claude Code. Main agent enters plan mode (
 
 **Breadth keywords:** review, analyze, summarize, scan + quantifiers like "all", "each", "files in", or explicit counts
 
-### Step 3: Route Decision
+### Step 3: Fully-Specified Task Detection
+
+**Pattern:** The user provided explicit, ordered steps with no ambiguities or design decisions needed. Every step is directly actionable without decomposition.
+
+**Indicators (ANY of these):**
+- Numbered or ordered steps in the request ("1. do X, 2. do Y, 3. do Z")
+- Imperative sequential chain ("do X, then Y, then Z" where each step is concrete)
+- Explicit skip-planning signals: "just do it", "no plan needed", "skip planning", "don't plan"
+- All steps map trivially to tool calls (edit file, run command, commit, push, merge, tag, release)
+- Zero ambiguity: no "should we", "which approach", "evaluate options", "design"
+
+**If fully-specified -> DIRECT SEQUENTIAL EXECUTION** (skip plan mode). Spawn one agent per step or batch related steps into a single agent. No `EnterPlanMode`, no `TaskCreate` during planning.
+
+### Step 4: Route Decision
 
 | Pattern | Route | Example |
 |---------|-------|---------|
 | Breadth + Write (same op x many items, with output) | **DIRECT EXECUTION** (skip plan mode) | "review 16 files, create reports" |
-| Multi-phase workflow (create -> test -> deploy) | plan mode (EnterPlanMode) | "create calculator with tests and verify" |
+| Fully-specified sequential task (all steps explicit) | **DIRECT SEQUENTIAL EXECUTION** (skip plan mode) | "bump version, commit, push, merge, tag, release" |
+| Multi-phase workflow (needs design/decomposition) | plan mode (EnterPlanMode) | "create calculator with tests and verify" |
 | Read-only breadth (no write indicators) | Spawn parallel Explore agents or codebase-context-analyzer | "explore code in X", "summarize files in X" |
 | Single simple task | general-purpose agent | "fix this bug" |
 

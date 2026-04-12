@@ -4,6 +4,10 @@ argument-hint: [task description]
 allowed-tools: Agent, Task, EnterPlanMode, ExitPlanMode, AskUserQuestion, TaskCreate, TaskUpdate, TaskGet, TaskList, ToolSearch, TeamCreate, SendMessage
 ---
 
+## RE-INVOCATION GUARD (READ FIRST)
+
+Before doing ANYTHING else: if you arrived here via a "PLAN ALREADY APPROVED" or "continuing to STAGE 1" continuation message from the Stop hook, the plan is already approved. **Do NOT call `EnterPlanMode`. Do NOT re-enter Stage 0.** Skip directly to **STAGE 1: EXECUTION** — render the dependency graph from the approved plan in context and begin spawning Wave 0 agents. In this path, the `Agent` tool (plus `TaskCreate`/`TaskUpdate`/`TaskGet`, and `TeamCreate`/`SendMessage` in team mode) is permitted for spawning Wave 0 phases. Re-entering plan mode here causes an infinite delegate→plan→approve loop.
+
 # Workflow Orchestrator System Prompt
 
 ## Purpose

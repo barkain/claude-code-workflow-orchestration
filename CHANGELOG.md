@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.1] - 2026-04-12
+
+### Fixed
+
+- **Fix infinite delegate→plan-mode→approve loop.** After `ExitPlanMode`, the Stop hook's continuation signal was too vague (`reason: "continue"`), causing the model to re-route through `/workflow-orchestrator:delegate` and re-enter plan mode indefinitely. Three-layer fix: (1) Stop hook now emits explicit anti-redelegation directive in `reason` field, (2) orchestrator stub exception for continuation after plan approval, (3) delegate skill RE-INVOCATION GUARD at entry point.
+- **Narrow continuation guard triggers** (Qodo review feedback). Layer 2 and Layer 3 guards now trigger only on the deterministic Stop-hook continuation marker, not the broader "most recent tool call was ExitPlanMode" heuristic. Explicit tool whitelist added for the exception path.
+
 ## [2.0.0] - 2026-04-08
 
 Re-tag of `1.18.0` as a major release to honor semver. The same code, tagged honestly.

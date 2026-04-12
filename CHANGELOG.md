@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.2] - 2026-04-12
+
+### Added
+
+- **Skip plan mode for fully-specified sequential tasks.** New routing step (Step 3: Fully-Specified Task Detection) in `commands/delegate.md`. When the user provides explicit ordered steps with no ambiguities or design decisions, the orchestrator routes to direct sequential execution instead of entering plan mode unnecessarily. Detects numbered steps, imperative chains, and explicit signals like "just do it" or "no plan needed".
+
 ## [2.0.1] - 2026-04-12
 
 ### Fixed

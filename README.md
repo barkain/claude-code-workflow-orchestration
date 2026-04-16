@@ -193,20 +193,21 @@ and then prompt claude with:
 The delegation system uses adaptive nudges instead of hard blocks:
 
 ```bash
-# Turn 1: Direct tool call (silent)
+# 1st direct tool call (imperative STOP)
 Read test.py
+# stderr: "STOP. This tool call bypasses delegation. Abandon this step and run: /workflow-orchestrator:delegate <your task>"
 
-# Turn 2: Another direct tool call (hint)
+# 2nd direct tool call (imperative STOP, 2nd-call phrasing)
 Read other.py
-# stderr: "delegate?"
+# stderr: "STOP. 2nd direct tool call this turn. The main agent does not execute work tools. Run: /workflow-orchestrator:delegate <your task>"
 
-# Turn 3: Third direct tool call (nudge)
+# 3rd direct tool call (strong reminder — explains what's being lost)
 Edit file.py
-# stderr: "nudge: use /workflow-orchestrator:delegate for multi-step work"
+# stderr: "STOP. 3 direct tool calls bypassing delegation. You are losing planning, parallelization, and context isolation. Abandon the current plan and run: /workflow-orchestrator:delegate <your task>"
 
-# Turn 4: Fourth direct tool call (warning)
+# 4th+ direct tool calls keep the same strong reminder with the updated count
 Bash command.sh
-# stderr: "WARNING: 3 direct tool calls bypassing delegation. Use /workflow-orchestrator:delegate <task>."
+# stderr: "STOP. 4 direct tool calls bypassing delegation. ..."
 
 # Delegation resets the counter (state clean)
 /workflow-orchestrator:delegate "Create feature"

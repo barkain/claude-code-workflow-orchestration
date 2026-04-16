@@ -110,46 +110,54 @@ class TestViolationSet:
 
 
 class TestEscalationLadder:
-    def test_first_violation_is_short(self, tmp_path: Path) -> None:
+    def test_first_violation_is_imperative(self, tmp_path: Path) -> None:
         _, stderr, _ = _run(_input("Bash"), tmp_path)
-        assert "delegate?" in stderr  # noqa: S101
-        # Short message — under ~30 chars
-        assert len(stderr.strip()) < 30  # noqa: S101
+        # New imperative message must include STOP + the delegate command
+        assert "STOP" in stderr  # noqa: S101
+        assert "/workflow-orchestrator:delegate" in stderr  # noqa: S101
 
     def test_second_violation_is_medium(self, tmp_path: Path) -> None:
         _run(_input("Bash"), tmp_path)
         _, stderr, _ = _run(_input("Edit"), tmp_path)
-        assert "nudge" in stderr  # noqa: S101
+        assert "STOP" in stderr  # noqa: S101
         assert "/workflow-orchestrator:delegate" in stderr  # noqa: S101
+        # Distinct 2nd-call phrasing
+        assert "2nd direct tool call" in stderr  # noqa: S101
 
     def test_third_violation_is_warning(self, tmp_path: Path) -> None:
         for tool in ("Bash", "Edit", "Write"):
             _run(_input(tool), tmp_path)
         _, stderr, _ = _run(_input("Read"), tmp_path)
-        # 4th call -> "WARNING: 4 direct tool calls"
-        assert "WARNING" in stderr  # noqa: S101
+        # 4th call -> "STOP. 4 direct tool calls bypassing delegation..."
+        assert "STOP" in stderr  # noqa: S101
         assert "4" in stderr  # noqa: S101
+        assert "/workflow-orchestrator:delegate" in stderr  # noqa: S101
 
     def test_fifth_plus_is_strong(self, tmp_path: Path) -> None:
         for _ in range(5):
             _run(_input("Bash"), tmp_path)
         _, stderr, _ = _run(_input("Bash"), tmp_path)  # 6th call
-        assert "WARNING" in stderr  # noqa: S101
-        assert "parallelizes" in stderr  # noqa: S101
+        assert "STOP" in stderr  # noqa: S101
+        # The ≥3 message explains what's being lost
+        assert "losing planning, parallelization, and context isolation" in stderr  # noqa: S101
         # Long message — over ~100 chars
         assert len(stderr.strip()) > 100  # noqa: S101
 
     def test_message_length_grows(self, tmp_path: Path) -> None:
-        """Verify token cost (proxied by message length) scales with violations."""
+        """Verify escalation adds context (proxied by message length/content)."""
         lengths = []
+        messages = []
         for _ in range(6):
             _, stderr, _ = _run(_input("Bash"), tmp_path)
             lengths.append(len(stderr.strip()))
-        # Each level should be at least as long as the previous
+            messages.append(stderr.strip())
+        # Each level should be at least as long as the previous (monotonic)
         for i in range(1, len(lengths)):
             assert lengths[i] >= lengths[i - 1]  # noqa: S101
-        # The final message should be substantially longer than the first
-        assert lengths[-1] > lengths[0] * 5  # noqa: S101
+        # The final message should be strictly longer than the first
+        assert lengths[-1] > lengths[0]  # noqa: S101
+        # And must include the "what's being lost" context that proves escalation
+        assert "losing planning, parallelization, and context isolation" in messages[-1]  # noqa: S101
 
 
 # ---------------------------------------------------------------------------

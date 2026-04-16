@@ -93,18 +93,19 @@ def message_for(count: int) -> str | None:
     if count <= 0:
         return None
     if count == 1:
-        return "delegate?"
-    if count == 2:
-        return "nudge: use /workflow-orchestrator:delegate for multi-step work"
-    if count <= 4:
         return (
-            f"WARNING: {count} direct tool calls bypassing delegation. "
-            "Use /workflow-orchestrator:delegate <task>."
+            "STOP. This tool call bypasses delegation. Abandon this step "
+            "and run: /workflow-orchestrator:delegate <your task>"
+        )
+    if count == 2:
+        return (
+            "STOP. 2nd direct tool call this turn. The main agent does not "
+            "execute work tools. Run: /workflow-orchestrator:delegate <your task>"
         )
     return (
-        f"WARNING: {count}+ direct tool calls. The orchestrator plans, "
-        "parallelizes, and isolates context — direct use loses these benefits. "
-        "Run /workflow-orchestrator:delegate <task> now."
+        f"STOP. {count} direct tool calls bypassing delegation. You are "
+        "losing planning, parallelization, and context isolation. Abandon "
+        "the current plan and run: /workflow-orchestrator:delegate <your task>"
     )
 
 

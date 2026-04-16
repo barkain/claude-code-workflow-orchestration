@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Delegation Policy (Soft Enforcement)
 
-The framework nudges via stderr when the main agent uses work-doing tools (`Bash`, `Edit`, `Write`, `Read`, `Glob`, `Grep`, `MultiEdit`, `NotebookEdit`) directly. **Nudges never block.** They escalate by per-turn violation count: silent → short hint → warning → strong reminder. The counter resets each turn and zeros when `/workflow-orchestrator:delegate` runs.
+The framework nudges via stderr when the main agent uses work-doing tools (`Bash`, `Edit`, `Write`, `Read`, `Glob`, `Grep`, `MultiEdit`, `NotebookEdit`) directly. **Nudges never block.** They escalate by per-turn violation count: silent → imperative STOP → imperative STOP (2nd call phrasing) → strong reminder explaining what's being lost. The counter resets each turn and zeros when `/workflow-orchestrator:delegate` runs.
 
 The expected path for any multi-step or work-shaped request is:
 
@@ -115,10 +115,9 @@ There is no allowlist. `require_delegation.py` tracks per-turn direct work-tool 
 | Violations | Message | Tokens |
 |---|---|---|
 | 0 | (silent) | 0 |
-| 1 | `delegate?` | ~2 |
-| 2 | `nudge: use /workflow-orchestrator:delegate for multi-step work` | ~12 |
-| 3–4 | `WARNING: N direct tool calls bypassing delegation. Use /workflow-orchestrator:delegate <task>.` | ~25 |
-| 5+ | Strong reminder explaining what's being lost | ~55 |
+| 1 | `STOP. This tool call bypasses delegation. Abandon this step and run: /workflow-orchestrator:delegate <your task>` | ~25 |
+| 2 | `STOP. 2nd direct tool call this turn. The main agent does not execute work tools. Run: /workflow-orchestrator:delegate <your task>` | ~28 |
+| 3+ | `STOP. N direct tool calls bypassing delegation. You are losing planning, parallelization, and context isolation. Abandon the current plan and run: /workflow-orchestrator:delegate <your task>` | ~55 |
 
 Tracked tools (the only ones that count as violations): `Bash`, `Edit`, `Write`, `Read`, `Glob`, `Grep`, `MultiEdit`, `NotebookEdit`. These 8 stable primitives are the only ones monitored. New Claude Code tools never trigger nudges.
 

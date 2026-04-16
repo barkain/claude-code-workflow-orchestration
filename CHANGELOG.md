@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- Restored main-agent delegation after f831fd2 regression: imperative nudge messages from violation #1, orchestrator stub gains work definition + MUST NOT list + self-catch directive, output style reframes main agent as orchestrator (not executor).
+
 ## [2.0.2] - 2026-04-12
 
 ### Added

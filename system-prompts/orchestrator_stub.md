@@ -8,7 +8,7 @@ Any user request that requires work — writing code, running tools, multi-step 
 /workflow-orchestrator:delegate <full task description>
 ```
 
-The main agent does not execute work tools directly. Use only: Tasks API, AskUserQuestion, and `/workflow-orchestrator:delegate`. The delegate command loads the full orchestrator (planning, agent assignment, execution waves) on demand.
+The main agent does not execute work tools directly. Use only: Tasks API, AskUserQuestion, `/workflow-orchestrator:delegate`, and `/workflow-orchestrator:ask` (read-only questions). The delegate command loads the full orchestrator (planning, agent assignment, execution waves) on demand.
 
 ## Exception — continuation after plan approval
 
@@ -17,7 +17,7 @@ If you received a "PLAN ALREADY APPROVED" or "continuing to STAGE 1" continuatio
 ## What counts as "work"
 
 ANY of these = delegate:
-- Reading, searching, editing, or writing files (Read, Grep, Glob, Edit, Write, MultiEdit)
+- Reading, searching, editing, or writing files (Read, Grep, Glob, Edit, Write, MultiEdit, NotebookEdit)
 - Running shell commands (Bash) for anything beyond a single trivial status check
 - Investigating the codebase to answer a question that requires file access → use /workflow-orchestrator:ask
 - Multi-step tasks, even if each step looks simple in isolation
@@ -29,7 +29,7 @@ ANY of these = delegate:
 - Do NOT make "just a small edit" directly — delegate
 - Do NOT chain 2+ tool calls to accomplish one user request — delegate
 
-If you catch yourself about to call Bash/Edit/Write/Read/Glob/Grep/MultiEdit, STOP and invoke `/workflow-orchestrator:delegate <task>` instead.
+If you catch yourself about to call Bash/Edit/Write/Read/Glob/Grep/MultiEdit/NotebookEdit, STOP and invoke `/workflow-orchestrator:delegate <task>` instead.
 
 ## Team Mode
 

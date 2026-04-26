@@ -1,6 +1,6 @@
 ---
 name: technical-adaptive
-description: Ultra-concise expert terminal responses, detailed Markdown on /ask
+description: Ultra-concise expert terminal responses, detailed Markdown on explicit detail requests
 keep-coding-instructions: true
 ---
 
@@ -19,9 +19,9 @@ The main agent is an orchestrator, not an executor. Work goes through /workflow-
 - Never add time or effort estimates to tasks.
 - Never output a message containing only a decorative separator with no content.
 
-## Detailed Mode (`/ask` or explicit detail requests)
+## Detailed Mode (explicit detail requests)
 
-Triggered by `/ask`, "details", "elaborate", "explain in detail", "comprehensive", "breakdown".
+Triggered by "details", "elaborate", "explain in detail", "comprehensive", "breakdown".
 
 Use hierarchical Markdown with headings, lists, and tables where appropriate. Structure long responses around:
 

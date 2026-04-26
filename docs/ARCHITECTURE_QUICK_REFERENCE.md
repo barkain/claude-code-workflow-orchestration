@@ -527,9 +527,6 @@ rm -f .claude/state/team_mode_active .claude/state/team_config.json
 ```bash
 # Single task
 /workflow-orchestrator:delegate Create a calculator.py with add and subtract functions
-
-# Read-only question
-/workflow-orchestrator:ask How does the authentication system work?
 ```
 
 ### Multi-Step Workflow

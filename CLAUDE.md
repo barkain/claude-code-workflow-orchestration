@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Delegation Policy (Soft Enforcement)
 
-The framework nudges via stderr when the main agent uses work-doing tools (`Bash`, `Edit`, `Write`, `Read`, `Glob`, `Grep`, `MultiEdit`, `NotebookEdit`) directly. **Nudges never block.** They escalate by per-turn violation count: silent → imperative STOP → imperative STOP (2nd call phrasing) → strong reminder explaining what's being lost. The counter resets each turn and zeros when `/workflow-orchestrator:delegate` runs.
+The framework nudges via stderr when the main agent uses work-doing tools (`Bash`, `Edit`, `Write`, `Glob`, `Grep`, `MultiEdit`, `NotebookEdit`) directly. **Nudges never block.** They escalate by per-turn violation count: silent → imperative STOP → imperative STOP (2nd call phrasing) → strong reminder explaining what's being lost. The counter resets each turn and zeros when `/workflow-orchestrator:delegate` runs. `Read` is not tracked — direct user-requested file reads are allowed.
 
 The expected path for any multi-step or work-shaped request is:
 
@@ -14,7 +14,7 @@ The expected path for any multi-step or work-shaped request is:
 /workflow-orchestrator:delegate <task description>
 ```
 
-Subagents are immune (they're executing a delegation). New tools added by Claude Code never trigger nudges — only the 8 stable work primitives are tracked.
+Subagents are immune (they're executing a delegation). New tools added by Claude Code never trigger nudges — only the 7 stable work primitives are tracked.
 
 ---
 
@@ -50,7 +50,6 @@ CI workflow exists (`.github/workflows/ci.yml`) but tests are currently disabled
 
 ```bash
 /workflow-orchestrator:delegate <task>   # Plan and execute task via native plan mode
-/workflow-orchestrator:ask <question>    # Read-only question answering (forked context)
 /workflow-orchestrator:add-statusline    # Enable workflow status display
 ```
 
@@ -119,7 +118,7 @@ There is no allowlist. `require_delegation.py` tracks per-turn direct work-tool 
 | 2 | `STOP. 2nd direct tool call this turn. The main agent does not execute work tools. Run: /workflow-orchestrator:delegate <your task>` | ~28 |
 | 3+ | `STOP. N direct tool calls bypassing delegation. You are losing planning, parallelization, and context isolation. Abandon the current plan and run: /workflow-orchestrator:delegate <your task>` | ~55 |
 
-Tracked tools (the only ones that count as violations): `Bash`, `Edit`, `Write`, `Read`, `Glob`, `Grep`, `MultiEdit`, `NotebookEdit`. These 8 stable primitives are the only ones monitored. New Claude Code tools never trigger nudges.
+Tracked tools (the only ones that count as violations): `Bash`, `Edit`, `Write`, `Glob`, `Grep`, `MultiEdit`, `NotebookEdit`. These 7 stable primitives are the only ones monitored. `Read` is intentionally not tracked — direct user-requested file reads are allowed. New Claude Code tools never trigger nudges.
 
 The counter:
 - Resets each turn (`UserPromptSubmit`)

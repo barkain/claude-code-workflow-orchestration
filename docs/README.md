@@ -115,7 +115,6 @@ docs/
 
 ```bash
 /workflow-orchestrator:delegate <task>   # Route task to specialized agent
-/workflow-orchestrator:ask <question>    # Read-only question answering
 ```
 
 ### Debug Commands

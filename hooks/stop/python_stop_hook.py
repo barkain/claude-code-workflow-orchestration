@@ -175,15 +175,22 @@ def check_workflow_continuation() -> bool:
         # Attempt to recover the persisted execution plan so the agent has
         # the plan available even after context compaction / clear.
         plan_file = project_root / ".claude" / "state" / "approved_execution_plan.json"
-        plan_section = ""
         plan_contents: str | None = None
         if plan_file.exists():
             try:
                 plan_contents = plan_file.read_text(encoding="utf-8")
+                plan_size = len(plan_contents)
                 logger.debug(
-                    f"Recovered execution plan from {plan_file} "
-                    f"({len(plan_contents)} chars)"
+                    f"Recovered execution plan from {plan_file} ({plan_size} chars)"
                 )
+                logger.debug(
+                    f"Injecting recovered plan into continuation: {plan_size} bytes"
+                )
+                if plan_size > 100_000:
+                    logger.warning(
+                        f"Recovered execution plan is unusually large: "
+                        f"{plan_size} bytes (>100000)"
+                    )
             except OSError as plan_err:
                 logger.warning(f"Error reading approved execution plan: {plan_err}")
                 plan_contents = None

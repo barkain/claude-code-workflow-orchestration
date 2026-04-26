@@ -1,7 +1,7 @@
 ---
 description: Plan and execute task via workflow orchestrator
 argument-hint: [task description]
-allowed-tools: Agent, Task, EnterPlanMode, ExitPlanMode, AskUserQuestion, TaskCreate, TaskUpdate, TaskGet, TaskList, ToolSearch, TeamCreate, SendMessage
+allowed-tools: Agent, Task, EnterPlanMode, ExitPlanMode, AskUserQuestion, TaskCreate, TaskUpdate, TaskGet, TaskList, ToolSearch, TeamCreate, SendMessage, Write, Read
 ---
 
 ## RE-INVOCATION GUARD (READ FIRST)

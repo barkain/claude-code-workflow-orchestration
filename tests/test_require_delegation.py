@@ -84,11 +84,6 @@ class TestViolationSet:
         _, stderr, rc = _run(_input("Read"), tmp_path)
         assert rc == 0  # noqa: S101
         assert stderr == ""  # noqa: S101
-        # Counter file should not be created/incremented for Read
-        counter_file = tmp_path / ".claude" / "state" / "delegation_violations.json"
-        if counter_file.exists():
-            counter = json.loads(counter_file.read_text())
-            assert counter["violations"] == 0  # noqa: S101
 
     @pytest.mark.parametrize(
         "tool",

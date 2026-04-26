@@ -44,6 +44,8 @@ jobs:
           prompt: |
             Review this PR for code quality, potential bugs, and improvements.
             Focus on meaningful issues rather than style nits.
+          use_sticky_comment: "true"
+          show_full_output: "true"
           additional_permissions: |
             actions: read
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md

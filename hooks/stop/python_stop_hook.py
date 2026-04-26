@@ -184,12 +184,12 @@ def check_workflow_continuation() -> bool:
                     f"Recovered execution plan from {plan_file} ({plan_size} chars)"
                 )
                 logger.debug(
-                    f"Injecting recovered plan into continuation: {plan_size} bytes"
+                    f"Injecting recovered plan into continuation: {plan_size} chars"
                 )
                 if plan_size > 100_000:
                     logger.warning(
                         f"Recovered execution plan is unusually large: "
-                        f"{plan_size} bytes (>100000)"
+                        f"{plan_size} chars (>100000)"
                     )
             except OSError as plan_err:
                 logger.warning(f"Error reading approved execution plan: {plan_err}")

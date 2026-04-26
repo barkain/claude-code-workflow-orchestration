@@ -781,8 +781,8 @@ Delegation privileges automatically decay:
 
 +-------------------------------------------------------------------------+
 |                              USER INTERFACE                              |
-|  Commands: /workflow-orchestrator:delegate, /workflow-orchestrator:ask,   |
-|  /workflow-orchestrator:bypass, /workflow-orchestrator:add-statusline    |
+|  Commands: /workflow-orchestrator:delegate,                              |
+|  /workflow-orchestrator:add-statusline                                   |
 |  Planning: native plan mode                                              |
 |  StatusLine: [MODE] Active: N Wave W | Last: Event                      |
 +-------------------------------------------------------------------------+

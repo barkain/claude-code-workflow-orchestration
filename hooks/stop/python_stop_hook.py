@@ -155,7 +155,10 @@ def check_workflow_continuation() -> bool:
     Returns True if stop should be blocked (continuation needed).
     Returns False to allow normal stop processing.
     """
-    state_file = Path(".claude/state/workflow_continuation_needed.json")
+    project_root = Path(os.environ.get("CLAUDE_PROJECT_DIR", Path.cwd()))
+    state_file = (
+        project_root / ".claude" / "state" / "workflow_continuation_needed.json"
+    )
 
     if not state_file.exists():
         logger.debug("No continuation state file found")
@@ -169,16 +172,53 @@ def check_workflow_continuation() -> bool:
         state_file.unlink()
         logger.debug(f"State data: {state_data}, file removed")
 
+        # Attempt to recover the persisted execution plan so the agent has
+        # the plan available even after context compaction / clear.
+        plan_file = project_root / ".claude" / "state" / "approved_execution_plan.json"
+        plan_contents: str | None = None
+        if plan_file.exists():
+            try:
+                plan_contents = plan_file.read_text(encoding="utf-8")
+                plan_size = len(plan_contents)
+                logger.debug(
+                    f"Recovered execution plan from {plan_file} ({plan_size} chars)"
+                )
+                logger.debug(
+                    f"Injecting recovered plan into continuation: {plan_size} chars"
+                )
+                if plan_size > 100_000:
+                    logger.warning(
+                        f"Recovered execution plan is unusually large: "
+                        f"{plan_size} chars (>100000)"
+                    )
+            except OSError as plan_err:
+                logger.warning(f"Error reading approved execution plan: {plan_err}")
+                plan_contents = None
+        else:
+            logger.debug(f"No approved execution plan file at {plan_file}")
+
+        if plan_contents is not None:
+            plan_section = (
+                f"\n\nAPPROVED EXECUTION PLAN (recovered from disk):\n{plan_contents}"
+            )
+        else:
+            plan_section = (
+                "\n\nNOTE: Plan file not found — if context was compacted, "
+                "read the task list to recover context."
+            )
+
+        base_reason = (
+            "PLAN ALREADY APPROVED. Execute Stage 1 NOW directly from the existing "
+            "approved plan in context. DO NOT call /workflow-orchestrator:delegate. "
+            "DO NOT call EnterPlanMode. DO NOT re-enter plan mode. "
+            "Render the dependency graph and start spawning Wave 0 agents."
+        )
+
         # Output block decision to prevent stop and inject "continue"
         # This mimics ralph-wiggum's loop mechanism
         output = {
             "decision": "block",
-            "reason": (
-                "PLAN ALREADY APPROVED. Execute Stage 1 NOW directly from the existing "
-                "approved plan in context. DO NOT call /workflow-orchestrator:delegate. "
-                "DO NOT call EnterPlanMode. DO NOT re-enter plan mode. "
-                "Render the dependency graph and start spawning Wave 0 agents."
-            ),
+            "reason": base_reason + plan_section,
             "systemMessage": "⚡ Continuing to STAGE 1 execution (plan already approved).",
         }
         print(json.dumps(output))  # noqa: T201

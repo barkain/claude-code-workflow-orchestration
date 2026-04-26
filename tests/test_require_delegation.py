@@ -73,11 +73,17 @@ class TestNeverBlocks:
 class TestViolationSet:
     @pytest.mark.parametrize(
         "tool",
-        ["Bash", "Edit", "Write", "Read", "Glob", "Grep", "MultiEdit", "NotebookEdit"],
+        ["Bash", "Edit", "Write", "Glob", "Grep", "MultiEdit", "NotebookEdit"],
     )
     def test_work_tools_count_as_violations(self, tmp_path: Path, tool: str) -> None:
         _, stderr, _ = _run(_input(tool), tmp_path)
         assert "delegate" in stderr.lower()  # noqa: S101
+
+    def test_read_is_silent(self, tmp_path: Path) -> None:
+        """Read is exempt from delegation nudges (not in WORK_TOOLS)."""
+        _, stderr, rc = _run(_input("Read"), tmp_path)
+        assert rc == 0  # noqa: S101
+        assert stderr == ""  # noqa: S101
 
     @pytest.mark.parametrize(
         "tool",
@@ -127,7 +133,7 @@ class TestEscalationLadder:
     def test_third_violation_is_warning(self, tmp_path: Path) -> None:
         for tool in ("Bash", "Edit", "Write"):
             _run(_input(tool), tmp_path)
-        _, stderr, _ = _run(_input("Read"), tmp_path)
+        _, stderr, _ = _run(_input("Glob"), tmp_path)
         # 4th call -> "STOP. 4 direct tool calls bypassing delegation..."
         assert "STOP" in stderr  # noqa: S101
         assert "4" in stderr  # noqa: S101

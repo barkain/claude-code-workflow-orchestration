@@ -110,6 +110,7 @@ def main() -> int:
             "active_delegations.json",
             "team_mode_active",
             "team_config.json",
+            "approved_execution_plan.json",
         ],
     )
 

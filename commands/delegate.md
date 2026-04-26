@@ -1,12 +1,14 @@
 ---
 description: Plan and execute task via workflow orchestrator
 argument-hint: [task description]
-allowed-tools: Agent, Task, EnterPlanMode, ExitPlanMode, AskUserQuestion, TaskCreate, TaskUpdate, TaskGet, TaskList, ToolSearch, TeamCreate, SendMessage
+allowed-tools: Agent, Task, EnterPlanMode, ExitPlanMode, AskUserQuestion, TaskCreate, TaskUpdate, TaskGet, TaskList, ToolSearch, TeamCreate, SendMessage, Write, Read
 ---
 
 ## RE-INVOCATION GUARD (READ FIRST)
 
 Before doing ANYTHING else: if you arrived here via a "PLAN ALREADY APPROVED" or "continuing to STAGE 1" continuation message from the Stop hook, the plan is already approved. **Do NOT call `EnterPlanMode`. Do NOT re-enter Stage 0.** Skip directly to **STAGE 1: EXECUTION** — render the dependency graph from the approved plan in context and begin spawning Wave 0 agents. In this path, the `Agent` tool (plus `TaskCreate`/`TaskUpdate`/`TaskGet`, and `TeamCreate`/`SendMessage` in team mode) is permitted for spawning Wave 0 phases. Re-entering plan mode here causes an infinite delegate→plan→approve loop.
+
+**Plan recovery after context clear:** If the continuation arrives without the approved plan in context (e.g., the user approved with "clear context and bypass permissions"), Read `.claude/state/approved_execution_plan.json` to recover the plan, then proceed to STAGE 1. This file is written just before `ExitPlanMode` (Step 12) precisely to survive context compaction.
 
 # Workflow Orchestrator System Prompt
 
@@ -252,6 +254,12 @@ Create task entries using TaskCreate with structured metadata.
 - [ ] Wave Breakdown: Every task listed individually
 - [ ] Execution section: Mode + agent table with roles and files
 - [ ] Risks
+
+**Persist plan to disk (MANDATORY — runs immediately before `ExitPlanMode`):**
+
+Use the `Write` tool (NOT Bash heredocs) to write the complete execution plan JSON to `.claude/state/approved_execution_plan.json`. The content is the same structured plan object produced internally during planning — `execution_mode`, phases, waves, agent assignments, dependencies, and (when `team`) `team_config`. Ensure `.claude/state/` exists; if missing, create it before writing.
+
+This file is the persistence mechanism that allows the plan to survive context compaction (e.g., when the user approves with "clear context and bypass permissions"). The Stop hook reads it to inject the plan into the continuation message so STAGE 1 can resume without a plan in live context.
 
 ---
 

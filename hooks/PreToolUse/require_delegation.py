@@ -10,7 +10,7 @@ the main agent and writes an escalating reminder to stderr. Cost (and signal)
 scales with violation count — silent for compliant sessions, louder when the
 main agent is repeatedly bypassing /workflow-orchestrator:delegate.
 
-Violation set is small and stable: only the 6 work-doing primitives that
+Violation set is small and stable: only the 7 work-doing primitives that
 existed before the plugin and won't be renamed. New Claude Code tools never
 trigger nudges.
 
@@ -44,7 +44,6 @@ WORK_TOOLS = {
     "Bash",
     "Edit",
     "Write",
-    "Read",
     "Glob",
     "Grep",
     "MultiEdit",

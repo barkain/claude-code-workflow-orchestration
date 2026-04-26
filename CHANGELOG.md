@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.0] - 2026-04-26
+
+### BREAKING CHANGES
+- **Removed `/workflow-orchestrator:ask` skill.** Use `/workflow-orchestrator:delegate` for investigation tasks (it spawns read-only explorer agents in parallel), or use direct `Read` for single-file display. Anyone invoking `/workflow-orchestrator:ask` will get "command not found".
+
+### Changed
+- **`Read` is no longer tracked by `WORK_TOOLS`.** Direct user-requested file reads no longer trigger delegation nudges. The tracked surface is now the 7 mutating/search primitives (`Bash`, `Edit`, `Write`, `Glob`, `Grep`, `MultiEdit`, `NotebookEdit`). Read remains available to the main agent without nag.
+
+### Added
+- **Plan persistence + context-clear recovery.** Approved execution plans are persisted to `.claude/state/approved_execution_plan.json` on `ExitPlanMode` approval. The Stop hook reinjects the recovered plan into the continuation prompt so a `/clear` or auto-compaction after plan approval no longer drops the workflow on the floor.
+
+### Fixed
+- **Context-clear after plan approval no longer causes infinite plan-mode re-entry.** Previously, clearing context post-approval lost the execution plan and the orchestrator would re-route through `/workflow-orchestrator:delegate`, re-entering plan mode in a loop. The persisted plan + Stop-hook reinjection short-circuits the redelegation path.
+
 ## [2.0.3] - 2026-04-16
 
 ### Fixed

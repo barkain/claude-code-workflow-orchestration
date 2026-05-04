@@ -193,7 +193,7 @@ backup_existing_installation() {
     print_info "Existing installation found at $claude_dir"
     print_info "Creating backup at: $backup_name"
 
-    if cp -r "$claude_dir" "$backup_name"; then
+    if cp -rP "$claude_dir" "$backup_name"; then
         print_success "Backup created successfully: $backup_name"
         # Set global variable for trap handler restore operations
         BACKUP_PATH="$backup_name"

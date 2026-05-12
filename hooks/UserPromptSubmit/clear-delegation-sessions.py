@@ -13,10 +13,23 @@ Resets per-turn state at the start of each user prompt:
 This Python version works on Windows, macOS, and Linux.
 """
 
+import io
+import logging
 import os
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
+
+# Force UTF-8 output on Windows
+if sys.platform == "win32":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+
+logger = logging.getLogger("delegation_reminder")
+logger.setLevel(logging.WARNING)
+_handler = logging.StreamHandler(sys.stderr)
+_handler.setFormatter(logging.Formatter("%(message)s"))
+logger.addHandler(_handler)
 
 MAX_LOG_SIZE = 1048576  # 1MB
 MAX_ROTATIONS = 5
@@ -96,6 +109,20 @@ def cleanup_old_validations(validation_dir: Path) -> None:
             pass
 
 
+def is_subagent() -> bool:
+    """True if running inside a subagent."""
+    return bool(
+        os.environ.get("CLAUDE_PARENT_SESSION_ID") or os.environ.get("CLAUDE_AGENT_ID")
+    )
+
+
+def emit_delegation_reminder() -> None:
+    """One-line reinforcement. Appears as <user-prompt-submit-hook> — treated as user speech."""
+    logger.warning(
+        "Use /workflow-orchestrator:delegate for all work — never call work tools directly."
+    )
+
+
 def main() -> int:
     """Main entry point."""
     state_dir = get_state_dir()
@@ -116,6 +143,9 @@ def main() -> int:
 
     rotate_log(state_dir / "validation" / "gate_invocations.log")
     cleanup_old_validations(state_dir / "validation")
+
+    if not is_subagent():
+        emit_delegation_reminder()
 
     return 0
 

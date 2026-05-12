@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Delegation Policy (Soft Enforcement)
 
-The framework reinforces delegation via three layers: (1) a `BLOCKING REQUIREMENT` stub injected at session start, (2) a per-turn reminder emitted by UserPromptSubmit (treated as user speech), and (3) structured `additionalContext` nudges from PreToolUse when work tools (`Bash`, `Edit`, `Write`, `Glob`, `Grep`, `MultiEdit`, `NotebookEdit`) are called directly. **Nudges never block.** They escalate by per-turn violation count. The counter resets each turn and zeros when `/workflow-orchestrator:delegate` runs. `Read` is not tracked.
+The framework reinforces delegation via three layers: (1) a `MANDATORY` stub injected at session start, (2) a per-turn reminder emitted by UserPromptSubmit (treated as user speech), and (3) structured `additionalContext` nudges from PreToolUse when work tools (`Bash`, `Edit`, `Write`, `Glob`, `Grep`, `MultiEdit`, `NotebookEdit`) are called directly. **Nudges never block.** They escalate by per-turn violation count. The counter resets each turn and zeros when `/workflow-orchestrator:delegate` runs. `Read` is not tracked.
 
 The expected path for any multi-step or work-shaped request is:
 
@@ -109,7 +109,7 @@ Hook config source of truth: `hooks/plugin-hooks.json` (not settings.json). All 
 
 ### Soft Enforcement (Adaptive Nudges)
 
-Three reinforcement layers: (1) `BLOCKING REQUIREMENT` stub at session start, (2) per-turn reminder from UserPromptSubmit (~14 tokens, treated as user speech), (3) `require_delegation.py` emits escalating nudges via both stderr and structured `additionalContext` on violations:
+Three reinforcement layers: (1) `MANDATORY` stub at session start, (2) per-turn reminder from UserPromptSubmit (~14 tokens, treated as user speech), (3) `require_delegation.py` emits escalating nudges via both stderr and structured `additionalContext` on violations:
 
 | Violations | Message | Tokens |
 |---|---|---|

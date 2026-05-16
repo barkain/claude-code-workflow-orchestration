@@ -76,14 +76,18 @@ class TestViolationSet:
         ["Bash", "Edit", "Write", "Glob", "Grep", "MultiEdit", "NotebookEdit"],
     )
     def test_work_tools_count_as_violations(self, tmp_path: Path, tool: str) -> None:
-        _, stderr, _ = _run(_input(tool), tmp_path)
+        stdout, stderr, _ = _run(_input(tool), tmp_path)
         assert "delegate" in stderr.lower()  # noqa: S101
+        # Structured output also emitted
+        parsed = json.loads(stdout)
+        assert "delegate" in parsed["hookSpecificOutput"]["additionalContext"].lower()  # noqa: S101
 
     def test_read_is_silent(self, tmp_path: Path) -> None:
         """Read is exempt from delegation nudges (not in WORK_TOOLS)."""
-        _, stderr, rc = _run(_input("Read"), tmp_path)
+        stdout, stderr, rc = _run(_input("Read"), tmp_path)
         assert rc == 0  # noqa: S101
         assert stderr == ""  # noqa: S101
+        assert stdout == ""  # noqa: S101
 
     @pytest.mark.parametrize(
         "tool",
@@ -105,9 +109,10 @@ class TestViolationSet:
         ],
     )
     def test_non_work_tools_silent(self, tmp_path: Path, tool: str) -> None:
-        _, stderr, rc = _run(_input(tool), tmp_path)
+        stdout, stderr, rc = _run(_input(tool), tmp_path)
         assert rc == 0  # noqa: S101
         assert stderr == ""  # noqa: S101
+        assert stdout == ""  # noqa: S101
 
 
 # ---------------------------------------------------------------------------

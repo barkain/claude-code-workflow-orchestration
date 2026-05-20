@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.1] - 2026-05-04
+
+### Fixed
+- **`install.sh`: use `cp -rP` to preserve symlinks in backup.** Switched from `cp -r` to `cp -rP` so symbolic links inside the Claude directory are copied as symlinks rather than dereferenced, preventing backups from breaking links that point outside the directory.
+
 ## [2.1.0] - 2026-04-26
 
 ### BREAKING CHANGES

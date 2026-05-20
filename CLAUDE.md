@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Delegation Policy (Soft Enforcement)
 
-The framework nudges via stderr when the main agent uses work-doing tools (`Bash`, `Edit`, `Write`, `Glob`, `Grep`, `MultiEdit`, `NotebookEdit`) directly. **Nudges never block.** They escalate by per-turn violation count: silent → imperative STOP → imperative STOP (2nd call phrasing) → strong reminder explaining what's being lost. The counter resets each turn and zeros when `/workflow-orchestrator:delegate` runs. `Read` is not tracked — direct user-requested file reads are allowed.
+The framework reinforces delegation via three layers: (1) a `MANDATORY` stub injected at session start, (2) a per-turn reminder emitted by UserPromptSubmit (treated as user speech), and (3) structured `additionalContext` nudges from PreToolUse when work tools (`Bash`, `Edit`, `Write`, `Glob`, `Grep`, `MultiEdit`, `NotebookEdit`) are called directly. **Nudges never block.** They escalate by per-turn violation count. The counter resets each turn and zeros when `/workflow-orchestrator:delegate` runs. `Read` is not tracked.
 
 The expected path for any multi-step or work-shaped request is:
 
@@ -65,11 +65,11 @@ In plugin mode, all commands and agent names use the `workflow-orchestrator:` pr
 
 ### Execution Flow
 
-**Token overhead:** Conditional injection (stub ~200 tokens on startup, full ~7.5K tokens on first delegation, optional token-efficient guide ~1.9K) + per-agent delegation (~350 tokens)
+**Token overhead:** Conditional injection (stub ~220 tokens on startup + ~14 tokens/turn reminder, full ~7.5K tokens on first delegation, optional token-efficient guide ~1.9K) + per-agent delegation (~350 tokens)
 
 ```
 User prompt
-  → UserPromptSubmit hook (clear state, record turn timestamp, clear team state)
+  → UserPromptSubmit hook (clear state, record turn timestamp, clear team state, emit delegation reminder)
   → SessionStart hooks (inject stub orchestrator + output style + token efficiency)
     [Stub version provides just enough system direction, avoiding unnecessary tokens]
   → Task detection: if multi-step connectors found, enters native plan mode (EnterPlanMode)
@@ -98,9 +98,9 @@ User prompt
 
 | Event | Scripts | Purpose |
 |-------|---------|---------|
-| **PreToolUse** (`*`, `Bash`) | `validate_task_graph_compliance.py` (advisory), `require_delegation.py` (adaptive nudge), `token_rewrite_hook.py` (Bash only) | Hint on out-of-order Agent/Task spawns; emit per-turn escalating delegation nudge (silent → strong); rewrite Bash for token-efficient output |
+| **PreToolUse** (`*`, `Bash`) | `validate_task_graph_compliance.py` (advisory), `require_delegation.py` (adaptive nudge + structured output), `token_rewrite_hook.py` (Bash only) | Hint on out-of-order Agent/Task spawns; emit per-turn escalating delegation nudge via stderr + `additionalContext`; rewrite Bash for token-efficient output |
 | **PostToolUse** | `python_posttooluse_hook.py` (Edit/Write/MultiEdit, **blocking**), `remind_skill_continuation.py` (ExitPlanMode\|Skill\|SlashCommand), `validate_task_graph_depth.py` (advisory) + `remind_todo_after_task.py` (Agent/Task) | Python validation (Ruff, Pyright, security — only hard-blocking hook); workflow continuation + zero violations counter on `/workflow-orchestrator:delegate`; depth hint; task reminders |
-| **UserPromptSubmit** | `clear-delegation-sessions.py` | Reset per-turn state (timestamp, violations counter), clear team state, rotate logs |
+| **UserPromptSubmit** | `clear-delegation-sessions.py` | Reset per-turn state, clear team state, rotate logs, emit delegation reminder (treated as user speech) |
 | **SessionStart** (`startup\|resume\|clear\|compact`) | `inject_all.py` | Consolidated injection (orchestrator stub + token efficiency). Output style is loaded natively from plugin.json's `outputStyles` field |
 | **SubagentStop** (`*`) | `remind_todo_update.py` (async), `trigger_verification.py` | Remind to update tasks, suggest verification |
 | **Stop** | `python_stop_hook.py` | Turn duration, workflow continuation, quality analysis |
@@ -109,7 +109,7 @@ Hook config source of truth: `hooks/plugin-hooks.json` (not settings.json). All 
 
 ### Soft Enforcement (Adaptive Nudges)
 
-There is no allowlist. `require_delegation.py` tracks per-turn direct work-tool calls and writes a stderr message that escalates by count:
+Three reinforcement layers: (1) `MANDATORY` stub at session start, (2) per-turn reminder from UserPromptSubmit (~14 tokens, treated as user speech), (3) `require_delegation.py` emits escalating nudges via both stderr and structured `additionalContext` on violations:
 
 | Violations | Message | Tokens |
 |---|---|---|

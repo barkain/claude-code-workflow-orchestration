@@ -142,6 +142,13 @@ def main() -> int:
     msg = message_for(count)
     if msg:
         logger.warning("%s", msg)
+        output = {
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "additionalContext": msg,
+            }
+        }
+        sys.stdout.write(json.dumps(output))
 
     return 0
 

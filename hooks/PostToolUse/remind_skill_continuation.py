@@ -117,10 +117,13 @@ def main() -> None:
             _create_continuation_state("plan mode completed")
             return
 
-        # Case 2: /workflow-orchestrator:delegate invoked — zero the nudge counter
+        # Case 2: /workflow-orchestrator:delegate invoked
         if tool_name in ("Skill", "SlashCommand") and _is_delegate_invocation(data):
-            logger.debug("delegate invocation detected, zeroing violations counter")
+            logger.debug("delegate invocation detected")
             _zero_violations_counter()
+            state_dir = Path(".claude/state")
+            state_dir.mkdir(parents=True, exist_ok=True)
+            (state_dir / "delegation_active").touch()
             return
 
     except (json.JSONDecodeError, KeyError, TypeError) as e:

@@ -100,12 +100,17 @@ def main() -> int:
     plugin_dir = get_plugin_root()
     debug_log(f"PLUGIN_DIR: {plugin_dir}")
 
+    is_subagent = bool(
+        os.environ.get("CLAUDE_PARENT_SESSION_ID") or os.environ.get("CLAUDE_AGENT_ID")
+    )
+
     # Collect all context pieces
     parts: list[str] = []
 
-    # 1. Orchestrator stub
-    if content := find_orchestrator_stub(plugin_dir):
-        parts.append(content)
+    # 1. Orchestrator stub (main agent only)
+    if not is_subagent:
+        if content := find_orchestrator_stub(plugin_dir):
+            parts.append(content)
 
     # 2. Token efficiency (gated by env var, default: enabled)
     # Note: output-style (technical-adaptive.md) is loaded natively by Claude Code

@@ -157,6 +157,18 @@ calculate_actual_context_usage() {
     current_dir=$(echo "$input" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null)
     
     debug_log "Session ID: $session_id, Current Dir: $current_dir"
+
+    # Fast path: Claude Code reports the real window size and current usage on stdin
+    local reported_limit reported_used
+    reported_limit=$(echo "$input" | jq -r '.context_window.context_window_size // empty' 2>/dev/null)
+    reported_used=$(echo "$input" | jq -r '.context_window.current_usage // empty | (.input_tokens // 0) + (.cache_creation_input_tokens // 0) + (.cache_read_input_tokens // 0)' 2>/dev/null)
+    if [[ "$reported_limit" =~ ^[0-9]+$ ]] && [[ "$reported_limit" -gt 0 ]] && [[ "$reported_used" =~ ^[0-9]+$ ]]; then
+        local reported_rate
+        reported_rate=$(echo "scale=1; $reported_used * 100 / $reported_limit" | bc -l 2>/dev/null || echo "0")
+        debug_log "Context from stdin JSON: $reported_used/$reported_limit"
+        echo "🧠 $(create_progress_bar "$reported_rate" "$reported_used" "$reported_limit")"
+        return 0
+    fi
     
     if [[ -n "$session_id" ]] && command -v jq >/dev/null 2>&1; then
         # Determine max context based on model
@@ -344,10 +356,12 @@ if [ -n "$DAILY_DATA" ] && [ "$DAILY_DATA" != "null" ]; then
             debug_log "Context calculation failed, using fallback"
             # Get model to determine max context
             model_name=$(echo "$input" | jq -r '.model.display_name // .model.id // ""' 2>/dev/null)
-            max_context=200000  # Default
-            
-            if [[ "$model_name" == *"with 1M token context"* ]] || [[ "$model_name" == *"1M"* ]]; then
-                max_context=1000000
+            max_context=$(echo "$input" | jq -r '.context_window.context_window_size // empty' 2>/dev/null)
+            if [[ ! "$max_context" =~ ^[0-9]+$ ]] || [[ "$max_context" -eq 0 ]]; then
+                max_context=200000  # Default
+                if [[ "$model_name" == *"with 1M token context"* ]] || [[ "$model_name" == *"1M"* ]]; then
+                    max_context=1000000
+                fi
             fi
             
             # Show empty progress bar

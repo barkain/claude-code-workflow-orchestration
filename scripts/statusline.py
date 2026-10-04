@@ -135,8 +135,15 @@ def calculate_context_usage(input_data: dict) -> tuple[str | None, float]:
         input_data.get("context_window", {}) if isinstance(input_data, dict) else {}
     )
     if isinstance(ctx_window, dict) and ctx_window:
-        used = ctx_window.get("used_tokens") or ctx_window.get("used", 0)
-        limit = ctx_window.get("total_tokens") or ctx_window.get("limit", 0)
+        limit = ctx_window.get("context_window_size", 0)
+        current = ctx_window.get("current_usage") or {}
+        used = (
+            current.get("input_tokens", 0)
+            + current.get("cache_creation_input_tokens", 0)
+            + current.get("cache_read_input_tokens", 0)
+        )
+        if not used and isinstance(ctx_window.get("used_percentage"), (int, float)):
+            used = limit * ctx_window["used_percentage"] / 100
         if (
             isinstance(used, (int, float))
             and isinstance(limit, (int, float))
@@ -497,9 +504,9 @@ def main() -> None:
     context_info, ctx_raw_pct = calculate_context_usage(input_data)
     if not context_info:
         # Fallback empty progress bar
-        max_context = 200000
-        if "1M" in raw_model:
-            max_context = 1_000_000
+        max_context = (input_data.get("context_window") or {}).get(
+            "context_window_size"
+        ) or (1_000_000 if "1M" in raw_model else 200000)
         progress_bar = create_progress_bar(0, 0, max_context)
         context_info = f"🧠 {progress_bar}"
 
